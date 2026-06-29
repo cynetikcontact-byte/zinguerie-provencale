@@ -1910,6 +1910,10 @@ views.reglages=()=>`<div class="view">
         ${catFournitures.map((f,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line)"><input class="cell" value="${f.nom.replace(/"/g,'&quot;')}" style="flex:1" onchange="catFournitures[${i}].nom=this.value"><input class="cell" value="${f.u}" style="width:52px" onchange="catFournitures[${i}].u=this.value" title="unité"><input class="cell" type="number" value="${f.pu}" style="width:68px;text-align:right" onchange="catFournitures[${i}].pu=+this.value||0;render()"><span class="muted">€</span><button class="icon-x" onclick="catFournitures.splice(${i},1);render()" title="Supprimer"><i class="ti ti-x"></i></button></div>`).join('')}
         <button class="btn sm ghost" style="margin-top:10px" onclick="ajoutFourniture()"><i class="ti ti-plus"></i> Ajouter une fourniture</button>
       </div></div>
+      <div class="card"><div class="card-head"><h3><i class="ti ti-database"></i> Données &amp; sauvegarde</h3></div><div class="card-pad">
+        <div class="tiny" style="color:var(--ink-3);margin-bottom:10px">Tes données (clients, chantiers, planning, devis, congés…) sont enregistrées automatiquement dans ce navigateur et conservées d'une session à l'autre.</div>
+        <button class="btn sm" onclick="if(confirm('Réinitialiser toutes les données et revenir à la démo ? Cette action est irréversible.'))resetState()"><i class="ti ti-rotate"></i> Réinitialiser les données (démo)</button>
+      </div></div>
     </div>
   </div></div>`;
 function ajoutFourniture(){catFournitures.push({id:'f-'+Date.now(),nom:'Nouvelle fourniture',u:'u',pu:0});render();}
@@ -2100,6 +2104,15 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){document.querySelectorAll('.overlay').forEach(o=>o.remove());closeMenus();closeSidebar();sRes.innerHTML='';sIn.blur();}
 });
 
+/* ===== Persistance locale (localStorage) ===== */
+const ZP_STORE_KEY='zp_erp_state_v1';
+const _persistArrays={salaries,equipes,clients,chantiers,stock,profils,bureau,taches,demandesList,congesList,carnet,rdvs,devisLignes,catFournitures,ouvrages};
+const _persistObjects={congesBalance,planStore,chatMsgs};
+function saveState(){try{const d={arr:{},obj:{},scal:{tauxMO,devisClient,rdvSeq,agendaWeek,planWeek,carnetChef}};for(const k in _persistArrays)d.arr[k]=_persistArrays[k];for(const k in _persistObjects)d.obj[k]=_persistObjects[k];localStorage.setItem(ZP_STORE_KEY,JSON.stringify(d));}catch(e){}}
+function loadState(){try{const raw=localStorage.getItem(ZP_STORE_KEY);if(!raw)return;const d=JSON.parse(raw);if(!d)return;if(d.arr)for(const k in _persistArrays){const v=d.arr[k];if(Array.isArray(v)){const a=_persistArrays[k];a.length=0;v.forEach(x=>a.push(x));}}if(d.obj)for(const k in _persistObjects){const v=d.obj[k];if(v&&typeof v==='object'){const o=_persistObjects[k];Object.keys(o).forEach(kk=>delete o[kk]);Object.assign(o,v);}}if(d.scal){const s=d.scal;if(typeof s.tauxMO==='number')tauxMO=s.tauxMO;if(s.devisClient!=null)devisClient=s.devisClient;if(typeof s.rdvSeq==='number')rdvSeq=s.rdvSeq;if(typeof s.agendaWeek==='number')agendaWeek=s.agendaWeek;if(typeof s.planWeek==='number')planWeek=s.planWeek;if(typeof s.carnetChef==='string')carnetChef=s.carnetChef;}planData=planWeekData(planWeek);}catch(e){}}
+function resetState(){try{localStorage.removeItem(ZP_STORE_KEY);}catch(e){}location.reload();}
+const _renderOrig=render;render=function(){_renderOrig();saveState();};
+loadState();
 renderNav();render();
 </script>
 </body>
