@@ -607,7 +607,7 @@ function profileMenu(e){e.stopPropagation();popMenu(e.currentTarget,`
   <button onclick="logout()"><i class="ti ti-logout"></i> Se déconnecter</button>`);}
 /* ===== MON PROFIL ===== */
 let profilUser={
-  patron:{nom:'Damien Gauthier',age:48,tel:'06 12 00 00 01',email:'damien@zinguerie-provencale.fr',poste:'Gérant',photo:''},
+  patron:{nom:'Lenny Parmentier',age:48,tel:'06 12 00 00 01',email:'parmentier.lenny1@gmail.com',poste:'Gérant',photo:''},
   chef:{nom:'Karim Morel',age:39,tel:'06 12 00 00 02',email:'karim@zinguerie-provencale.fr',poste:"Chef d'équipe",photo:''},
   gestion:{nom:'Sandra Vidal',age:34,tel:'06 12 00 00 03',email:'sandra@zinguerie-provencale.fr',poste:'Gestionnaire',photo:''},
   ouvrier:{nom:'Lucas Berto',age:27,tel:'06 12 00 00 04',email:'lucas@zinguerie-provencale.fr',poste:'Couvreur-zingueur',photo:''},
@@ -643,7 +643,7 @@ const ROLES_COMPTE=[
 const roleCompte=lab=>ROLES_COMPTE.find(r=>r.lab===lab)||ROLES_COMPTE[3];
 const initiales=n=>(n||'?').split(' ').filter(Boolean).map(x=>x[0]).slice(0,2).join('').toUpperCase();
 let comptes=[
-  {id:'u1',nom:'Damien Gauthier',role:'Gérant',tel:'06 12 00 00 01',email:'damien@zinguerie-provencale.fr',photo:''},
+  {id:'u1',nom:'Lenny Parmentier',role:'Gérant',tel:'06 12 00 00 01',email:'parmentier.lenny1@gmail.com',photo:''},
   {id:'u2',nom:'Tim Roca',role:'Bureau',tel:'06 12 00 00 05',email:'tim@zinguerie-provencale.fr',photo:''},
   {id:'u3',nom:'Karim Morel',role:"Chef d'équipe",tel:'06 12 00 00 02',email:'karim@zinguerie-provencale.fr',photo:''},
   {id:'u4',nom:'Lucas Berto',role:'Salarié',tel:'06 12 00 00 04',email:'lucas@zinguerie-provencale.fr',photo:''},
