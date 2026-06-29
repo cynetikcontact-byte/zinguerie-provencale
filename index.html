@@ -347,6 +347,7 @@ const chantiers=[
   {id:'ch3',nom:'Bardage Gémenos',clientId:'c3',col:PROV.ocre,statut:'prep',prix:15600,hEst:130,hFaites:0,matiere:5400,chef:'as',equipe:['as','jp'],fin:'18 juin',adresse:'ZA La Plaine, Gémenos',prep:false,av:0},
   {id:'ch4',nom:'Gouttières Roquefort',clientId:'c4',col:PROV.garrigue,statut:'venir',prix:8900,hEst:70,hFaites:0,matiere:2600,chef:'lb',equipe:['lb'],fin:'—',adresse:'Rés. Les Oliviers',prep:false,av:0},
   {id:'ch5',nom:'Chéneau La Ciotat',clientId:'c1',col:PROV.pin,statut:'fini',prix:6200,hEst:48,hFaites:46,matiere:1800,chef:'lb',equipe:['lb','jp'],fin:'12 mai',adresse:'Av. du Port, La Ciotat',prep:true,av:100},
+  {id:'ch6',nom:'Réfection chéneau Villa Aubagne',clientId:'c1',col:PROV.lavande,statut:'venir',prix:4800,hEst:36,hFaites:0,matiere:1500,chef:'lb',equipe:['lb'],fin:'à planifier',adresse:'Chemin des Restanques, Aubagne',prep:false,av:0,devisEnAttente:true},
 ];
 const chn=id=>chantiers.find(c=>c.id===id);
 function renta(c,hO,pO){
@@ -515,9 +516,10 @@ const ouvr=id=>ouvrages.find(o=>o.id===id);
 /* ===== NAV PAR RÔLE ===== */
 const NAV=[
   {sect:'Pilotage'},
+  {id:'espaceClient',ic:'ti-home-heart',lab:'Mon chantier',roles:['client']},
   {id:'aujourdhui',ic:'ti-sun-high',lab:"Aujourd'hui",roles:['ouvrier','chef']},
   {id:'dash',ic:'ti-layout-dashboard',lab:'Tableau de bord',roles:['patron','chef']},
-  {id:'chantiers',ic:'ti-home-bolt',lab:'Chantiers',roles:['patron','chef','ouvrier','client']},
+  {id:'chantiers',ic:'ti-home-bolt',lab:'Chantiers',roles:['patron','chef','ouvrier']},
   {id:'planning',ic:'ti-calendar-week',lab:'Planning chantiers',roles:['patron','chef','ouvrier']},
   {id:'agenda',ic:'ti-calendar-event',lab:'Agenda (visites & RDV)',roles:['patron','chef']},
   {sect:'Terrain'},
@@ -544,7 +546,7 @@ const NAV=[
 let role='patron',view='dash',currentCh=null,welcomeOpen=true;
 const roleLabel={patron:'Patron',chef:"Chef d'équipe",gestion:'Gestionnaire',ouvrier:'Ouvrier',client:'Client'};
 const roleAvatar={patron:'DG',chef:'KM',gestion:'GS',ouvrier:'LB',client:'SM'};
-const roleHome={patron:'dash',chef:'aujourdhui',gestion:'stock',ouvrier:'aujourdhui',client:'chantiers'};
+const roleHome={patron:'dash',chef:'aujourdhui',gestion:'stock',ouvrier:'aujourdhui',client:'espaceClient'};
 
 const SUBVIEW={chantierDetail:'chantiers',affaire:'carnet'}; /* sous-vue -> item de nav parent */
 function navBadge(id){
@@ -700,6 +702,74 @@ views.aujourdhui=()=>{
       <div class="steps">${[['Pose habillage rive sud','att'],['Soudure chéneau encaissé','att'],['Métré & repérage','ok']].map((s,i)=>`<div class="step"><div class="sn" style="background:${s[1]==='ok'?'rgba(122,139,79,.2)':'rgba(243,146,0,.18)'};color:${s[1]==='ok'?'var(--olive)':'var(--orange-dark)'}">${s[1]==='ok'?'<i class="ti ti-check"></i>':i+1}</div><div style="flex:1;font-weight:500">${s[0]}</div>${s[1]==='ok'?'<span class="tag" style="background:rgba(122,139,79,.16);color:var(--olive)">Fait</span>':''}</div>`).join('')}</div>
     </div>
   </div></div>`;
+};
+
+/* ===== ESPACE CLIENT ===== */
+let clientPortalId='c1';
+let chantierSteps={};
+const STEP_TPL=['Préparation & approvisionnement','Dépose ancienne couverture','Pose liteaux & écran sous-toiture','Pose zinc à joint debout','Gouttières & descentes','Finitions & nettoyage'];
+function stepsFor(id){
+  if(!chantierSteps[id]){
+    const c=chn(id),av=c?c.av:0,n=STEP_TPL.length,done=Math.floor(av/100*n);
+    chantierSteps[id]=STEP_TPL.map((nom,i)=>({nom,statut:av>=100?'ok':(i<done?'ok':(i===done?'cur':'att')),cval:i<done}));
+  }
+  return chantierSteps[id];
+}
+function validerEtapeClient(id,i){const s=stepsFor(id)[i];if(s&&s.statut==='ok'){s.cval=!s.cval;render();toast(s.cval?'Étape validée — merci !':'Validation retirée',s.cval?'ok':'info',s.cval?'ti-thumb-up':'ti-rotate');}}
+function accepterDevisClient(id){const c=chn(id);if(c){c.devisEnAttente=false;c.statut='prep';render();toast('Devis accepté en ligne — merci ! Nous planifions vos travaux.','ok','ti-circle-check');}}
+function clientChantierCard(c){
+  const steps=stepsFor(c.id);
+  const photoStrip=['Avant','Pendant','Après'].map(lab=>`<div style="flex:1;min-width:88px;aspect-ratio:4/3;border-radius:10px;background:linear-gradient(135deg,${c.col}cc,${c.col}77);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;gap:4px"><i class="ti ti-photo" style="font-size:22px;opacity:.9"></i><span style="font-size:11px;font-weight:700">${lab}</span></div>`).join('');
+  return `<div class="card" style="margin-bottom:16px;overflow:hidden">
+    <div style="background:linear-gradient(135deg,${c.col}d9,${c.col}8c);padding:16px 18px;color:#fff">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">
+        <div><div style="font-family:'Baloo 2';font-size:19px;font-weight:800">${c.nom}</div>
+        <div style="font-size:12px;opacity:.92;margin-top:2px"><i class="ti ti-map-pin"></i> ${c.adresse}</div></div>
+        <span class="chip-w" style="background:rgba(255,255,255,.95);color:${STAT[c.statut][1]}">${STAT[c.statut][0]}</span>
+      </div>
+      <div style="margin-top:12px;display:flex;align-items:center;gap:10px">
+        <div style="flex:1;height:7px;background:rgba(255,255,255,.3);border-radius:6px;overflow:hidden"><div style="width:${c.av}%;height:100%;background:#fff"></div></div>
+        <span style="font-size:13px;font-weight:800">${c.av}%</span>
+      </div>
+      <div style="font-size:12px;opacity:.92;margin-top:6px"><i class="ti ti-calendar"></i> ${c.statut==='fini'?'Terminé le '+c.fin:'Fin prévue : '+c.fin}</div>
+    </div>
+    <div class="card-pad">
+      <div style="font-weight:700;font-size:13px;margin-bottom:10px"><i class="ti ti-list-check" style="color:var(--orange)"></i> Suivi des étapes</div>
+      <div class="steps">${steps.map((s,i)=>`<div class="step"><div class="sn" style="background:${s.statut==='ok'?'rgba(122,139,79,.2)':s.statut==='cur'?'rgba(243,146,0,.18)':'var(--surface-3)'};color:${s.statut==='ok'?'var(--olive)':s.statut==='cur'?'var(--orange-dark)':'var(--ink-3)'}">${s.statut==='ok'?'<i class="ti ti-check"></i>':i+1}</div>
+        <div style="flex:1;font-weight:500">${s.nom}</div>
+        ${s.statut==='cur'?'<span class="tag" style="background:rgba(243,146,0,.16);color:var(--orange-dark)">En cours</span>':''}
+        ${s.statut==='ok'?`<button class="btn sm ${s.cval?'':'primary'}" onclick="validerEtapeClient('${c.id}',${i})">${s.cval?'<i class="ti ti-thumb-up-filled"></i> Validé':'<i class="ti ti-thumb-up"></i> Valider'}</button>`:''}
+      </div>`).join('')}</div>
+      <div style="font-weight:700;font-size:13px;margin:16px 0 10px"><i class="ti ti-camera" style="color:var(--orange)"></i> Photos du chantier</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">${photoStrip}</div>
+    </div>
+  </div>`;
+}
+views.espaceClient=()=>{
+  const cl=cli(clientPortalId);
+  const chs=chantiers.filter(c=>c.clientId===clientPortalId);
+  const enCours=chs.filter(c=>c.statut==='cours'||c.statut==='prep');
+  const finis=chs.filter(c=>c.statut==='fini');
+  const devisPend=chs.filter(c=>c.devisEnAttente);
+  return `<div class="view">
+    <div class="hero" style="background:linear-gradient(135deg,#FFB347,#F39200);min-height:118px;margin-bottom:18px"><div class="veil"></div>
+      <div><h2>Bonjour ${cl.nom} 👋</h2><div style="opacity:.95;font-size:13px;margin-top:4px">Suivez l'avancement de vos travaux en temps réel — Zinguerie Provençale</div></div>
+    </div>
+    ${devisPend.length?devisPend.map(c=>`<div class="card card-pad" style="border:1.5px solid var(--orange);margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+        <div style="flex:1;min-width:200px"><div style="font-weight:700;font-size:15px"><i class="ti ti-file-invoice" style="color:var(--orange)"></i> Devis en attente de votre validation</div>
+        <div class="tiny" style="margin-top:4px">${c.nom} · ${c.adresse}</div></div>
+        <div style="font-family:'Baloo 2';font-weight:800;font-size:23px;color:var(--orange-dark)">${fmt(c.prix)}</div>
+        <button class="btn primary" onclick="accepterDevisClient('${c.id}')"><i class="ti ti-circle-check"></i> Accepter le devis en ligne</button>
+      </div></div>`).join(''):''}
+    ${enCours.length?enCours.map(c=>clientChantierCard(c)).join(''):(devisPend.length?'':'<div class="card card-pad"><div class="tiny" style="color:var(--ink-3)">Aucun chantier en cours pour le moment.</div></div>')}
+    ${finis.length?`<h3 style="font-size:15px;margin:20px 0 10px;color:var(--ink-2)"><i class="ti ti-circle-check" style="color:var(--olive)"></i> Travaux terminés</h3>${finis.map(c=>clientChantierCard(c)).join('')}`:''}
+    <div class="card card-pad" style="text-align:center;background:var(--surface-2);margin-top:6px">
+      <div style="font-weight:600">Une question sur vos travaux ?</div>
+      <div class="tiny" style="margin:6px 0 12px">Votre interlocuteur Zinguerie Provençale vous répond</div>
+      <a class="btn" href="tel:0442000000" style="display:inline-flex"><i class="ti ti-phone"></i> Nous appeler</a>
+    </div>
+  </div>`;
 };
 
 views.chantiers=()=>`<div class="view">
@@ -2117,9 +2187,9 @@ document.addEventListener('keydown',e=>{
 });
 
 /* ===== Persistance locale (localStorage) ===== */
-const ZP_STORE_KEY='zp_erp_state_v1';
+const ZP_STORE_KEY='zp_erp_state_v2';
 const _persistArrays={salaries,equipes,clients,chantiers,stock,profils,bureau,taches,demandesList,congesList,carnet,rdvs,devisLignes,catFournitures,ouvrages,factures};
-const _persistObjects={congesBalance,planStore,chatMsgs};
+const _persistObjects={congesBalance,planStore,chatMsgs,chantierSteps};
 function saveState(){try{const d={arr:{},obj:{},scal:{tauxMO,devisClient,rdvSeq,agendaWeek,planWeek,carnetChef}};for(const k in _persistArrays)d.arr[k]=_persistArrays[k];for(const k in _persistObjects)d.obj[k]=_persistObjects[k];localStorage.setItem(ZP_STORE_KEY,JSON.stringify(d));}catch(e){}}
 function loadState(){try{const raw=localStorage.getItem(ZP_STORE_KEY);if(!raw)return;const d=JSON.parse(raw);if(!d)return;if(d.arr)for(const k in _persistArrays){const v=d.arr[k];if(Array.isArray(v)){const a=_persistArrays[k];a.length=0;v.forEach(x=>a.push(x));}}if(d.obj)for(const k in _persistObjects){const v=d.obj[k];if(v&&typeof v==='object'){const o=_persistObjects[k];Object.keys(o).forEach(kk=>delete o[kk]);Object.assign(o,v);}}if(d.scal){const s=d.scal;if(typeof s.tauxMO==='number')tauxMO=s.tauxMO;if(s.devisClient!=null)devisClient=s.devisClient;if(typeof s.rdvSeq==='number')rdvSeq=s.rdvSeq;if(typeof s.agendaWeek==='number')agendaWeek=s.agendaWeek;if(typeof s.planWeek==='number')planWeek=s.planWeek;if(typeof s.carnetChef==='string')carnetChef=s.carnetChef;}planData=planWeekData(planWeek);}catch(e){}}
 function resetState(){try{localStorage.removeItem(ZP_STORE_KEY);}catch(e){}location.reload();}
