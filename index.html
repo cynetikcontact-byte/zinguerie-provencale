@@ -494,6 +494,7 @@ let devisLignes=[
 let tauxMO=45; /* € / h facturé (réglages) */
 let coefMargeDefaut=1.6; /* coefficient de marge par défaut : prix de vente = prix d'achat × coef */
 const PCATS=['Zinc & couverture','Évacuation des eaux','Étanchéité & sous-toiture','Bois & supports','Fixations & accessoires','Divers'];
+let prodCats=[...PCATS];
 let catFournitures=[
   {id:'f-zinc',nom:'Zinc à joint debout',u:'m²',cat:'Zinc & couverture',achat:24,coef:1.58,pu:38,photo:''},
   {id:'f-gout',nom:'Gouttière zinc dev. 25',u:'ml',cat:'Évacuation des eaux',achat:20,coef:1.6,pu:32,photo:''},
@@ -865,10 +866,14 @@ views.comptes=()=>`<div class="view">
   </div></div>`;
 
 /* ===== BIBLIOTHÈQUE : produits & ouvrages ===== */
-let biblioTab='ouvrages',editProd=null;
+let biblioTab='ouvrages',editProd=null,_catOpen=false;
 function setBiblioTab(t){biblioTab=t;render();}
 function openProduit(id){const src=id?catF(id):null;editProd=src?Object.assign({},src):{id:null,nom:'',u:'m²',cat:PCATS[0],achat:0,coef:coefMargeDefaut,pu:0,photo:''};modal('<div id="prodForm"></div>');drawProdForm();}
 function _prodCatChange(v){if(v==='__new__'){const n=(prompt('Nom de la nouvelle catégorie :')||'').trim();if(n)editProd.cat=n;}else{editProd.cat=v;}drawProdForm();}
+function catList(){return [...new Set([...prodCats,...catFournitures.map(p=>p.cat||'Divers')])];}
+function _catPick(c){editProd.cat=c;_catOpen=false;drawProdForm();}
+function _addCategorie(){const i=document.getElementById('newCatInput');const n=(i?i.value:'').trim();if(!n)return;if(!prodCats.includes(n))prodCats.push(n);editProd.cat=n;_catOpen=false;drawProdForm();saveState();}
+function delCategorie(c){if(c==='Divers'){toast('La catégorie « Divers » ne peut pas être supprimée','info','ti-alert-circle');return;}const used=catFournitures.filter(p=>(p.cat||'Divers')===c).length;if(used>0&&!confirm('Supprimer « '+c+' » ? Ses '+used+' produit(s) iront dans « Divers ».'))return;prodCats=prodCats.filter(x=>x!==c);catFournitures.forEach(p=>{if((p.cat||'Divers')===c)p.cat='Divers';});if(!prodCats.includes('Divers'))prodCats.push('Divers');if(editProd&&editProd.cat===c)editProd.cat='Divers';_catOpen=false;drawProdForm();saveState();toast('Catégorie supprimée','info','ti-trash');}
 function drawProdForm(){const e=editProd,esc=s=>(s||'').replace(/"/g,'&quot;');const cats=[...new Set([...PCATS,...catFournitures.map(p=>p.cat||'Divers'),e.cat].filter(Boolean))];
   document.getElementById('prodForm').innerHTML=`<div class="modal-head"><h3>${e.id?'Modifier le produit':'Nouveau produit'}</h3><button class="icon-x" onclick="this.closest('.overlay').remove()"><i class="ti ti-x"></i></button></div><div class="modal-body">
     <div style="display:flex;gap:14px;margin-bottom:8px">
@@ -878,7 +883,13 @@ function drawProdForm(){const e=editProd,esc=s=>(s||'').replace(/"/g,'&quot;');c
       <button class="btn sm ghost" style="margin-top:8px" onclick="document.getElementById('prodPhotoInput').click()"><i class="ti ti-camera"></i> Photo</button></div>
     </div>
     <div style="display:flex;gap:12px">
-      <div class="field" style="flex:2"><label>Catégorie</label><select class="cell" onchange="_prodCatChange(this.value)">${cats.map(c=>`<option ${e.cat===c?'selected':''}>${c}</option>`).join('')}<option value="__new__">➕ Nouvelle catégorie…</option></select></div>
+      <div class="field" style="flex:2"><label>Catégorie</label>
+        <button type="button" onclick="_catOpen=!_catOpen;drawProdForm()" class="cell" style="display:flex;align-items:center;justify-content:space-between;width:100%;cursor:pointer;background:var(--surface);text-align:left"><span style="font-weight:600">${e.cat||'Choisir…'}</span><i class="ti ti-chevron-${_catOpen?'up':'down'}" style="color:var(--ink-3)"></i></button>
+        ${_catOpen?`<div style="border:1px solid var(--line);border-radius:11px;margin-top:6px;overflow:hidden;box-shadow:0 6px 20px rgba(0,0,0,.12)">
+          ${catList().map(c=>`<div style="display:flex;align-items:center;border-bottom:1px solid var(--line);${c===e.cat?'background:rgba(243,146,0,.1)':''}"><button type="button" data-c="${esc(c)}" onclick="_catPick(this.dataset.c)" style="flex:1;text-align:left;border:none;background:none;font-family:inherit;font-size:13.5px;font-weight:${c===e.cat?'700':'500'};cursor:pointer;color:var(--ink);padding:10px 12px">${c===e.cat?'<i class="ti ti-check" style="color:var(--orange)"></i> ':''}${c}</button><button type="button" data-c="${esc(c)}" onclick="delCategorie(this.dataset.c)" style="border:none;background:none;color:var(--ink-3);cursor:pointer;padding:8px 12px" title="Supprimer cette catégorie"><i class="ti ti-trash" style="font-size:14px"></i></button></div>`).join('')}
+          <div style="display:flex;gap:6px;padding:9px 12px;background:var(--surface-2)"><input class="cell" id="newCatInput" placeholder="Nouvelle catégorie…" style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();_addCategorie()}"><button type="button" class="btn sm primary" onclick="_addCategorie()"><i class="ti ti-plus"></i> Ajouter</button></div>
+        </div>`:''}
+      </div>
       <div class="field" style="flex:1"><label>Unité</label><select class="cell" onchange="editProd.u=this.value">${['m²','ml','u','forf.','kg','sac'].map(u=>`<option ${e.u===u?'selected':''}>${u}</option>`).join('')}</select></div>
     </div>
     <div style="display:flex;gap:8px;align-items:flex-end">
@@ -899,7 +910,7 @@ function _prodPhotoPick(input){const f=input.files&&input.files[0];if(!f)return;
 function saveProduit(){const e=editProd;if(!e.nom.trim()){toast('Indiquez le nom du produit','info','ti-alert-circle');return;}if(e.id){const p=catF(e.id);if(p)Object.assign(p,{nom:e.nom,u:e.u,cat:e.cat,achat:e.achat,coef:e.coef,pu:e.pu,photo:e.photo});}else{catFournitures.push({id:'f-'+Date.now(),nom:e.nom,u:e.u,cat:e.cat,achat:e.achat,coef:e.coef,pu:e.pu,photo:e.photo});}document.querySelectorAll('.overlay').forEach(o=>o.remove());render();toast(e.id?'Produit mis à jour':'Produit créé','ok','ti-package');}
 function delProduit(id){const p=catF(id);if(!p)return;if(confirm("Supprimer le produit « "+p.nom+" » ?")){catFournitures=catFournitures.filter(x=>x.id!==id);render();toast('Produit supprimé','info','ti-trash');}}
 views.biblio=()=>{
-  const cats=[...new Set([...PCATS,...catFournitures.map(p=>p.cat||'Divers')])];
+  const cats=[...new Set([...prodCats,...catFournitures.map(p=>p.cat||'Divers')])];
   const groups=cats.map(c=>({c,items:catFournitures.filter(p=>(p.cat||'Divers')===c)})).filter(g=>g.items.length);
   return `<div class="view">
     <div class="page-head"><div><h1>Bibliothèque</h1><p>Tes produits et tes ouvrages réutilisables — pour chiffrer un devis en un clic</p></div></div>
@@ -1824,7 +1835,7 @@ let _pickQ='',_pickCat='';
 function ouvrPickProduct(){_pickQ='';_pickCat='';const o=document.createElement('div');o.className='overlay';o.id='pickOv';o.innerHTML='<div class="modal" id="pickModal"></div>';o.addEventListener('click',e=>{if(e.target===o)o.remove();});document.body.appendChild(o);drawPick();}
 function _pickFiltered(){const q=_pickQ.toLowerCase().trim();return catFournitures.filter(p=>(!_pickCat||(p.cat||'Divers')===_pickCat)&&(!q||(p.nom||'').toLowerCase().includes(q)));}
 function _pickRenderList(){const el=document.getElementById('pickList');if(!el)return;const items=_pickFiltered();el.innerHTML=items.length?items.map(p=>`<button onclick="ouvrAddFourId('${p.id}')" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:11px;padding:10px 12px;margin-bottom:8px;cursor:pointer;font-family:inherit"><span style="width:36px;height:36px;border-radius:8px;background:rgba(243,146,0,.14);color:var(--orange-dark);display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0">${(p.nom||'?').trim().charAt(0).toUpperCase()}</span><span style="flex:1;min-width:0"><span style="font-weight:600;font-size:13.5px;display:block">${p.nom}</span><span class="tiny" style="color:var(--ink-3)">${p.cat||'Divers'}</span></span><span style="font-weight:800;color:var(--orange-dark);white-space:nowrap">${p.pu} €<span class="tiny" style="color:var(--ink-3)">/${p.u}</span></span></button>`).join(''):'<div class="tiny" style="color:var(--ink-3);text-align:center;padding:24px">Aucun produit trouvé</div>';}
-function drawPick(){const m=document.getElementById('pickModal');if(!m)return;const cats=[...new Set([...PCATS,...catFournitures.map(p=>p.cat||'Divers')])].filter(c=>catFournitures.some(p=>(p.cat||'Divers')===c));
+function drawPick(){const m=document.getElementById('pickModal');if(!m)return;const cats=[...new Set([...prodCats,...catFournitures.map(p=>p.cat||'Divers')])].filter(c=>catFournitures.some(p=>(p.cat||'Divers')===c));
   m.innerHTML=`<div class="modal-head"><h3>Choisir un produit</h3><button class="icon-x" onclick="document.getElementById('pickOv').remove()"><i class="ti ti-x"></i></button></div><div class="modal-body">
     <input class="cell" id="pickSearch" value="${(_pickQ||'').replace(/"/g,'&quot;')}" placeholder="Rechercher un produit…" oninput="_pickQ=this.value;_pickRenderList()" style="margin-bottom:10px">
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"><button class="btn sm ${_pickCat?'':'primary'}" onclick="_pickCat='';drawPick()">Toutes</button>${cats.map(c=>`<button class="btn sm ${_pickCat===c?'primary':''}" data-c="${c.replace(/"/g,'&quot;')}" onclick="_pickCat=this.dataset.c;drawPick()">${c}</button>`).join('')}</div>
@@ -2418,7 +2429,7 @@ document.addEventListener('keydown',e=>{
 
 /* ===== Persistance locale (localStorage) ===== */
 const ZP_STORE_KEY='zp_erp_state_v3';
-const _persistArrays={salaries,equipes,clients,chantiers,stock,profils,bureau,taches,demandesList,congesList,carnet,rdvs,devisLignes,catFournitures,ouvrages,factures,comptes};
+const _persistArrays={salaries,equipes,clients,chantiers,stock,profils,bureau,taches,demandesList,congesList,carnet,rdvs,devisLignes,catFournitures,ouvrages,factures,comptes,prodCats};
 const _persistObjects={congesBalance,planStore,chatMsgs,chantierSteps,profilUser};
 function saveState(){try{const d={arr:{},obj:{},scal:{tauxMO,devisClient,rdvSeq,agendaWeek,planWeek,carnetChef,coefMargeDefaut}};for(const k in _persistArrays)d.arr[k]=_persistArrays[k];for(const k in _persistObjects)d.obj[k]=_persistObjects[k];localStorage.setItem(ZP_STORE_KEY,JSON.stringify(d));}catch(e){}}
 function loadState(){try{const raw=localStorage.getItem(ZP_STORE_KEY);if(!raw)return;const d=JSON.parse(raw);if(!d)return;if(d.arr)for(const k in _persistArrays){const v=d.arr[k];if(Array.isArray(v)){const a=_persistArrays[k];a.length=0;v.forEach(x=>a.push(x));}}if(d.obj)for(const k in _persistObjects){const v=d.obj[k];if(v&&typeof v==='object'){const o=_persistObjects[k];Object.keys(o).forEach(kk=>delete o[kk]);Object.assign(o,v);}}if(d.scal){const s=d.scal;if(typeof s.tauxMO==='number')tauxMO=s.tauxMO;if(s.devisClient!=null)devisClient=s.devisClient;if(typeof s.rdvSeq==='number')rdvSeq=s.rdvSeq;if(typeof s.agendaWeek==='number')agendaWeek=s.agendaWeek;if(typeof s.planWeek==='number')planWeek=s.planWeek;if(typeof s.carnetChef==='string')carnetChef=s.carnetChef;if(typeof s.coefMargeDefaut==='number')coefMargeDefaut=s.coefMargeDefaut;}planData=planWeekData(planWeek);}catch(e){}}
