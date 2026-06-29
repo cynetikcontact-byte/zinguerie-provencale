@@ -10,6 +10,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
   /* Palette Provence — extraite de Branding.swift */
@@ -2557,29 +2558,66 @@ function showLogin(){removeLogin();const logo=(document.querySelector('.brand-lo
   </div>`;
   document.body.appendChild(o);setTimeout(()=>{const e=document.getElementById('loginEmail');if(e)e.focus();},60);
 }
-function doLogin(){const email=(_v('loginEmail')||'').toLowerCase(),pass=_v('loginPass')||'';if(!email){_loginErr('Saisis ton adresse email.');return;}const c=comptes.find(x=>(x.email||'').toLowerCase()===email);if(!c){_loginErr("Email inconnu. Vérifie l'adresse ou demande à l'administrateur.");return;}if(c.pass){if(c.pass!==pass){_loginErr('Mot de passe incorrect.');return;}}else{if(c.role!=='Gérant'){_loginErr("Compte non activé. Le gérant doit définir ton mot de passe dans « Utilisateurs & accès ».");return;}if(pass.length<4){_loginErr('Premier accès gérant : choisis un mot de passe (4 caractères min) — il sera enregistré.');return;}c.pass=pass;}
+async function doLogin(){const email=(_v('loginEmail')||'').toLowerCase().trim(),pass=_v('loginPass')||'';if(!email){_loginErr('Saisis ton adresse email.');return;}if(!pass){_loginErr('Saisis ton mot de passe.');return;}
+  if(sb){_loginErr('');_loginBusy(true);
+    try{let r=await sb.auth.signInWithPassword({email,password:pass});
+      if(r.error){
+        if(/invalid login/i.test(r.error.message||'')){
+          if(pass.length<6){_loginBusy(false);_loginErr('Première connexion : choisis un mot de passe de 6 caractères minimum.');return;}
+          const su=await sb.auth.signUp({email,password:pass});
+          if(su.error){_loginBusy(false);_loginErr(_authMsg(su.error));return;}
+          if(!su.data||!su.data.session){const r2=await sb.auth.signInWithPassword({email,password:pass});if(r2.error){_loginBusy(false);_loginErr(_authMsg(r2.error));return;}}
+        } else {_loginBusy(false);_loginErr(_authMsg(r.error));return;}
+      }
+      await _afterAuth(email);_loginBusy(false);return;
+    }catch(e){_loginBusy(false);_loginErr('Problème de connexion réseau. Réessaie.');return;}
+  }
+  const c=comptes.find(x=>(x.email||'').toLowerCase()===email);if(!c){_loginErr("Email inconnu. Vérifie l'adresse ou demande à l'administrateur.");return;}if(c.pass){if(c.pass!==pass){_loginErr('Mot de passe incorrect.');return;}}else{if(c.role!=='Gérant'){_loginErr("Compte non activé. Le gérant doit définir ton mot de passe dans « Utilisateurs & accès ».");return;}if(pass.length<4){_loginErr('Premier accès gérant : choisis un mot de passe (4 caractères min) — il sera enregistré.');return;}c.pass=pass;}
   sessionEmail=c.email;role=ROLEMAP[c.role]||'ouvrier';const allowed=NAV.filter(i=>i.id&&i.roles.includes(role)).map(i=>i.id);view=allowed.includes(roleHome[role])?roleHome[role]:allowed[0];currentCh=null;
   removeLogin();renderNav();render();applyAvatar();_applyRoleUI();saveState();toast('Bienvenue '+((c.nom||'').split(' ')[0])+' 👋','ok','ti-login-2');_consumeQR();}
 let _resetEmail=null;
-function _loginForgot(){const email=(_v('loginEmail')||'').toLowerCase();if(!email){_loginErr("Saisis d'abord ton adresse email, puis reclique.");return;}const c=comptes.find(x=>(x.email||'').toLowerCase()===email);if(!c){_loginErr("Email inconnu. Vérifie l'adresse exacte du compte.");return;}if(c.role!=='Gérant'){_loginErr("Seul le gérant peut réinitialiser ici. Demande-lui de redéfinir ton mot de passe dans « Utilisateurs & accès ».");return;}
+function _loginForgot(){const email=(_v('loginEmail')||'').toLowerCase().trim();if(!email){_loginErr("Saisis d'abord ton adresse email, puis reclique.");return;}
+  if(sb){sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin}).then(({error})=>{if(error){_loginErr(_authMsg(error));}else{const b=document.getElementById('loginErr');if(b)b.style.display='none';const h=document.getElementById('loginHint');if(h){h.style.color='#7A8B4F';h.innerHTML='📧 Email de réinitialisation envoyé à <b>'+email+'</b>. Ouvre-le et choisis un nouveau mot de passe.';}}});return;}
+  const c=comptes.find(x=>(x.email||'').toLowerCase()===email);if(!c){_loginErr("Email inconnu. Vérifie l'adresse exacte du compte.");return;}if(c.role!=='Gérant'){_loginErr("Seul le gérant peut réinitialiser ici. Demande-lui de redéfinir ton mot de passe dans « Utilisateurs & accès ».");return;}
   _resetEmail=c.email;const box=document.getElementById('loginErr');if(box)box.style.display='none';
   const pf=document.getElementById('loginPass');if(pf){pf.value='';pf.placeholder='Nouveau mot de passe (4 car. min)';pf.setAttribute('onkeydown',"if(event.key==='Enter')_doReset()");pf.focus();}
   const btn=document.getElementById('loginBtn');if(btn){btn.innerHTML='<i class="ti ti-device-floppy"></i> Enregistrer le nouveau mot de passe';btn.setAttribute('onclick','_doReset()');}
   const hint=document.getElementById('loginHint');if(hint){hint.style.color='#7A8B4F';hint.innerHTML='Compte gérant reconnu : <b>'+(c.nom||'')+'</b>. Choisis un nouveau mot de passe — il remplacera l\'ancien.';}}
 function _doReset(){if(!_resetEmail){doLogin();return;}const c=comptes.find(x=>x.email===_resetEmail);if(!c){_loginErr('Erreur compte, recharge la page.');return;}const pass=_v('loginPass')||'';if(pass.length<4){_loginErr('Mot de passe trop court (4 caractères minimum).');return;}c.pass=pass;sessionEmail=c.email;role=ROLEMAP[c.role]||'ouvrier';const allowed=NAV.filter(i=>i.id&&i.roles.includes(role)).map(i=>i.id);view=allowed.includes(roleHome[role])?roleHome[role]:allowed[0];currentCh=null;_resetEmail=null;removeLogin();renderNav();render();applyAvatar();_applyRoleUI();saveState();toast('Mot de passe réinitialisé · bienvenue '+((c.nom||'').split(' ')[0]),'ok','ti-login-2');_consumeQR();}
-function logout(){closeMenus();sessionEmail=null;saveState();showLogin();}
-/* ===== Persistance locale (localStorage) ===== */
+async function logout(){closeMenus();try{if(sb)await sb.auth.signOut();}catch(e){}_cloudReady=false;sessionEmail=null;saveState();showLogin();}
+/* ===== Persistance locale (localStorage) + cloud (Supabase) ===== */
 const ZP_STORE_KEY='zp_erp_state_v3';
 const _persistArrays={salaries,equipes,clients,chantiers,stock,profils,bureau,taches,demandesList,congesList,carnet,rdvs,devisLignes,catFournitures,ouvrages,factures,comptes,prodCats,ouvrCats};
 const _persistObjects={congesBalance,planStore,chatMsgs,chantierSteps,profilUser};
-function saveState(){try{const d={arr:{},obj:{},scal:{tauxMO,devisClient,rdvSeq,agendaWeek,planWeek,carnetChef,coefMargeDefaut,sessionEmail}};for(const k in _persistArrays)d.arr[k]=_persistArrays[k];for(const k in _persistObjects)d.obj[k]=_persistObjects[k];localStorage.setItem(ZP_STORE_KEY,JSON.stringify(d));}catch(e){}}
-function loadState(){try{const raw=localStorage.getItem(ZP_STORE_KEY);if(!raw)return;const d=JSON.parse(raw);if(!d)return;if(d.arr)for(const k in _persistArrays){const v=d.arr[k];if(Array.isArray(v)){const a=_persistArrays[k];a.length=0;v.forEach(x=>a.push(x));}}if(d.obj)for(const k in _persistObjects){const v=d.obj[k];if(v&&typeof v==='object'){const o=_persistObjects[k];Object.keys(o).forEach(kk=>delete o[kk]);Object.assign(o,v);}}if(d.scal){const s=d.scal;if(typeof s.tauxMO==='number')tauxMO=s.tauxMO;if(s.devisClient!=null)devisClient=s.devisClient;if(typeof s.rdvSeq==='number')rdvSeq=s.rdvSeq;if(typeof s.agendaWeek==='number')agendaWeek=s.agendaWeek;if(typeof s.planWeek==='number')planWeek=s.planWeek;if(typeof s.carnetChef==='string')carnetChef=s.carnetChef;if(typeof s.coefMargeDefaut==='number')coefMargeDefaut=s.coefMargeDefaut;if(s.sessionEmail!==undefined)sessionEmail=s.sessionEmail;}planData=planWeekData(planWeek);}catch(e){}}
+function _stateObj(){const d={arr:{},obj:{},scal:{tauxMO,devisClient,rdvSeq,agendaWeek,planWeek,carnetChef,coefMargeDefaut,sessionEmail}};for(const k in _persistArrays)d.arr[k]=_persistArrays[k];for(const k in _persistObjects)d.obj[k]=_persistObjects[k];return d;}
+function _applyState(d){if(!d)return;if(d.arr)for(const k in _persistArrays){const v=d.arr[k];if(Array.isArray(v)){const a=_persistArrays[k];a.length=0;v.forEach(x=>a.push(x));}}if(d.obj)for(const k in _persistObjects){const v=d.obj[k];if(v&&typeof v==='object'){const o=_persistObjects[k];Object.keys(o).forEach(kk=>delete o[kk]);Object.assign(o,v);}}if(d.scal){const s=d.scal;if(typeof s.tauxMO==='number')tauxMO=s.tauxMO;if(s.devisClient!=null)devisClient=s.devisClient;if(typeof s.rdvSeq==='number')rdvSeq=s.rdvSeq;if(typeof s.agendaWeek==='number')agendaWeek=s.agendaWeek;if(typeof s.planWeek==='number')planWeek=s.planWeek;if(typeof s.carnetChef==='string')carnetChef=s.carnetChef;if(typeof s.coefMargeDefaut==='number')coefMargeDefaut=s.coefMargeDefaut;}planData=planWeekData(planWeek);}
+function saveState(){try{localStorage.setItem(ZP_STORE_KEY,JSON.stringify(_stateObj()));}catch(e){}_cloudPush();}
+function loadState(){try{const raw=localStorage.getItem(ZP_STORE_KEY);if(!raw)return;const d=JSON.parse(raw);if(!d)return;_applyState(d);if(d.scal&&d.scal.sessionEmail!==undefined)sessionEmail=d.scal.sessionEmail;}catch(e){}}
 function resetState(){try{localStorage.removeItem(ZP_STORE_KEY);}catch(e){}location.reload();}
+/* --- Supabase cloud sync --- */
+const SUPA_URL='https://xmsdqrmsvmxqnikcivhv.supabase.co';
+const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhtc2Rxcm1zdm14cW5pa2Npdmh2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3NDIxODEsImV4cCI6MjA5ODMxODE4MX0.alBvBxSkIItEO25vmxBvmImXn0wXnOZoHUVinoiHVNA';
+let sb=null;try{if(window.supabase&&window.supabase.createClient)sb=window.supabase.createClient(SUPA_URL,SUPA_KEY);}catch(e){}
+let _cloudReady=false,_pushT=null;
+function _cloudPush(immediate){if(!sb||!_cloudReady||!sessionEmail)return;clearTimeout(_pushT);const go=async()=>{try{await sb.from('workspace').upsert({id:'main',data:_stateObj(),updated_at:new Date().toISOString()});}catch(e){}};if(immediate)return go();_pushT=setTimeout(go,1200);}
+async function _cloudPull(){if(!sb)return 'error';try{const r=await sb.from('workspace').select('data').eq('id','main').maybeSingle();if(r.error)return 'error';const d=r.data&&r.data.data;if(d&&d.arr&&Object.keys(d.arr).length){_applyState(d);return 'has';}return 'empty';}catch(e){return 'error';}}
+async function _afterAuth(email){sessionEmail=email;const st=await _cloudPull();_cloudReady=true;if(st==='empty'){await _cloudPush(true);}let c=currentCompte();if(!c){const hasG=comptes.some(x=>x.role==='Gérant');comptes.push({id:'u'+Date.now(),nom:email.split('@')[0],role:hasG?'Salarié':'Gérant',tel:'',email,photo:''});c=currentCompte();}role=ROLEMAP[c.role]||'ouvrier';const allowed=NAV.filter(i=>i.id&&i.roles.includes(role)).map(i=>i.id);view=allowed.includes(roleHome[role])?roleHome[role]:allowed[0];currentCh=null;removeLogin();renderNav();render();applyAvatar();_applyRoleUI();saveState();toast('Bienvenue '+((c.nom||'').split(' ')[0])+' 👋','ok','ti-login-2');_consumeQR();}
+function _authMsg(e){const m=(e&&e.message)||String(e||'');if(/already registered|already been registered/i.test(m))return 'Ce compte existe déjà — vérifie ton mot de passe.';if(/invalid login/i.test(m))return 'Email ou mot de passe incorrect.';if(/at least 6|password should be/i.test(m))return 'Mot de passe trop court (6 caractères minimum).';if(/network|fetch/i.test(m))return 'Problème réseau, réessaie.';return m;}
+function _loginBusy(b){const btn=document.getElementById('loginBtn');if(btn){btn.disabled=b;btn.style.opacity=b?'.6':'1';btn.innerHTML=b?'<i class="ti ti-loader-2"></i> Connexion…':'<i class="ti ti-login-2"></i> Se connecter';}}
+if(sb){try{sb.auth.onAuthStateChange((ev)=>{if(ev==='PASSWORD_RECOVERY'){const np=prompt('Choisis ton nouveau mot de passe (6 caractères minimum) :');if(np&&np.length>=6){sb.auth.updateUser({password:np}).then(({error})=>{alert(error?('Erreur : '+error.message):'Mot de passe mis à jour ✓');});}}});}catch(e){}}
 const _renderOrig=render;render=function(){_renderOrig();saveState();};
 loadState();
-if(sessionEmail){const c=currentCompte();if(c){role=ROLEMAP[c.role]||role;}else{sessionEmail=null;}}
-renderNav();render();applyAvatar();_applyRoleUI();
-if(!sessionEmail)showLogin();else _consumeQR();
+async function _boot(){
+  renderNav();render();applyAvatar();_applyRoleUI();
+  if(sb){
+    try{const {data}=await sb.auth.getSession();if(data&&data.session&&data.session.user&&data.session.user.email){await _afterAuth(data.session.user.email.toLowerCase());return;}}catch(e){}
+    sessionEmail=null;showLogin();return;
+  }
+  if(sessionEmail){const c=currentCompte();if(c){role=ROLEMAP[c.role]||role;}else{sessionEmail=null;}}
+  renderNav();render();applyAvatar();_applyRoleUI();
+  if(!sessionEmail)showLogin();else _consumeQR();
+}
+_boot();
 </script>
 <style>@media print{body *{visibility:hidden!important}#printArea,#printArea *{visibility:visible!important}#printArea{display:block!important;position:absolute;left:0;top:0;width:100%}@page{margin:12mm}}#printArea{display:none}</style>
 </body>
