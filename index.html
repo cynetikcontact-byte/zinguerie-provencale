@@ -581,11 +581,37 @@ function quickCreate(e){e.stopPropagation();popMenu(e.currentTarget,`
   <div class="sep"></div>
   <button onclick="closeMenus();go('plieur')"><i class="ti ti-fold"></i> Calcul de pliage</button>`);}
 function profileMenu(e){e.stopPropagation();popMenu(e.currentTarget,`
-  <button onclick="closeMenus();toast('Mon profil (démo)')"><i class="ti ti-user"></i> ${roleLabel[role]}</button>
+  <button onclick="openProfil()"><i class="ti ti-user"></i> Mon profil</button>
   ${role==='patron'?'<button onclick="closeMenus();go(\'reglages\')"><i class="ti ti-settings"></i> Réglages & coûts</button>':''}
   <button onclick="closeMenus();document.getElementById('themeBtn').click()"><i class="ti ti-moon"></i> Basculer le thème</button>
   <div class="sep"></div>
   <button onclick="closeMenus();toast('Déconnexion (démo)')"><i class="ti ti-logout"></i> Se déconnecter</button>`);}
+/* ===== MON PROFIL ===== */
+let profilUser={
+  patron:{nom:'Damien Gauthier',age:48,tel:'06 12 00 00 01',email:'damien@zinguerie-provencale.fr',poste:'Gérant',photo:''},
+  chef:{nom:'Karim Morel',age:39,tel:'06 12 00 00 02',email:'karim@zinguerie-provencale.fr',poste:"Chef d'équipe",photo:''},
+  gestion:{nom:'Sandra Vidal',age:34,tel:'06 12 00 00 03',email:'sandra@zinguerie-provencale.fr',poste:'Gestionnaire',photo:''},
+  ouvrier:{nom:'Lucas Berto',age:27,tel:'06 12 00 00 04',email:'lucas@zinguerie-provencale.fr',poste:'Couvreur-zingueur',photo:''},
+  client:{nom:'SCI Marius',age:'',tel:'04 42 00 00 00',email:'contact@sci-marius.fr',poste:'Client',photo:''}
+};
+let _profilPhotoTmp=null;
+function applyAvatar(){const av=document.getElementById('meAvatar');if(!av)return;const p=profilUser[role];if(p&&p.photo){av.textContent='';av.style.backgroundImage='url('+p.photo+')';av.style.backgroundSize='cover';av.style.backgroundPosition='center';}else{av.style.backgroundImage='';av.textContent=roleAvatar[role];av.style.background=ROLE_COL[role];}}
+function openProfil(){closeMenus();_profilPhotoTmp=null;const p=profilUser[role];
+  modal(`<div class="modal-head"><h3>Mon profil</h3><button class="icon-x" onclick="this.closest('.overlay').remove()"><i class="ti ti-x"></i></button></div><div class="modal-body">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:16px">
+      <div id="profilPhotoPrev" style="width:96px;height:96px;border-radius:50%;background:${ROLE_COL[role]};${p.photo?`background-image:url(${p.photo});background-size:cover;background-position:center`:''};display:flex;align-items:center;justify-content:center;color:#fff;font-size:34px;font-weight:800;box-shadow:0 2px 8px rgba(0,0,0,.14)">${p.photo?'':roleAvatar[role]}</div>
+      <input type="file" id="profilPhotoInput" accept="image/*" style="display:none" onchange="_profilPhotoPick(this)">
+      <button class="btn sm" onclick="document.getElementById('profilPhotoInput').click()"><i class="ti ti-camera"></i> Changer la photo</button>
+    </div>
+    <div class="field"><label>Nom complet</label><input id="pfNom" value="${(p.nom||'').replace(/"/g,'&quot;')}"></div>
+    <div style="display:flex;gap:12px"><div class="field" style="flex:1"><label>Âge</label><input id="pfAge" type="number" value="${p.age||''}"></div><div class="field" style="flex:2"><label>Téléphone</label><input id="pfTel" value="${(p.tel||'').replace(/"/g,'&quot;')}"></div></div>
+    <div class="field"><label>Email</label><input id="pfMail" type="email" value="${(p.email||'').replace(/"/g,'&quot;')}"></div>
+    <div class="field"><label>Fonction</label><input id="pfPoste" value="${(p.poste||'').replace(/"/g,'&quot;')}"></div>
+    <button class="btn primary" style="width:100%;justify-content:center;margin-top:6px" onclick="saveProfil()"><i class="ti ti-check"></i> Enregistrer</button>
+  </div>`);
+}
+function _profilPhotoPick(input){const f=input.files&&input.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{const img=new Image();img.onload=()=>{const max=200;let w=img.width,h=img.height;const sc=Math.min(1,max/Math.max(w,h));const cw=Math.round(w*sc),ch=Math.round(h*sc);const cv=document.createElement('canvas');cv.width=cw;cv.height=ch;cv.getContext('2d').drawImage(img,0,0,cw,ch);_profilPhotoTmp=cv.toDataURL('image/jpeg',0.82);const prev=document.getElementById('profilPhotoPrev');if(prev){prev.style.backgroundImage='url('+_profilPhotoTmp+')';prev.style.backgroundSize='cover';prev.style.backgroundPosition='center';prev.textContent='';}};img.src=ev.target.result;};r.readAsDataURL(f);}
+function saveProfil(){const p=profilUser[role];p.nom=_v('pfNom')||p.nom;p.age=_v('pfAge');p.tel=_v('pfTel');p.email=_v('pfMail');p.poste=_v('pfPoste');if(_profilPhotoTmp)p.photo=_profilPhotoTmp;document.querySelectorAll('.overlay').forEach(o=>o.remove());applyAvatar();render();toast('Profil enregistré','ok','ti-user-check');}
 /* état vide réutilisable */
 function emptyState(ic,titre,sub,cta){return `<div style="text-align:center;padding:40px 20px"><div style="width:64px;height:64px;border-radius:18px;margin:0 auto 14px;display:flex;align-items:center;justify-content:center;background:var(--surface-2);color:var(--ink-3)"><i class="ti ${ic}" style="font-size:30px"></i></div><div style="font-family:'Baloo 2';font-weight:700;font-size:16px">${titre}</div><div class="muted" style="font-size:13px;margin-top:4px">${sub||''}</div>${cta||''}</div>`;}
 
@@ -2159,7 +2185,7 @@ function newChantier(){modal(`<div class="modal-head"><h3>Nouveau chantier</h3><
   <button class="btn primary" style="width:100%;justify-content:center" onclick="this.closest('.overlay').remove();toast('Chantier créé','ok','ti-home-plus')"><i class="ti ti-check"></i> Créer</button></div>`);}
 
 /* topbar */
-document.getElementById('roleSwitch').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;role=b.dataset.role;[...e.currentTarget.children].forEach(c=>c.classList.toggle('active',c===b));const av=document.getElementById('meAvatar');av.textContent=roleAvatar[role];av.style.background=ROLE_COL[role];const allowed=NAV.filter(i=>i.id&&i.roles.includes(role)).map(i=>i.id);view=allowed.includes(roleHome[role])?roleHome[role]:allowed[0];currentCh=null;renderNav();render();toast('Profil : '+roleLabel[role],'info','ti-user-check');});
+document.getElementById('roleSwitch').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;role=b.dataset.role;[...e.currentTarget.children].forEach(c=>c.classList.toggle('active',c===b));applyAvatar();const allowed=NAV.filter(i=>i.id&&i.roles.includes(role)).map(i=>i.id);view=allowed.includes(roleHome[role])?roleHome[role]:allowed[0];currentCh=null;renderNav();render();toast('Profil : '+roleLabel[role],'info','ti-user-check');});
 document.getElementById('themeBtn').addEventListener('click',function(){document.body.classList.toggle('dark');const d=document.body.classList.contains('dark');this.innerHTML=`<i class="ti ti-${d?'sun':'moon'}"></i>`;render();});
 let notifLus=false;
 document.getElementById('bellBtn').addEventListener('click',function(e){e.stopPropagation();let dd=document.getElementById('notifDD');if(dd){dd.remove();return;}closeMenus();dd=document.createElement('div');dd.id='notifDD';dd.className='dropdown';dd.innerHTML=`<h4>Notifications ${notifLus?'':'<span class="tag" style="background:rgba(184,58,38,.14);color:var(--alerte)">3</span>'}<button class="btn sm" style="margin-left:auto" onclick="document.querySelector('.dot')&&document.querySelector('.dot').remove();this.closest('#notifDD').remove();notifLus=true;toast('Notifications lues','ok','ti-check')">Tout lire</button></h4>${[['ti-alert-triangle','var(--alerte)','rgba(184,58,38,.13)','Chantier en retard','Bardage Gémenos · échéance dépassée'],['ti-shield-half','#a9760d','rgba(232,181,71,.16)','EPI à inspecter','Harnais J. Pons avant 08/26'],['ti-clock','var(--bleu-mer)','rgba(61,138,198,.13)','Pointage en cours','L. Berto sur Villa Aubagne']].map(n=>`<div class="notif"><div class="ni" style="background:${n[2]};color:${n[1]}"><i class="ti ${n[0]}"></i></div><div><b>${n[3]}</b><br><span class="muted">${n[4]}</span></div></div>`).join('')}`;this.parentElement.style.position='relative';this.parentElement.appendChild(dd);});
@@ -2189,13 +2215,13 @@ document.addEventListener('keydown',e=>{
 /* ===== Persistance locale (localStorage) ===== */
 const ZP_STORE_KEY='zp_erp_state_v2';
 const _persistArrays={salaries,equipes,clients,chantiers,stock,profils,bureau,taches,demandesList,congesList,carnet,rdvs,devisLignes,catFournitures,ouvrages,factures};
-const _persistObjects={congesBalance,planStore,chatMsgs,chantierSteps};
+const _persistObjects={congesBalance,planStore,chatMsgs,chantierSteps,profilUser};
 function saveState(){try{const d={arr:{},obj:{},scal:{tauxMO,devisClient,rdvSeq,agendaWeek,planWeek,carnetChef}};for(const k in _persistArrays)d.arr[k]=_persistArrays[k];for(const k in _persistObjects)d.obj[k]=_persistObjects[k];localStorage.setItem(ZP_STORE_KEY,JSON.stringify(d));}catch(e){}}
 function loadState(){try{const raw=localStorage.getItem(ZP_STORE_KEY);if(!raw)return;const d=JSON.parse(raw);if(!d)return;if(d.arr)for(const k in _persistArrays){const v=d.arr[k];if(Array.isArray(v)){const a=_persistArrays[k];a.length=0;v.forEach(x=>a.push(x));}}if(d.obj)for(const k in _persistObjects){const v=d.obj[k];if(v&&typeof v==='object'){const o=_persistObjects[k];Object.keys(o).forEach(kk=>delete o[kk]);Object.assign(o,v);}}if(d.scal){const s=d.scal;if(typeof s.tauxMO==='number')tauxMO=s.tauxMO;if(s.devisClient!=null)devisClient=s.devisClient;if(typeof s.rdvSeq==='number')rdvSeq=s.rdvSeq;if(typeof s.agendaWeek==='number')agendaWeek=s.agendaWeek;if(typeof s.planWeek==='number')planWeek=s.planWeek;if(typeof s.carnetChef==='string')carnetChef=s.carnetChef;}planData=planWeekData(planWeek);}catch(e){}}
 function resetState(){try{localStorage.removeItem(ZP_STORE_KEY);}catch(e){}location.reload();}
 const _renderOrig=render;render=function(){_renderOrig();saveState();};
 loadState();
-renderNav();render();
+renderNav();render();applyAvatar();
 </script>
 </body>
 </html>
