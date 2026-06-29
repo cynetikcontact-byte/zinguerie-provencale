@@ -288,8 +288,8 @@ input.noarrow{-moz-appearance:textfield;appearance:textfield}
     </div>
     <nav id="nav"></nav>
     <div class="side-foot">
-      <span class="live"><span class="pulse"></span> Synchronisé · il y a 12 s</span><br>
-      <span style="opacity:.8">🛠️ ZingueriePro · v1.4.0</span>
+      <span class="live" id="syncFoot"><span class="pulse"></span> Cloud Supabase</span><br>
+      <span style="opacity:.8">Zinguerie Provençale · v2.0</span>
     </div>
   </aside>
 
@@ -859,13 +859,14 @@ views.espaceClient=()=>{
   </div>`;
 };
 
+function _compteImg(u){if(u&&u.photo)return u.photo;try{if(u&&sessionEmail&&(u.email||'').toLowerCase()===sessionEmail.toLowerCase()){const p=profilUser[ROLEMAP[u.role]];if(p&&p.photo)return p.photo;}}catch(e){}return '';}
 views.comptes=()=>`<div class="view">
   <div class="page-head"><div><h1>Utilisateurs & accès</h1><p>Créez et gérez les profils de votre équipe et de vos clients</p></div>
     <button class="btn primary" onclick="openCompte()"><i class="ti ti-user-plus"></i> Créer un profil</button></div>
   <div class="grid cols-3">
-    ${comptes.map(u=>{const r=roleCompte(u.role);return `<div class="card card-pad">
+    ${comptes.map(u=>{const r=roleCompte(u.role);const im=_compteImg(u);return `<div class="card card-pad">
       <div style="display:flex;align-items:center;gap:12px">
-        ${u.photo?`<span style="width:48px;height:48px;border-radius:50%;background-image:url(${u.photo});background-size:cover;background-position:center;flex-shrink:0"></span>`:`<span class="avatar-sm" style="width:48px;height:48px;font-size:16px;background:${r.col};flex-shrink:0">${initiales(u.nom)}</span>`}
+        ${im?`<span style="width:48px;height:48px;border-radius:50%;background-image:url(${im});background-size:cover;background-position:center;flex-shrink:0"></span>`:`<span class="avatar-sm" style="width:48px;height:48px;font-size:16px;background:${r.col};flex-shrink:0">${initiales(u.nom)}</span>`}
         <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${u.nom}</div>
         <span class="tag" style="background:${r.col}22;color:${r.col};font-weight:700;margin-top:4px"><i class="ti ${r.ic}"></i> ${u.role}</span></div>
       </div>
@@ -2598,14 +2599,16 @@ function resetState(){try{localStorage.removeItem(ZP_STORE_KEY);}catch(e){}locat
 const SUPA_URL='https://xmsdqrmsvmxqnikcivhv.supabase.co';
 const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhtc2Rxcm1zdm14cW5pa2Npdmh2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3NDIxODEsImV4cCI6MjA5ODMxODE4MX0.alBvBxSkIItEO25vmxBvmImXn0wXnOZoHUVinoiHVNA';
 let sb=null;try{if(window.supabase&&window.supabase.createClient)sb=window.supabase.createClient(SUPA_URL,SUPA_KEY);}catch(e){}
-let _cloudReady=false,_pushT=null;
-function _cloudPush(immediate){if(!sb||!_cloudReady||!sessionEmail)return;clearTimeout(_pushT);const go=async()=>{try{await sb.from('workspace').upsert({id:'main',data:_stateObj(),updated_at:new Date().toISOString()});}catch(e){}};if(immediate)return go();_pushT=setTimeout(go,1200);}
+let _cloudReady=false,_pushT=null,_lastSync=0;
+function _cloudPush(immediate){if(!sb||!_cloudReady||!sessionEmail)return;clearTimeout(_pushT);const go=async()=>{try{await sb.from('workspace').upsert({id:'main',data:_stateObj(),updated_at:new Date().toISOString()});_lastSync=Date.now();_syncFoot();}catch(e){}};if(immediate)return go();_pushT=setTimeout(go,1200);}
+function _syncFoot(){const el=document.getElementById('syncFoot');if(!el)return;if(!sb){el.innerHTML='<span class="pulse" style="background:#c9c2b4"></span> Hors-ligne (local)';return;}if(!sessionEmail){el.innerHTML='<span class="pulse"></span> Cloud prêt';return;}const s=_lastSync?Math.round((Date.now()-_lastSync)/1000):null;el.innerHTML='<span class="pulse"></span> '+(s!=null?('Synchronisé · il y a '+(s<60?(s+' s'):(Math.round(s/60)+' min'))):'Cloud connecté');}
+try{setInterval(_syncFoot,5000);}catch(e){}
 async function _cloudPull(){if(!sb)return 'error';try{const r=await sb.from('workspace').select('data').eq('id','main').maybeSingle();if(r.error)return 'error';const d=r.data&&r.data.data;if(d&&d.arr&&Object.keys(d.arr).length){_applyState(d);return 'has';}return 'empty';}catch(e){return 'error';}}
 async function _afterAuth(email){sessionEmail=email;const st=await _cloudPull();_cloudReady=true;if(st==='empty'){await _cloudPush(true);}let c=currentCompte();if(!c){const hasG=comptes.some(x=>x.role==='Gérant');comptes.push({id:'u'+Date.now(),nom:email.split('@')[0],role:hasG?'Salarié':'Gérant',tel:'',email,photo:''});c=currentCompte();}role=ROLEMAP[c.role]||'ouvrier';const allowed=NAV.filter(i=>i.id&&i.roles.includes(role)).map(i=>i.id);view=allowed.includes(roleHome[role])?roleHome[role]:allowed[0];currentCh=null;removeLogin();renderNav();render();applyAvatar();_applyRoleUI();saveState();toast('Bienvenue '+((c.nom||'').split(' ')[0])+' 👋','ok','ti-login-2');_consumeQR();}
 function _authMsg(e){const m=(e&&e.message)||String(e||'');if(/already registered|already been registered/i.test(m))return 'Ce compte existe déjà — vérifie ton mot de passe.';if(/invalid login/i.test(m))return 'Email ou mot de passe incorrect.';if(/at least 6|password should be/i.test(m))return 'Mot de passe trop court (6 caractères minimum).';if(/network|fetch/i.test(m))return 'Problème réseau, réessaie.';return m;}
 function _loginBusy(b){const btn=document.getElementById('loginBtn');if(btn){btn.disabled=b;btn.style.opacity=b?'.6':'1';btn.innerHTML=b?'<i class="ti ti-loader-2"></i> Connexion…':'<i class="ti ti-login-2"></i> Se connecter';}}
 if(sb){try{sb.auth.onAuthStateChange((ev)=>{if(ev==='PASSWORD_RECOVERY'){const np=prompt('Choisis ton nouveau mot de passe (6 caractères minimum) :');if(np&&np.length>=6){sb.auth.updateUser({password:np}).then(({error})=>{alert(error?('Erreur : '+error.message):'Mot de passe mis à jour ✓');});}}});}catch(e){}}
-const _renderOrig=render;render=function(){_renderOrig();saveState();};
+const _renderOrig=render;render=function(){_renderOrig();saveState();_syncFoot();};
 loadState();
 async function _boot(){
   renderNav();render();applyAvatar();_applyRoleUI();
