@@ -596,6 +596,20 @@ function killCharts(){charts.forEach(c=>c.destroy());charts=[];}
 function cdef(){const d=document.body.classList.contains('dark');Chart.defaults.font.family='Inter';Chart.defaults.color=d?'#b5aa95':'#6B6B6B';return{grid:d?'#352b1d':'#EBE3D3'};}
 
 /* ===== VUES ===== */
+/* Factures — données réelles (alimentent les KPI du tableau de bord) */
+let factures=[
+  {num:'F-0098',clientNom:'SCI Marius',type:'Solde',ttc:7440,statut:'payee',echeance:'10/05'},
+  {num:'F-0101',clientNom:'Mairie Cuges',type:'Acompte 30%',ttc:12300,statut:'attente',echeance:'30/06'},
+  {num:'F-0103',clientNom:'M. Pellicano',type:'Situation',ttc:6240,statut:'retard',echeance:'15/06'}
+];
+const FSTAT={payee:['Payée','rgba(122,139,79,.16)','var(--olive)'],attente:['En attente','rgba(232,181,71,.18)','#a9760d'],retard:['En retard','rgba(184,58,38,.13)','var(--alerte)']};
+const facturesPayees=()=>factures.filter(f=>f.statut==='payee');
+const facturesImpayees=()=>factures.filter(f=>f.statut==='retard');
+const caEncaisse=()=>facturesPayees().reduce((a,f)=>a+f.ttc,0);
+const totalImpayes=()=>facturesImpayees().reduce((a,f)=>a+f.ttc,0);
+const heuresSemaine=()=>salaries.reduce((a,s)=>{const row=(planStore[planWeek]||{})[s.id]||[];return a+row.filter(isCh).length;},0)*HJ;
+const plur=(n,s)=>n>1?s:'';
+
 const views={};
 
 views.dash=()=>{
@@ -612,10 +626,10 @@ views.dash=()=>{
     <button class="btn primary" onclick="newChantier()"><i class="ti ti-plus"></i> Nouveau chantier</button>
   </div>
   <div class="grid cols-4" style="margin-bottom:18px">
-    ${kpi('CA encaissé du mois',fmt(28600),'+8% vs mai','up','ti-cash','var(--orange)','rgba(243,146,0,.14)',[18,22,19,25,24,28])}
-    ${kpi('Marge prévisionnelle',mm+'%','cible 35%',mm>=35?'up':'down','ti-chart-pie','var(--olive)','rgba(122,139,79,.16)',[28,31,34,31,33,mm])}
-    ${kpi('Heures équipe / sem.','214 h','4 ouvriers','up','ti-clock-hour-4','var(--terracotta)','rgba(198,107,61,.14)',[180,195,205,200,210,214])}
-    ${kpi('Impayés à relancer',fmt(6240),'1 facture','down','ti-alert-octagon','var(--alerte)','rgba(184,58,38,.13)',[2,3,1,4,5,6])}
+    ${kpi('CA encaissé du mois',fmt(caEncaisse()),facturesPayees().length+' facture'+plur(facturesPayees().length,'s')+' payée'+plur(facturesPayees().length,'s'),'up','ti-cash','var(--orange)','rgba(243,146,0,.14)',[])}
+    ${kpi('Marge prévisionnelle',(isFinite(mm)?mm:0)+'%','cible 35%',mm>=35?'up':'down','ti-chart-pie','var(--olive)','rgba(122,139,79,.16)',[])}
+    ${kpi('Heures équipe / sem.',heuresSemaine()+' h',salaries.length+' ouvrier'+plur(salaries.length,'s'),'up','ti-clock-hour-4','var(--terracotta)','rgba(198,107,61,.14)',[])}
+    ${kpi('Impayés à relancer',fmt(totalImpayes()),facturesImpayees().length+' facture'+plur(facturesImpayees().length,'s'),'down','ti-alert-octagon','var(--alerte)','rgba(184,58,38,.13)',[])}
   </div>
   <div class="grid" style="grid-template-columns:1.5fr 1fr;margin-bottom:18px;align-items:start">
     <div class="card"><div class="card-head"><h3><i class="ti ti-clipboard-check"></i> Mes missions</h3><div style="display:flex;gap:6px"><span class="tag t-amber">${open.length} à faire</span><span class="tag t-green">${done.length} faites</span></div></div>
@@ -632,7 +646,7 @@ views.dash=()=>{
         ${alertLink('ti-package','var(--soleil)','2 articles sous le seuil de stock','Voir le stock',"go('stock')")}
         ${alertLink('ti-shield-half','var(--soleil)','Harnais J. Pons à inspecter',"Voir l'équipe","go('rh')")}
         ${alertLink('ti-clock','var(--bleu-mer)','9 h pointées non imputées','Voir les heures',"go('supervision')")}
-        ${alertLink('ti-file-invoice','var(--alerte)','Facture Pellicano impayée — 6 240 €','Voir les factures',"go('devis')")}
+        ${facturesImpayees().length?alertLink('ti-file-invoice','var(--alerte)','Facture '+facturesImpayees()[0].clientNom+' impayée — '+fmt(totalImpayes()),'Voir les factures',"go('devis')"):''}
       </div></div>
       <div class="card"><div class="card-head"><h3><i class="ti ti-cloud"></i> Météo 6 j</h3><span class="sub">Aubagne</span></div><div class="card-pad">
         <div class="wx">${weather.slice(0,3).map(w=>wxd(w)).join('')}</div><div class="wx" style="margin-top:10px">${weather.slice(3).map(w=>wxd(w)).join('')}</div>
@@ -1487,9 +1501,7 @@ views.devis=()=>{
     </div>
   </div>
   <div class="card" style="margin-top:18px"><div class="card-head"><h3><i class="ti ti-receipt"></i> Factures</h3></div><table><thead><tr><th>N°</th><th>Client</th><th>Type</th><th>TTC</th><th>Statut</th><th>Échéance</th></tr></thead><tbody>
-    <tr><td>F-0098</td><td>SCI Marius</td><td>Solde</td><td>7 440 €</td><td><span class="tag" style="background:rgba(122,139,79,.16);color:var(--olive)"><span class="tdot"></span>Payée</span></td><td>10/05</td></tr>
-    <tr><td>F-0101</td><td>Mairie Cuges</td><td>Acompte 30%</td><td>12 300 €</td><td><span class="tag" style="background:rgba(232,181,71,.18);color:#a9760d"><span class="tdot"></span>En attente</span></td><td>30/06</td></tr>
-    <tr><td>F-0103</td><td>M. Pellicano</td><td>Situation</td><td>6 240 €</td><td><span class="tag" style="background:rgba(184,58,38,.13);color:var(--alerte)"><span class="tdot"></span>En retard</span></td><td>15/06</td></tr>
+    ${factures.map(f=>`<tr><td>${f.num}</td><td>${f.clientNom}</td><td>${f.type}</td><td>${fmt(f.ttc)}</td><td><span class="tag" style="background:${FSTAT[f.statut][1]};color:${FSTAT[f.statut][2]}"><span class="tdot"></span>${FSTAT[f.statut][0]}</span></td><td>${f.echeance}</td></tr>`).join('')}
   </tbody></table></div></div>`;
 };
 function devisTotals(){const st=devisLignes.reduce((a,l)=>a+l.qte*l.pu,0);return {st,tva:st*0.1,ttc:st*1.1};}
@@ -2106,7 +2118,7 @@ document.addEventListener('keydown',e=>{
 
 /* ===== Persistance locale (localStorage) ===== */
 const ZP_STORE_KEY='zp_erp_state_v1';
-const _persistArrays={salaries,equipes,clients,chantiers,stock,profils,bureau,taches,demandesList,congesList,carnet,rdvs,devisLignes,catFournitures,ouvrages};
+const _persistArrays={salaries,equipes,clients,chantiers,stock,profils,bureau,taches,demandesList,congesList,carnet,rdvs,devisLignes,catFournitures,ouvrages,factures};
 const _persistObjects={congesBalance,planStore,chatMsgs};
 function saveState(){try{const d={arr:{},obj:{},scal:{tauxMO,devisClient,rdvSeq,agendaWeek,planWeek,carnetChef}};for(const k in _persistArrays)d.arr[k]=_persistArrays[k];for(const k in _persistObjects)d.obj[k]=_persistObjects[k];localStorage.setItem(ZP_STORE_KEY,JSON.stringify(d));}catch(e){}}
 function loadState(){try{const raw=localStorage.getItem(ZP_STORE_KEY);if(!raw)return;const d=JSON.parse(raw);if(!d)return;if(d.arr)for(const k in _persistArrays){const v=d.arr[k];if(Array.isArray(v)){const a=_persistArrays[k];a.length=0;v.forEach(x=>a.push(x));}}if(d.obj)for(const k in _persistObjects){const v=d.obj[k];if(v&&typeof v==='object'){const o=_persistObjects[k];Object.keys(o).forEach(kk=>delete o[kk]);Object.assign(o,v);}}if(d.scal){const s=d.scal;if(typeof s.tauxMO==='number')tauxMO=s.tauxMO;if(s.devisClient!=null)devisClient=s.devisClient;if(typeof s.rdvSeq==='number')rdvSeq=s.rdvSeq;if(typeof s.agendaWeek==='number')agendaWeek=s.agendaWeek;if(typeof s.planWeek==='number')planWeek=s.planWeek;if(typeof s.carnetChef==='string')carnetChef=s.carnetChef;}planData=planWeekData(planWeek);}catch(e){}}
