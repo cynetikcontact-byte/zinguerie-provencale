@@ -867,9 +867,10 @@ views.comptes=()=>`<div class="view">
 /* ===== BIBLIOTHÈQUE : produits & ouvrages ===== */
 let biblioTab='ouvrages',editProd=null;
 function setBiblioTab(t){biblioTab=t;render();}
-function openProduit(id){const src=id?catF(id):null;editProd=src?Object.assign({},src):{id:null,nom:'',u:'m²',cat:PCATS[0],achat:0,coef:coefMargeDefaut,pu:0,photo:''};
-  const e=editProd,esc=s=>(s||'').replace(/"/g,'&quot;');
-  modal(`<div class="modal-head"><h3>${id?'Modifier le produit':'Nouveau produit'}</h3><button class="icon-x" onclick="this.closest('.overlay').remove()"><i class="ti ti-x"></i></button></div><div class="modal-body">
+function openProduit(id){const src=id?catF(id):null;editProd=src?Object.assign({},src):{id:null,nom:'',u:'m²',cat:PCATS[0],achat:0,coef:coefMargeDefaut,pu:0,photo:''};modal('<div id="prodForm"></div>');drawProdForm();}
+function _prodCatChange(v){if(v==='__new__'){const n=(prompt('Nom de la nouvelle catégorie :')||'').trim();if(n)editProd.cat=n;}else{editProd.cat=v;}drawProdForm();}
+function drawProdForm(){const e=editProd,esc=s=>(s||'').replace(/"/g,'&quot;');const cats=[...new Set([...PCATS,...catFournitures.map(p=>p.cat||'Divers'),e.cat].filter(Boolean))];
+  document.getElementById('prodForm').innerHTML=`<div class="modal-head"><h3>${e.id?'Modifier le produit':'Nouveau produit'}</h3><button class="icon-x" onclick="this.closest('.overlay').remove()"><i class="ti ti-x"></i></button></div><div class="modal-body">
     <div style="display:flex;gap:14px;margin-bottom:8px">
       <div id="prodPhotoPrev" style="width:78px;height:78px;border-radius:12px;flex-shrink:0;${e.photo?`background:url(${e.photo});background-size:cover;background-position:center`:'background:rgba(243,146,0,.12)'};display:flex;align-items:center;justify-content:center;color:var(--orange)">${e.photo?'':'<i class="ti ti-package" style="font-size:26px"></i>'}</div>
       <div style="flex:1"><div class="field" style="margin:0"><label>Nom du produit</label><input value="${esc(e.nom)}" oninput="editProd.nom=this.value" placeholder="Ex. Zinc à joint debout"></div>
@@ -877,7 +878,7 @@ function openProduit(id){const src=id?catF(id):null;editProd=src?Object.assign({
       <button class="btn sm ghost" style="margin-top:8px" onclick="document.getElementById('prodPhotoInput').click()"><i class="ti ti-camera"></i> Photo</button></div>
     </div>
     <div style="display:flex;gap:12px">
-      <div class="field" style="flex:2"><label>Catégorie</label><input class="cell" list="prodCats" value="${esc(e.cat)}" oninput="editProd.cat=this.value" placeholder="Choisir ou créer une catégorie…"><datalist id="prodCats">${[...new Set([...PCATS,...catFournitures.map(p=>p.cat||'Divers')])].map(c=>`<option value="${esc(c)}">`).join('')}</datalist></div>
+      <div class="field" style="flex:2"><label>Catégorie</label><select class="cell" onchange="_prodCatChange(this.value)">${cats.map(c=>`<option ${e.cat===c?'selected':''}>${c}</option>`).join('')}<option value="__new__">➕ Nouvelle catégorie…</option></select></div>
       <div class="field" style="flex:1"><label>Unité</label><select class="cell" onchange="editProd.u=this.value">${['m²','ml','u','forf.','kg','sac'].map(u=>`<option ${e.u===u?'selected':''}>${u}</option>`).join('')}</select></div>
     </div>
     <div style="display:flex;gap:8px;align-items:flex-end">
@@ -888,8 +889,8 @@ function openProduit(id){const src=id?catF(id):null;editProd=src?Object.assign({
       <div class="field" style="flex:1"><label>Prix de vente (€)</label><input id="pdPu" type="number" step="0.01" value="${e.pu||''}" oninput="editProd.pu=+this.value||0;_prodSyncCoef()"></div>
     </div>
     <div id="pdMarge" class="tiny" style="font-weight:700;color:var(--olive);margin:-2px 0 12px">${margePct(e)}% de marge</div>
-    <button class="btn primary" style="width:100%;justify-content:center" onclick="saveProduit()"><i class="ti ti-check"></i> ${id?'Enregistrer':'Créer le produit'}</button>
-  </div>`);
+    <button class="btn primary" style="width:100%;justify-content:center" onclick="saveProduit()"><i class="ti ti-check"></i> ${e.id?'Enregistrer':'Créer le produit'}</button>
+  </div>`;
 }
 function _prodSyncPV(){const e=editProd;e.pu=Math.round((e.achat||0)*(e.coef||0)*100)/100;const el=document.getElementById('pdPu');if(el)el.value=e.pu;_prodMargeShow();}
 function _prodSyncCoef(){const e=editProd;e.coef=e.achat>0?Math.round(e.pu/e.achat*100)/100:0;const el=document.getElementById('pdCoef');if(el)el.value=e.coef;_prodMargeShow();}
