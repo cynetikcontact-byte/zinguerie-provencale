@@ -541,6 +541,7 @@ const NAV=[
   {id:'chat',ic:'ti-message-circle',lab:'Messagerie',roles:['patron','chef','ouvrier','gestion']},
   {id:'fichiers',ic:'ti-folder',lab:'Documents',roles:['patron','chef','ouvrier','gestion','client']},
   {sect:'Configuration'},
+  {id:'comptes',ic:'ti-users-group',lab:'Utilisateurs & accès',roles:['patron']},
   {id:'reglages',ic:'ti-settings',lab:'Réglages & coûts',roles:['patron']},
 ];
 let role='patron',view='dash',currentCh=null,welcomeOpen=true;
@@ -612,6 +613,46 @@ function openProfil(){closeMenus();_profilPhotoTmp=null;const p=profilUser[role]
 }
 function _profilPhotoPick(input){const f=input.files&&input.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{const img=new Image();img.onload=()=>{const max=200;let w=img.width,h=img.height;const sc=Math.min(1,max/Math.max(w,h));const cw=Math.round(w*sc),ch=Math.round(h*sc);const cv=document.createElement('canvas');cv.width=cw;cv.height=ch;cv.getContext('2d').drawImage(img,0,0,cw,ch);_profilPhotoTmp=cv.toDataURL('image/jpeg',0.82);const prev=document.getElementById('profilPhotoPrev');if(prev){prev.style.backgroundImage='url('+_profilPhotoTmp+')';prev.style.backgroundSize='cover';prev.style.backgroundPosition='center';prev.textContent='';}};img.src=ev.target.result;};r.readAsDataURL(f);}
 function saveProfil(){const p=profilUser[role];p.nom=_v('pfNom')||p.nom;p.age=_v('pfAge');p.tel=_v('pfTel');p.email=_v('pfMail');p.poste=_v('pfPoste');if(_profilPhotoTmp)p.photo=_profilPhotoTmp;document.querySelectorAll('.overlay').forEach(o=>o.remove());applyAvatar();render();toast('Profil enregistré','ok','ti-user-check');}
+/* ===== COMPTES UTILISATEURS (admin) ===== */
+const ROLES_COMPTE=[
+  {lab:'Gérant',col:'#F39200',ic:'ti-crown'},
+  {lab:'Bureau',col:'#3D8AC6',ic:'ti-briefcase'},
+  {lab:"Chef d'équipe",col:'#1B4F8A',ic:'ti-users'},
+  {lab:'Salarié',col:'#C66B3D',ic:'ti-tool'},
+  {lab:'Gestionnaire Stock',col:'#7A8B4F',ic:'ti-package'},
+  {lab:'Client',col:'#9B8FB8',ic:'ti-user'}
+];
+const roleCompte=lab=>ROLES_COMPTE.find(r=>r.lab===lab)||ROLES_COMPTE[3];
+const initiales=n=>(n||'?').split(' ').filter(Boolean).map(x=>x[0]).slice(0,2).join('').toUpperCase();
+let comptes=[
+  {id:'u1',nom:'Damien Gauthier',role:'Gérant',tel:'06 12 00 00 01',email:'damien@zinguerie-provencale.fr',photo:''},
+  {id:'u2',nom:'Tim Roca',role:'Bureau',tel:'06 12 00 00 05',email:'tim@zinguerie-provencale.fr',photo:''},
+  {id:'u3',nom:'Karim Morel',role:"Chef d'équipe",tel:'06 12 00 00 02',email:'karim@zinguerie-provencale.fr',photo:''},
+  {id:'u4',nom:'Lucas Berto',role:'Salarié',tel:'06 12 00 00 04',email:'lucas@zinguerie-provencale.fr',photo:''},
+  {id:'u5',nom:'Sandra Vidal',role:'Gestionnaire Stock',tel:'06 12 00 00 03',email:'sandra@zinguerie-provencale.fr',photo:''},
+  {id:'u6',nom:'Copropriété Les Oliviers',role:'Client',tel:'04 42 12 00 04',email:'syndic@oliviers.fr',photo:''}
+];
+let _comptePhotoTmp=null,_compteEdit=null;
+function openCompte(id){closeMenus();_comptePhotoTmp=null;_compteEdit=id||null;const u=id?comptes.find(x=>x.id===id):{nom:'',role:'Salarié',tel:'',email:'',photo:''};
+  modal(`<div class="modal-head"><h3>${id?'Modifier le profil':'Créer un profil'}</h3><button class="icon-x" onclick="this.closest('.overlay').remove()"><i class="ti ti-x"></i></button></div><div class="modal-body">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:14px">
+      <div id="comptePhotoPrev" style="width:84px;height:84px;border-radius:50%;background:${roleCompte(u.role).col};${u.photo?`background-image:url(${u.photo});background-size:cover;background-position:center`:''};display:flex;align-items:center;justify-content:center;color:#fff;font-size:28px;font-weight:800">${u.photo?'':initiales(u.nom)}</div>
+      <input type="file" id="comptePhotoInput" accept="image/*" style="display:none" onchange="_comptePhotoPick(this)">
+      <button class="btn sm" onclick="document.getElementById('comptePhotoInput').click()"><i class="ti ti-camera"></i> Photo</button>
+    </div>
+    <div class="field"><label>Nom complet</label><input id="cpNom" value="${(u.nom||'').replace(/"/g,'&quot;')}" placeholder="Prénom Nom"></div>
+    <div class="field"><label>Rôle associé</label><select id="cpRole" class="cell">${ROLES_COMPTE.map(r=>`<option ${u.role===r.lab?'selected':''}>${r.lab}</option>`).join('')}</select></div>
+    <div class="field"><label>Téléphone</label><input id="cpTel" value="${(u.tel||'').replace(/"/g,'&quot;')}"></div>
+    <div class="field"><label>Email (identifiant de connexion)</label><input id="cpMail" type="email" value="${(u.email||'').replace(/"/g,'&quot;')}"></div>
+    <button class="btn primary" style="width:100%;justify-content:center;margin-top:4px" onclick="saveCompte()"><i class="ti ti-check"></i> ${id?'Enregistrer':'Créer le profil'}</button>
+  </div>`);
+}
+function _comptePhotoPick(input){const f=input.files&&input.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{const img=new Image();img.onload=()=>{const max=200;let w=img.width,h=img.height;const sc=Math.min(1,max/Math.max(w,h));const cw=Math.round(w*sc),ch=Math.round(h*sc);const cv=document.createElement('canvas');cv.width=cw;cv.height=ch;cv.getContext('2d').drawImage(img,0,0,cw,ch);_comptePhotoTmp=cv.toDataURL('image/jpeg',0.82);const p=document.getElementById('comptePhotoPrev');if(p){p.style.backgroundImage='url('+_comptePhotoTmp+')';p.style.backgroundSize='cover';p.style.backgroundPosition='center';p.textContent='';}};img.src=ev.target.result;};r.readAsDataURL(f);}
+function saveCompte(){const nom=_v('cpNom');if(!nom){toast('Indiquez le nom','info','ti-alert-circle');return;}const role=document.getElementById('cpRole').value,tel=_v('cpTel'),email=_v('cpMail');
+  if(_compteEdit){const u=comptes.find(x=>x.id===_compteEdit);if(u){u.nom=nom;u.role=role;u.tel=tel;u.email=email;if(_comptePhotoTmp)u.photo=_comptePhotoTmp;}}
+  else{comptes.push({id:'u'+Date.now(),nom,role,tel,email,photo:_comptePhotoTmp||''});}
+  document.querySelectorAll('.overlay').forEach(o=>o.remove());render();toast(_compteEdit?'Profil mis à jour':'Profil créé — '+role,'ok','ti-user-check');}
+function delCompte(id){const u=comptes.find(x=>x.id===id);if(!u)return;if(confirm('Supprimer le profil de '+u.nom+' ?')){comptes=comptes.filter(x=>x.id!==id);render();toast('Profil supprimé','info','ti-trash');}}
 /* état vide réutilisable */
 function emptyState(ic,titre,sub,cta){return `<div style="text-align:center;padding:40px 20px"><div style="width:64px;height:64px;border-radius:18px;margin:0 auto 14px;display:flex;align-items:center;justify-content:center;background:var(--surface-2);color:var(--ink-3)"><i class="ti ${ic}" style="font-size:30px"></i></div><div style="font-family:'Baloo 2';font-weight:700;font-size:16px">${titre}</div><div class="muted" style="font-size:13px;margin-top:4px">${sub||''}</div>${cta||''}</div>`;}
 
@@ -649,7 +690,7 @@ views.dash=()=>{
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:14px">
     <div style="display:flex;align-items:center;gap:14px">
       <div style="width:52px;height:52px;border-radius:16px;background:linear-gradient(135deg,#FFB347,#F39200);display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:var(--shadow-orange);flex-shrink:0"><i class="ti ti-sun-high" style="font-size:27px"></i></div>
-      <div><h1 style="font-size:25px">Bonjour Damien 👋</h1><p class="muted" style="font-size:13px">Jeudi 25 juin 2026 · ${open.length} tâche${open.length>1?'s':''} à faire aujourd'hui</p></div>
+      <div><h1 style="font-size:25px">Bonjour ${((profilUser[role]&&profilUser[role].nom)||'').split(' ')[0]} 👋</h1><p class="muted" style="font-size:13px">Jeudi 25 juin 2026 · ${open.length} tâche${open.length>1?'s':''} à faire aujourd'hui</p></div>
     </div>
     <button class="btn primary" onclick="newChantier()"><i class="ti ti-plus"></i> Nouveau chantier</button>
   </div>
@@ -797,6 +838,27 @@ views.espaceClient=()=>{
     </div>
   </div>`;
 };
+
+views.comptes=()=>`<div class="view">
+  <div class="page-head"><div><h1>Utilisateurs & accès</h1><p>Créez et gérez les profils de votre équipe et de vos clients</p></div>
+    <button class="btn primary" onclick="openCompte()"><i class="ti ti-user-plus"></i> Créer un profil</button></div>
+  <div class="grid cols-3">
+    ${comptes.map(u=>{const r=roleCompte(u.role);return `<div class="card card-pad">
+      <div style="display:flex;align-items:center;gap:12px">
+        ${u.photo?`<span style="width:48px;height:48px;border-radius:50%;background-image:url(${u.photo});background-size:cover;background-position:center;flex-shrink:0"></span>`:`<span class="avatar-sm" style="width:48px;height:48px;font-size:16px;background:${r.col};flex-shrink:0">${initiales(u.nom)}</span>`}
+        <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${u.nom}</div>
+        <span class="tag" style="background:${r.col}22;color:${r.col};font-weight:700;margin-top:4px"><i class="ti ${r.ic}"></i> ${u.role}</span></div>
+      </div>
+      <div class="tiny" style="margin-top:11px;color:var(--ink-3);display:flex;flex-direction:column;gap:4px">
+        ${u.tel?`<span><i class="ti ti-phone"></i> ${u.tel}</span>`:''}
+        ${u.email?`<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><i class="ti ti-mail"></i> ${u.email}</span>`:''}
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn sm" style="flex:1;justify-content:center" onclick="openCompte('${u.id}')"><i class="ti ti-pencil"></i> Modifier</button>
+        <button class="icon-x" onclick="delCompte('${u.id}')" title="Supprimer"><i class="ti ti-trash"></i></button>
+      </div>
+    </div>`}).join('')}
+  </div></div>`;
 
 views.chantiers=()=>`<div class="view">
   <div class="page-head"><div><h1>Chantiers</h1><p>${chantiers.length} chantiers · cartes Provence par couleur</p></div>
@@ -2214,7 +2276,7 @@ document.addEventListener('keydown',e=>{
 
 /* ===== Persistance locale (localStorage) ===== */
 const ZP_STORE_KEY='zp_erp_state_v2';
-const _persistArrays={salaries,equipes,clients,chantiers,stock,profils,bureau,taches,demandesList,congesList,carnet,rdvs,devisLignes,catFournitures,ouvrages,factures};
+const _persistArrays={salaries,equipes,clients,chantiers,stock,profils,bureau,taches,demandesList,congesList,carnet,rdvs,devisLignes,catFournitures,ouvrages,factures,comptes};
 const _persistObjects={congesBalance,planStore,chatMsgs,chantierSteps,profilUser};
 function saveState(){try{const d={arr:{},obj:{},scal:{tauxMO,devisClient,rdvSeq,agendaWeek,planWeek,carnetChef}};for(const k in _persistArrays)d.arr[k]=_persistArrays[k];for(const k in _persistObjects)d.obj[k]=_persistObjects[k];localStorage.setItem(ZP_STORE_KEY,JSON.stringify(d));}catch(e){}}
 function loadState(){try{const raw=localStorage.getItem(ZP_STORE_KEY);if(!raw)return;const d=JSON.parse(raw);if(!d)return;if(d.arr)for(const k in _persistArrays){const v=d.arr[k];if(Array.isArray(v)){const a=_persistArrays[k];a.length=0;v.forEach(x=>a.push(x));}}if(d.obj)for(const k in _persistObjects){const v=d.obj[k];if(v&&typeof v==='object'){const o=_persistObjects[k];Object.keys(o).forEach(kk=>delete o[kk]);Object.assign(o,v);}}if(d.scal){const s=d.scal;if(typeof s.tauxMO==='number')tauxMO=s.tauxMO;if(s.devisClient!=null)devisClient=s.devisClient;if(typeof s.rdvSeq==='number')rdvSeq=s.rdvSeq;if(typeof s.agendaWeek==='number')agendaWeek=s.agendaWeek;if(typeof s.planWeek==='number')planWeek=s.planWeek;if(typeof s.carnetChef==='string')carnetChef=s.carnetChef;}planData=planWeekData(planWeek);}catch(e){}}
