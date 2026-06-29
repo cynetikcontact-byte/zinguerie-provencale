@@ -550,7 +550,9 @@ const NAV=[
   {id:'reglages',ic:'ti-settings',lab:'Réglages & coûts',roles:['patron']},
 ];
 let role='patron',view='dash',currentCh=null,welcomeOpen=true;
+let sessionEmail=null;
 const roleLabel={patron:'Patron',chef:"Chef d'équipe",gestion:'Gestionnaire',ouvrier:'Ouvrier',client:'Client'};
+const ROLEMAP={"Gérant":"patron","Bureau":"gestion","Chef d'équipe":"chef","Gestionnaire Stock":"gestion","Salarié":"ouvrier","Client":"client"};
 const roleAvatar={patron:'DG',chef:'KM',gestion:'GS',ouvrier:'LB',client:'SM'};
 const roleHome={patron:'dash',chef:'aujourdhui',gestion:'stock',ouvrier:'aujourdhui',client:'espaceClient'};
 
@@ -591,7 +593,7 @@ function profileMenu(e){e.stopPropagation();popMenu(e.currentTarget,`
   ${role==='patron'?'<button onclick="closeMenus();go(\'reglages\')"><i class="ti ti-settings"></i> Réglages & coûts</button>':''}
   <button onclick="closeMenus();document.getElementById('themeBtn').click()"><i class="ti ti-moon"></i> Basculer le thème</button>
   <div class="sep"></div>
-  <button onclick="closeMenus();toast('Déconnexion (démo)')"><i class="ti ti-logout"></i> Se déconnecter</button>`);}
+  <button onclick="logout()"><i class="ti ti-logout"></i> Se déconnecter</button>`);}
 /* ===== MON PROFIL ===== */
 let profilUser={
   patron:{nom:'Damien Gauthier',age:48,tel:'06 12 00 00 01',email:'damien@zinguerie-provencale.fr',poste:'Gérant',photo:''},
@@ -649,13 +651,14 @@ function openCompte(id){closeMenus();_comptePhotoTmp=null;_compteEdit=id||null;c
     <div class="field"><label>Rôle associé</label><select id="cpRole" class="cell">${ROLES_COMPTE.map(r=>`<option ${u.role===r.lab?'selected':''}>${r.lab}</option>`).join('')}</select></div>
     <div class="field"><label>Téléphone</label><input id="cpTel" value="${(u.tel||'').replace(/"/g,'&quot;')}"></div>
     <div class="field"><label>Email (identifiant de connexion)</label><input id="cpMail" type="email" value="${(u.email||'').replace(/"/g,'&quot;')}"></div>
+    <div class="field"><label>Mot de passe ${id?'(vide = inchangé)':'(pour la connexion)'}</label><input id="cpPass" type="text" value="${(u.pass||'').replace(/"/g,'&quot;')}" placeholder="Mot de passe du compte"></div>
     <button class="btn primary" style="width:100%;justify-content:center;margin-top:4px" onclick="saveCompte()"><i class="ti ti-check"></i> ${id?'Enregistrer':'Créer le profil'}</button>
   </div>`);
 }
 function _comptePhotoPick(input){const f=input.files&&input.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{const img=new Image();img.onload=()=>{const max=200;let w=img.width,h=img.height;const sc=Math.min(1,max/Math.max(w,h));const cw=Math.round(w*sc),ch=Math.round(h*sc);const cv=document.createElement('canvas');cv.width=cw;cv.height=ch;cv.getContext('2d').drawImage(img,0,0,cw,ch);_comptePhotoTmp=cv.toDataURL('image/jpeg',0.82);const p=document.getElementById('comptePhotoPrev');if(p){p.style.backgroundImage='url('+_comptePhotoTmp+')';p.style.backgroundSize='cover';p.style.backgroundPosition='center';p.textContent='';}};img.src=ev.target.result;};r.readAsDataURL(f);}
-function saveCompte(){const nom=_v('cpNom');if(!nom){toast('Indiquez le nom','info','ti-alert-circle');return;}const role=document.getElementById('cpRole').value,tel=_v('cpTel'),email=_v('cpMail');
-  if(_compteEdit){const u=comptes.find(x=>x.id===_compteEdit);if(u){u.nom=nom;u.role=role;u.tel=tel;u.email=email;if(_comptePhotoTmp)u.photo=_comptePhotoTmp;}}
-  else{comptes.push({id:'u'+Date.now(),nom,role,tel,email,photo:_comptePhotoTmp||''});}
+function saveCompte(){const nom=_v('cpNom');if(!nom){toast('Indiquez le nom','info','ti-alert-circle');return;}const role=document.getElementById('cpRole').value,tel=_v('cpTel'),email=_v('cpMail'),pass=_v('cpPass');
+  if(_compteEdit){const u=comptes.find(x=>x.id===_compteEdit);if(u){u.nom=nom;u.role=role;u.tel=tel;u.email=email;if(pass)u.pass=pass;if(_comptePhotoTmp)u.photo=_comptePhotoTmp;}}
+  else{comptes.push({id:'u'+Date.now(),nom,role,tel,email,pass:pass||'',photo:_comptePhotoTmp||''});}
   document.querySelectorAll('.overlay').forEach(o=>o.remove());render();toast(_compteEdit?'Profil mis à jour':'Profil créé — '+role,'ok','ti-user-check');}
 function delCompte(id){const u=comptes.find(x=>x.id===id);if(!u)return;if(confirm('Supprimer le profil de '+u.nom+' ?')){comptes=comptes.filter(x=>x.id!==id);render();toast('Profil supprimé','info','ti-trash');}}
 /* état vide réutilisable */
@@ -2427,16 +2430,46 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){document.querySelectorAll('.overlay').forEach(o=>o.remove());closeMenus();closeSidebar();sRes.innerHTML='';sIn.blur();}
 });
 
+/* ===== CONNEXION (soft login, sécurité réelle = Supabase plus tard) ===== */
+function currentCompte(){return sessionEmail?comptes.find(c=>(c.email||'').toLowerCase()===sessionEmail.toLowerCase()):null;}
+function _loginErr(m){const e=document.getElementById('loginErr');if(e){e.textContent=m;e.style.display='block';}}
+function removeLogin(){const o=document.getElementById('loginScreen');if(o)o.remove();}
+function _applyRoleUI(){document.querySelectorAll('#roleSwitch button').forEach(b=>b.classList.toggle('active',b.dataset.role===role));}
+function showLogin(){removeLogin();const logo=(document.querySelector('.brand-logo')||{}).src||'';
+  const o=document.createElement('div');o.id='loginScreen';
+  o.style.cssText='position:fixed;inset:0;z-index:9999;background:linear-gradient(135deg,#FFF8EE,#F5F0E6);display:flex;align-items:center;justify-content:center;padding:20px';
+  o.innerHTML=`<div style="background:#fff;border-radius:22px;box-shadow:0 20px 60px rgba(0,0,0,.18);width:100%;max-width:400px;padding:30px 28px;text-align:center">
+    ${logo?`<img src="${logo}" style="height:76px;margin-bottom:4px">`:'<h2>Zinguerie Provençale</h2>'}
+    <h2 style="font-family:'Baloo 2';font-size:22px;margin:6px 0 4px">Connexion</h2>
+    <p style="color:#6B6B6B;font-size:13px;margin-bottom:20px">Accède à ton espace Zinguerie Provençale</p>
+    <div style="text-align:left">
+      <label style="font-size:12px;font-weight:700;color:#6B6B6B">Adresse email</label>
+      <input id="loginEmail" type="email" autocomplete="username" placeholder="prenom@zinguerie-provencale.fr" style="width:100%;padding:12px 14px;border:1px solid #e3ddd0;border-radius:11px;margin:6px 0 14px;font-size:14px;box-sizing:border-box" onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()">
+      <label style="font-size:12px;font-weight:700;color:#6B6B6B">Mot de passe</label>
+      <input id="loginPass" type="password" autocomplete="current-password" placeholder="••••••••" style="width:100%;padding:12px 14px;border:1px solid #e3ddd0;border-radius:11px;margin:6px 0 6px;font-size:14px;box-sizing:border-box" onkeydown="if(event.key==='Enter')doLogin()">
+      <div id="loginErr" style="display:none;color:#B83A26;font-size:12.5px;font-weight:600;margin:4px 0"></div>
+    </div>
+    <button onclick="doLogin()" style="width:100%;margin-top:14px;padding:13px;border:none;border-radius:12px;background:linear-gradient(135deg,#FFB347,#F39200);color:#fff;font-weight:800;font-size:15px;cursor:pointer;box-shadow:0 6px 16px rgba(243,146,0,.35)"><i class="ti ti-login-2"></i> Se connecter</button>
+    <p style="color:#9c958a;font-size:11.5px;margin-top:16px;line-height:1.5">Première connexion ? Saisis l'email de ton compte et choisis un mot de passe — il sera enregistré.</p>
+  </div>`;
+  document.body.appendChild(o);setTimeout(()=>{const e=document.getElementById('loginEmail');if(e)e.focus();},60);
+}
+function doLogin(){const email=(_v('loginEmail')||'').toLowerCase(),pass=_v('loginPass')||'';if(!email){_loginErr('Saisis ton adresse email.');return;}const c=comptes.find(x=>(x.email||'').toLowerCase()===email);if(!c){_loginErr("Email inconnu. Vérifie l'adresse ou demande à l'administrateur.");return;}if(c.pass){if(c.pass!==pass){_loginErr('Mot de passe incorrect.');return;}}else{if(pass.length<4){_loginErr('Choisis un mot de passe (4 caractères minimum) — il sera enregistré.');return;}c.pass=pass;}
+  sessionEmail=c.email;role=ROLEMAP[c.role]||'ouvrier';const allowed=NAV.filter(i=>i.id&&i.roles.includes(role)).map(i=>i.id);view=allowed.includes(roleHome[role])?roleHome[role]:allowed[0];currentCh=null;
+  removeLogin();renderNav();render();applyAvatar();_applyRoleUI();saveState();toast('Bienvenue '+((c.nom||'').split(' ')[0])+' 👋','ok','ti-login-2');}
+function logout(){closeMenus();sessionEmail=null;saveState();showLogin();}
 /* ===== Persistance locale (localStorage) ===== */
 const ZP_STORE_KEY='zp_erp_state_v3';
 const _persistArrays={salaries,equipes,clients,chantiers,stock,profils,bureau,taches,demandesList,congesList,carnet,rdvs,devisLignes,catFournitures,ouvrages,factures,comptes,prodCats};
 const _persistObjects={congesBalance,planStore,chatMsgs,chantierSteps,profilUser};
-function saveState(){try{const d={arr:{},obj:{},scal:{tauxMO,devisClient,rdvSeq,agendaWeek,planWeek,carnetChef,coefMargeDefaut}};for(const k in _persistArrays)d.arr[k]=_persistArrays[k];for(const k in _persistObjects)d.obj[k]=_persistObjects[k];localStorage.setItem(ZP_STORE_KEY,JSON.stringify(d));}catch(e){}}
-function loadState(){try{const raw=localStorage.getItem(ZP_STORE_KEY);if(!raw)return;const d=JSON.parse(raw);if(!d)return;if(d.arr)for(const k in _persistArrays){const v=d.arr[k];if(Array.isArray(v)){const a=_persistArrays[k];a.length=0;v.forEach(x=>a.push(x));}}if(d.obj)for(const k in _persistObjects){const v=d.obj[k];if(v&&typeof v==='object'){const o=_persistObjects[k];Object.keys(o).forEach(kk=>delete o[kk]);Object.assign(o,v);}}if(d.scal){const s=d.scal;if(typeof s.tauxMO==='number')tauxMO=s.tauxMO;if(s.devisClient!=null)devisClient=s.devisClient;if(typeof s.rdvSeq==='number')rdvSeq=s.rdvSeq;if(typeof s.agendaWeek==='number')agendaWeek=s.agendaWeek;if(typeof s.planWeek==='number')planWeek=s.planWeek;if(typeof s.carnetChef==='string')carnetChef=s.carnetChef;if(typeof s.coefMargeDefaut==='number')coefMargeDefaut=s.coefMargeDefaut;}planData=planWeekData(planWeek);}catch(e){}}
+function saveState(){try{const d={arr:{},obj:{},scal:{tauxMO,devisClient,rdvSeq,agendaWeek,planWeek,carnetChef,coefMargeDefaut,sessionEmail}};for(const k in _persistArrays)d.arr[k]=_persistArrays[k];for(const k in _persistObjects)d.obj[k]=_persistObjects[k];localStorage.setItem(ZP_STORE_KEY,JSON.stringify(d));}catch(e){}}
+function loadState(){try{const raw=localStorage.getItem(ZP_STORE_KEY);if(!raw)return;const d=JSON.parse(raw);if(!d)return;if(d.arr)for(const k in _persistArrays){const v=d.arr[k];if(Array.isArray(v)){const a=_persistArrays[k];a.length=0;v.forEach(x=>a.push(x));}}if(d.obj)for(const k in _persistObjects){const v=d.obj[k];if(v&&typeof v==='object'){const o=_persistObjects[k];Object.keys(o).forEach(kk=>delete o[kk]);Object.assign(o,v);}}if(d.scal){const s=d.scal;if(typeof s.tauxMO==='number')tauxMO=s.tauxMO;if(s.devisClient!=null)devisClient=s.devisClient;if(typeof s.rdvSeq==='number')rdvSeq=s.rdvSeq;if(typeof s.agendaWeek==='number')agendaWeek=s.agendaWeek;if(typeof s.planWeek==='number')planWeek=s.planWeek;if(typeof s.carnetChef==='string')carnetChef=s.carnetChef;if(typeof s.coefMargeDefaut==='number')coefMargeDefaut=s.coefMargeDefaut;if(s.sessionEmail!==undefined)sessionEmail=s.sessionEmail;}planData=planWeekData(planWeek);}catch(e){}}
 function resetState(){try{localStorage.removeItem(ZP_STORE_KEY);}catch(e){}location.reload();}
 const _renderOrig=render;render=function(){_renderOrig();saveState();};
 loadState();
-renderNav();render();applyAvatar();
+if(sessionEmail){const c=currentCompte();if(c){role=ROLEMAP[c.role]||role;}else{sessionEmail=null;}}
+renderNav();render();applyAvatar();_applyRoleUI();
+if(!sessionEmail)showLogin();
 </script>
 <style>@media print{body *{visibility:hidden!important}#printArea,#printArea *{visibility:visible!important}#printArea{display:block!important;position:absolute;left:0;top:0;width:100%}@page{margin:12mm}}#printArea{display:none}</style>
 </body>
