@@ -1633,7 +1633,7 @@ views.devis=()=>{
   const ocard=o=>`<button onclick="addOuvrage('${o.id}')" style="border:1px solid var(--line);background:var(--surface);border-radius:13px;padding:12px;text-align:left;cursor:pointer;transition:.15s;font-family:inherit;box-shadow:var(--shadow-s)" onmouseover="this.style.transform='translateY(-3px)';this.style.borderColor='var(--orange)';this.style.boxShadow='var(--shadow)'" onmouseout="this.style.transform='';this.style.borderColor='var(--line)';this.style.boxShadow='var(--shadow-s)'"><div style="display:flex;align-items:center;gap:9px;margin-bottom:9px"><div style="width:34px;height:34px;border-radius:10px;background:rgba(243,146,0,.14);color:var(--orange);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0"><i class="ti ${o.icon}"></i></div><div style="font-weight:700;font-size:12.5px;line-height:1.15">${o.nom}</div></div><div style="display:flex;align-items:center;justify-content:space-between"><span class="rnd" style="font-weight:800;color:var(--orange-dark);font-size:14px">${ouvrPU(o)} €<span style="font-size:10px;color:var(--ink-3);font-weight:600">/${o.unite}</span></span><i class="ti ti-circle-plus" style="color:var(--olive);font-size:18px"></i></div></button>`;
   return `<div class="view">
   <div class="page-head"><div><h1>Devis & factures</h1><p>Devis D-2026-0142 · TVA 10% rénovation</p></div>
-    <div style="display:flex;gap:8px"><button class="btn" onclick="toast('PDF généré avec logo + mentions','ok','ti-file-download')"><i class="ti ti-download"></i> PDF</button><button class="btn primary" onclick="toast('Devis envoyé au client','ok','ti-send')"><i class="ti ti-send"></i> Envoyer</button></div></div>
+    <div style="display:flex;gap:8px"><button class="btn" onclick="exportDevisPDF()"><i class="ti ti-download"></i> PDF</button><button class="btn primary" onclick="toast('Devis envoyé au client','ok','ti-send')"><i class="ti ti-send"></i> Envoyer</button></div></div>
   <div class="card" style="margin-bottom:18px"><div class="card-pad" style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
     <div style="flex:1;min-width:240px"><label class="tiny" style="font-weight:700">CLIENT DU DEVIS</label>
       ${dc?`<div style="display:flex;align-items:center;gap:10px;margin-top:6px"><span class="avatar-sm" style="background:var(--terracotta)">${dc.nom.slice(0,2).toUpperCase()}</span><div style="flex:1;min-width:0"><div style="font-weight:700">${dc.nom}</div><div class="tiny">${[dc.adr,dc.ville].filter(Boolean).join(', ')}${dc.tel?' · '+dc.tel:''}</div>${dc.demande?`<span class="tag t-blue" style="margin-top:4px">${dc.demande}</span>`:''}</div><button class="btn sm" onclick="setDevisClient('')"><i class="ti ti-switch-horizontal"></i> Changer</button></div>`
@@ -1655,11 +1655,11 @@ views.devis=()=>{
     <div style="position:sticky;top:8px">
       <div class="tiny" style="font-weight:700;margin-bottom:8px;color:var(--ink-2)"><i class="ti ti-eye"></i> APERÇU DU DEVIS — en direct</div>
       <div class="card" style="padding:0;overflow:hidden;box-shadow:var(--shadow-l)"><div id="devisPreview">${devisPreviewHTML()}</div></div>
-      <div style="display:flex;gap:10px;margin-top:12px"><button class="btn" style="flex:1;justify-content:center" onclick="toast('PDF généré','ok','ti-file-download')"><i class="ti ti-download"></i> PDF</button><button class="btn primary" style="flex:1.4;justify-content:center" onclick="toast('Devis transformé en facture d\\'acompte','ok','ti-file-check')"><i class="ti ti-arrow-right"></i> → Facture d'acompte</button></div>
+      <div style="display:flex;gap:10px;margin-top:12px"><button class="btn" style="flex:1;justify-content:center" onclick="exportDevisPDF()"><i class="ti ti-download"></i> PDF</button><button class="btn primary" style="flex:1.4;justify-content:center" onclick="devisToFacture()"><i class="ti ti-arrow-right"></i> → Facture d'acompte</button></div>
     </div>
   </div>
-  <div class="card" style="margin-top:18px"><div class="card-head"><h3><i class="ti ti-receipt"></i> Factures</h3></div><table><thead><tr><th>N°</th><th>Client</th><th>Type</th><th>TTC</th><th>Statut</th><th>Échéance</th></tr></thead><tbody>
-    ${factures.map(f=>`<tr><td>${f.num}</td><td>${f.clientNom}</td><td>${f.type}</td><td>${fmt(f.ttc)}</td><td><span class="tag" style="background:${FSTAT[f.statut][1]};color:${FSTAT[f.statut][2]}"><span class="tdot"></span>${FSTAT[f.statut][0]}</span></td><td>${f.echeance}</td></tr>`).join('')}
+  <div class="card" style="margin-top:18px"><div class="card-head"><h3><i class="ti ti-receipt"></i> Factures</h3></div><table><thead><tr><th>N°</th><th>Client</th><th>Type</th><th>TTC</th><th>Statut</th><th>Échéance</th><th></th></tr></thead><tbody>
+    ${factures.map(f=>`<tr><td>${f.num}</td><td>${f.clientNom}</td><td>${f.type}</td><td>${fmt(f.ttc)}</td><td><span class="tag" style="background:${FSTAT[f.statut][1]};color:${FSTAT[f.statut][2]}"><span class="tdot"></span>${FSTAT[f.statut][0]}</span></td><td>${f.echeance}</td><td><button class="btn sm" onclick="exportFacturePDF('${f.num}')"><i class="ti ti-download"></i> PDF</button></td></tr>`).join('')}
   </tbody></table></div></div>`;
 };
 function devisTotals(){const st=devisLignes.reduce((a,l)=>a+l.qte*l.pu,0);return {st,tva:st*0.1,ttc:st*1.1};}
@@ -1700,6 +1700,48 @@ function devisPreviewHTML(){
 }
 
 function addOuvrage(id){const o=ouvr(id);if(!o)return;devisLignes.push({des:o.nom,qte:1,u:o.unite,pu:ouvrPU(o),cat:o.cat||'Divers'});render();toast('« '+o.nom+' » ajouté au devis','ok','ti-circle-plus');}
+/* ===== EXPORT PDF (devis / factures) ===== */
+function _logoSrc(){const el=document.querySelector('.brand-logo');return el?el.src:'';}
+function printDoc(html){let pa=document.getElementById('printArea');if(!pa){pa=document.createElement('div');pa.id='printArea';document.body.appendChild(pa);}pa.innerHTML='<div style="padding:6mm">'+html+'</div>';setTimeout(()=>window.print(),80);}
+function _docHeader(titre,num){const logo=_logoSrc();return `<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #F39200;padding-bottom:14px">
+  <div>${logo?`<img src="${logo}" style="height:62px">`:'<b style="font-size:18px">ZINGUERIE PROVENÇALE</b>'}</div>
+  <div style="text-align:right"><div style="font-weight:800;font-size:22px;color:#C56F00">${titre}</div><div style="font-size:11px;color:#6B6B6B">Nº ${num}</div><div style="font-size:11px;color:#6B6B6B">${new Date().toLocaleDateString('fr-FR')}</div></div></div>`;}
+function _docEmetteurClient(nomClient,extra){return `<div style="display:flex;justify-content:space-between;gap:16px;margin:16px 0;font-size:12px;line-height:1.5">
+  <div><div style="font-weight:700;color:#6B6B6B;font-size:10px">ÉMETTEUR</div>Zinguerie Provençale SARL<br>13400 Aubagne<br>SIRET 824 xxx xxx</div>
+  <div style="text-align:right"><div style="font-weight:700;color:#6B6B6B;font-size:10px">CLIENT</div><b>${nomClient}</b>${extra?'<br>'+extra:''}</div></div>`;}
+function devisDocHTML(){const t=devisTotals();const c=devisClient?cli(devisClient):null;
+  return `<div style="font-family:Inter,Arial,sans-serif;color:#2A2A2A;max-width:720px;margin:0 auto">
+    ${_docHeader('DEVIS','D-2026-0142')}
+    ${_docEmetteurClient(c?c.nom:'— aucun client —',c?[[c.adr,c.ville].filter(Boolean).join(', ')||c.ville||'',c.tel||''].filter(Boolean).join('<br>'):'')}
+    <table style="width:100%;font-size:11.5px;border-collapse:collapse"><thead><tr style="background:#F5F0E6"><th style="text-align:left;padding:7px 8px">Désignation</th><th style="text-align:right;padding:7px 6px">Qté</th><th style="text-align:left;padding:7px 4px">Un.</th><th style="text-align:right;padding:7px 6px">P.U.</th><th style="text-align:right;padding:7px 8px">Total HT</th></tr></thead><tbody>
+    ${[...new Set(devisLignes.map(l=>l.cat||'Divers'))].map(cat=>`<tr><td colspan="5" style="padding:9px 8px 4px;font-weight:800;font-size:10px;text-transform:uppercase;color:#C56F00">${cat}</td></tr>${devisLignes.filter(l=>(l.cat||'Divers')===cat).map(l=>`<tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px">${l.des}</td><td style="text-align:right;padding:6px 6px">${l.qte}</td><td style="padding:6px 4px">${l.u}</td><td style="text-align:right;padding:6px 6px">${l.pu} €</td><td style="text-align:right;padding:6px 8px;font-weight:600">${fmt(l.qte*l.pu)}</td></tr>`).join('')}`).join('')}
+    </tbody></table>
+    <div style="display:flex;justify-content:flex-end;margin-top:14px"><div style="width:240px;font-size:12.5px">
+      <div style="display:flex;justify-content:space-between;padding:4px 0"><span style="color:#6B6B6B">Sous-total HT</span><span>${fmt(t.st)}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:4px 0"><span style="color:#6B6B6B">TVA 10%</span><span>${fmt(t.tva)}</span></div>
+      <div style="display:flex;justify-content:space-between;font-weight:800;font-size:15px;border-top:1px solid #ddd;margin-top:4px;padding-top:8px;color:#C56F00"><span>Total TTC</span><span>${fmt(t.ttc)}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:4px 0"><span style="color:#6B6B6B">Acompte 30%</span><span>${fmt(t.ttc*0.3)}</span></div>
+    </div></div>
+    <div style="margin-top:18px;border-top:1px solid #ddd;padding-top:9px;font-size:10.5px;color:#6B6B6B">Assurance décennale AXA n° 2026-7741 · TVA FR xx · Garantie de parfait achèvement 1 an.</div>
+    <div style="margin-top:12px;font-size:11.5px">Bon pour accord, le ……/……/…… — Signature :</div>
+    <div style="height:60px;border:1px dashed #ccc;border-radius:8px;margin-top:6px"></div>
+  </div>`;}
+function exportDevisPDF(){printDoc(devisDocHTML());toast("Fenêtre d'impression — choisissez « Enregistrer en PDF »",'info','ti-file-download');}
+function factureDocHTML(f){
+  return `<div style="font-family:Inter,Arial,sans-serif;color:#2A2A2A;max-width:720px;margin:0 auto">
+    ${_docHeader('FACTURE',f.num)}
+    ${_docEmetteurClient(f.clientNom,'')}
+    <table style="width:100%;font-size:12px;border-collapse:collapse"><thead><tr style="background:#F5F0E6"><th style="text-align:left;padding:8px">Désignation</th><th style="text-align:right;padding:8px">Montant TTC</th></tr></thead>
+    <tbody><tr style="border-bottom:1px solid #eee"><td style="padding:8px">${f.type} — travaux de zinguerie</td><td style="text-align:right;padding:8px;font-weight:600">${fmt(f.ttc)}</td></tr></tbody></table>
+    <div style="display:flex;justify-content:flex-end;margin-top:14px"><div style="width:240px;font-size:13px">
+      <div style="display:flex;justify-content:space-between;font-weight:800;font-size:15px;color:#C56F00;border-top:1px solid #ddd;padding-top:8px"><span>Total à payer</span><span>${fmt(f.ttc)}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:12px;color:#6B6B6B"><span>Échéance</span><span>${f.echeance}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:2px 0;font-size:12px;color:#6B6B6B"><span>Statut</span><span>${FSTAT[f.statut][0]}</span></div>
+    </div></div>
+    <div style="margin-top:18px;border-top:1px solid #ddd;padding-top:9px;font-size:10.5px;color:#6B6B6B">Règlement à réception. Pénalités de retard : 3× le taux légal. Pas d'escompte pour paiement anticipé. Assurance décennale AXA n° 2026-7741.</div>
+  </div>`;}
+function exportFacturePDF(num){const f=factures.find(x=>x.num===num);if(f){printDoc(factureDocHTML(f));toast("Fenêtre d'impression — choisissez « Enregistrer en PDF »",'info','ti-file-download');}}
+function devisToFacture(){const t=devisTotals();if(t.ttc<=0){toast('Le devis est vide','info','ti-alert-circle');return;}const c=devisClient?cli(devisClient):null;const num='F-'+String(104+factures.length);factures.unshift({num,clientNom:c?c.nom:'—',type:'Acompte 30%',ttc:Math.round(t.ttc*0.3),statut:'attente',echeance:'à 30 j'});render();toast("Facture d'acompte créée — "+fmt(t.ttc*0.3),'ok','ti-file-check');}
 let editOuvr=null;
 function nouvelOuvrage(){editOuvr={nom:'',cat:'Préparation',unite:'m²',h:0.5,four:[]};modal('<div id="ouvrForm"></div>');drawOuvrForm();}
 function ouvrAddFour(){editOuvr.four.push({fid:catFournitures[0].id,qte:1});drawOuvrForm();}
@@ -2285,5 +2327,6 @@ const _renderOrig=render;render=function(){_renderOrig();saveState();};
 loadState();
 renderNav();render();applyAvatar();
 </script>
+<style>@media print{body *{visibility:hidden!important}#printArea,#printArea *{visibility:visible!important}#printArea{display:block!important;position:absolute;left:0;top:0;width:100%}@page{margin:12mm}}#printArea{display:none}</style>
 </body>
 </html>
