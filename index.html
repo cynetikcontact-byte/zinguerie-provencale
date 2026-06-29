@@ -689,7 +689,7 @@ views.dash=()=>{
   return `<div class="view">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:14px">
     <div style="display:flex;align-items:center;gap:14px">
-      <div style="width:52px;height:52px;border-radius:16px;background:linear-gradient(135deg,#FFB347,#F39200);display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:var(--shadow-orange);flex-shrink:0"><i class="ti ti-sun-high" style="font-size:27px"></i></div>
+      <div style="width:52px;height:52px;border-radius:16px;${profilUser[role].photo?`background-image:url(${profilUser[role].photo});background-size:cover;background-position:center`:'background:linear-gradient(135deg,#FFB347,#F39200)'};display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;font-weight:800;box-shadow:var(--shadow-orange);flex-shrink:0">${profilUser[role].photo?'':initiales(profilUser[role].nom)}</div>
       <div><h1 style="font-size:25px">Bonjour ${((profilUser[role]&&profilUser[role].nom)||'').split(' ')[0]} 👋</h1><p class="muted" style="font-size:13px">Jeudi 25 juin 2026 · ${open.length} tâche${open.length>1?'s':''} à faire aujourd'hui</p></div>
     </div>
     <button class="btn primary" onclick="newChantier()"><i class="ti ti-plus"></i> Nouveau chantier</button>
