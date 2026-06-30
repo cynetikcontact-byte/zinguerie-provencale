@@ -1765,12 +1765,29 @@ function openClient(id){
     ${chs.length?chs.map(ch=>`<div style="display:flex;align-items:center;gap:10px;padding:9px;border:1px solid var(--line);border-radius:10px;margin-bottom:7px;cursor:pointer" onclick="this.closest('.overlay').remove();currentCh='${ch.id}';view='chantierDetail';renderNav();render()"><span style="width:10px;height:10px;border-radius:50%;background:${ch.col}"></span><div style="flex:1"><div style="font-weight:600;font-size:13px">${ch.nom}</div><div class="tiny">${stt(ch.statut)} · ${fmt(ch.prix)}</div></div><i class="ti ti-chevron-right" style="color:var(--ink-3)"></i></div>`).join(''):'<div class="tiny" style="margin-bottom:10px;color:var(--ink-3)">Aucun chantier en cours.</div>'}
     <div class="tiny" style="font-weight:700;margin:14px 0 8px">DEVIS DU CLIENT (${dos.length})${dos.length?' · '+fmt(dos.reduce((a,d)=>a+d.ht,0))+' HT':''}</div>
     ${dos.length?dos.map(d=>`<div style="display:flex;align-items:center;gap:10px;padding:9px;border:1px solid var(--line);border-radius:10px;margin-bottom:7px;cursor:pointer" onclick="this.closest('.overlay').remove();ouvrirAffaire('${d.ref}')"><i class="ti ti-file-invoice" style="color:${d.archived?'var(--ink-3)':'var(--orange)'}"></i><div style="flex:1;min-width:0"><div style="font-weight:600;font-size:13px">${d.ref!=='—'?d.ref:d.client}</div><div class="tiny">${(d.ht).toLocaleString('fr-FR')} € HT</div></div>${d.archived?'<span class="tag" style="background:var(--surface-3);color:var(--ink-2)"><i class="ti ti-archive" style="font-size:11px"></i> Refusé</span>':`<span class="tag" style="background:${CSTAT[d.st][2]};color:${CSTAT[d.st][1]}">${CSTAT[d.st][0]}</span>`}<i class="ti ti-chevron-right" style="color:var(--ink-3);margin-left:4px"></i></div>`).join(''):'<div class="tiny" style="margin-bottom:10px;color:var(--ink-3)">Aucun devis assigné à ce client.</div>'}
-    <div style="display:flex;gap:10px;margin-top:18px">
+    <button class="btn" style="width:100%;justify-content:center;margin-top:16px" onclick="this.closest('.overlay').remove();editClient('${id}')"><i class="ti ti-edit"></i> Modifier les coordonnées</button>
+    <div style="display:flex;gap:10px;margin-top:10px">
       <button class="btn" style="flex:1;justify-content:center" onclick="this.closest('.overlay').remove();planVisite('${c.nom.replace(/'/g,'')}')"><i class="ti ti-calendar-plus"></i> Visite</button>
       <button class="btn primary" style="flex:1.3;justify-content:center" onclick="this.closest('.overlay').remove();nouveauDossier('${c.nom.replace(/'/g,'')}')"><i class="ti ti-file-invoice"></i> Nouveau devis</button>
     </div>
   </div>`);
 }
+function editClient(id){const c=cli(id);if(!c)return;
+  const types=['Particulier','Pro','Collectivité','Syndic','Copropriété','Promoteur'];
+  if(c.type&&!types.includes(c.type))types.unshift(c.type);
+  modal(`<div class="modal-head"><h3>Modifier le client</h3><button class="icon-x" onclick="this.closest('.overlay').remove()"><i class="ti ti-x"></i></button></div>
+  <div class="modal-body">
+    <div class="field"><label>Nom / Raison sociale</label><input id="ecNom" value="${(c.nom||'').replace(/"/g,'&quot;')}"></div>
+    <div style="display:flex;gap:12px"><div class="field" style="flex:1"><label>Type</label><select id="ecType" class="cell">${types.map(t=>`<option ${((c.type||'Particulier')===t)?'selected':''}>${t}</option>`).join('')}</select></div><div class="field" style="flex:1"><label>Téléphone</label><input id="ecTel" value="${(c.tel||'').replace(/"/g,'&quot;')}" placeholder="06 …"></div></div>
+    <div class="field"><label>Email</label><input id="ecMail" type="email" value="${(c.mail||'').replace(/"/g,'&quot;')}" placeholder="client@email.fr"></div>
+    <div class="field"><label>Adresse</label><input id="ecAdr" value="${(c.adr||'').replace(/"/g,'&quot;')}" placeholder="N° et rue"></div>
+    <div class="field"><label>Ville / Code postal</label><input id="ecVille" value="${(c.ville||'').replace(/"/g,'&quot;')}" placeholder="Aubagne 13400"></div>
+    <div class="field"><label>Demande / Besoin</label><input id="ecDem" value="${(c.demande||'').replace(/"/g,'&quot;')}" placeholder="Ex. Réfection gouttières"></div>
+    <div class="field"><label>Note interne</label><textarea id="ecNote" rows="2" style="width:100%;resize:vertical;font-family:inherit" placeholder="Accès, contraintes, remarques…">${(c.note||'').replace(/</g,'&lt;')}</textarea></div>
+    <button class="btn primary" style="width:100%;justify-content:center;margin-top:4px" onclick="saveClientEdit('${id}')"><i class="ti ti-check"></i> Enregistrer</button>
+  </div>`);
+}
+function saveClientEdit(id){const c=cli(id);if(!c)return;const nom=_v('ecNom');if(!nom){toast('Le nom du client est requis','info','ti-alert-circle');return;}c.nom=nom;c.type=_v('ecType')||c.type;c.tel=_v('ecTel')||'—';c.mail=_v('ecMail');c.adr=_v('ecAdr');c.ville=_v('ecVille');c.demande=_v('ecDem');c.note=_v('ecNote');document.querySelectorAll('.overlay').forEach(o=>o.remove());render();saveState();toast('Coordonnées mises à jour','ok','ti-user-check');openClient(id);}
 
 views.devis=()=>{
   const dc=devisClient?cli(devisClient):null;
