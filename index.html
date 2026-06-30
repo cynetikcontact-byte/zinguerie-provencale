@@ -272,6 +272,29 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;heigh
   .icon-btn{width:44px;height:44px}
   .topbar{padding:0 14px;gap:10px}
 }
+/* ===== Responsive mobile renforcé ===== */
+@media(max-width:880px){
+  /* empiler tous les layouts 2 colonnes (devis, chat, fiches…) */
+  .main [style*="1.35fr 1fr"],.main [style*="1.5fr 1fr"],.main [style*="1fr 1.1fr"],.main [style*="1fr 1fr"],.main [style*="280px 1fr"],.main [style*="252px 1fr"],.main [style*="repeat(3,1fr)"],.main [style*="repeat(4,1fr)"],.main [style*="repeat(2,1fr)"]{grid-template-columns:1fr!important}
+  .main [style*="position:sticky"]{position:static!important;top:auto!important}
+  .page-head{flex-wrap:wrap;gap:10px;align-items:flex-start}
+  .page-head>div:last-child{width:100%;flex-wrap:wrap}
+  .modal-head{padding:15px 16px}
+  .modal-body{padding:16px 16px}
+  /* calendriers / plannings : scroll horizontal au lieu de déborder */
+  .card:has([style*="px repeat("]){overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .main [style*="px repeat("]{min-width:540px}
+}
+@media(max-width:560px){
+  .main{padding:14px 12px 74px}
+  .top-right{gap:6px}
+  #createBtn{padding:0 12px;font-size:0;gap:0}
+  #createBtn i{font-size:19px}
+  .search input{font-size:13px}
+  .page-head h1{font-size:18px}
+  h1{font-size:20px}
+  .card-pad{padding:14px}
+}
 @media(pointer:coarse){
   .btn{min-height:44px}.nav-item{min-height:48px}
   .pl-chip .px{width:24px;height:24px;display:flex!important}
