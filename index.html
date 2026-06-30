@@ -320,6 +320,9 @@ html{-webkit-text-size-adjust:100%}
   #devisPreview tr{display:table-row;padding:0;border:0}
   #devisPreview td,#devisPreview th{display:table-cell;border:revert!important;padding:revert!important}
 }
+/* Bascule affichage desktop / mobile dédié (ex: stock) */
+.only-mobile{display:none}
+@media(max-width:880px){.only-desktop{display:none!important}.only-mobile{display:flex!important}}
 /* ===== Barre d'onglets mobile (bottom nav) — désactivée, on garde le menu à gauche ===== */
 .bottomnav{display:none!important}
 @media(max-width:880px){
@@ -598,6 +601,7 @@ let ouvrages=[
   {id:'o4',cat:'Zinguerie',nom:'Habillage rive / solin',icon:'ti-border-style',unite:'ml',h:0.4,four:[{fid:'f-solin',qte:1}]},
 ];
 let devisClient='c1';
+let devisDossiers=[];let currentDevis=null;
 function ouvrPU(o){const mo=o.h*tauxMO;const fo=o.four.reduce((a,f)=>a+((catF(f.fid)||{pu:0}).pu)*f.qte,0);return Math.round(mo+fo);}
 function ouvrCout(o){const mo=(o.h||0)*coutMO;const fo=(o.four||[]).reduce((a,f)=>a+((catF(f.fid)||{achat:0}).achat||0)*(f.qte||0),0);return Math.round(mo+fo);}
 const ouvr=id=>ouvrages.find(o=>o.id===id);
@@ -618,7 +622,8 @@ const NAV=[
   {id:'appels',ic:'ti-phone-plus',lab:'Appels & nouveaux clients',roles:['patron','chef']},
   {id:'carnet',ic:'ti-notebook',lab:'Carnet de commande',roles:['patron','chef']},
   {id:'clients',ic:'ti-users',lab:'Clients',roles:['patron','chef']},
-  {id:'devis',ic:'ti-file-invoice',lab:'Devis & factures',roles:['patron']},
+  {id:'devis',ic:'ti-file-invoice',lab:'Devis',roles:['patron']},
+  {id:'factures',ic:'ti-receipt',lab:'Factures',roles:['patron']},
   {id:'biblio',ic:'ti-books',lab:'Bibliothèque',roles:['patron','chef']},
   {id:'archives',ic:'ti-archive',lab:'Archives & SAV',roles:['patron','chef']},
   {sect:'Métier zinguerie'},
@@ -1833,13 +1838,25 @@ function editClient(id){const c=cli(id);if(!c)return;
 }
 function saveClientEdit(id){const c=cli(id);if(!c)return;const nom=_v('ecNom');if(!nom){toast('Le nom du client est requis','info','ti-alert-circle');return;}c.nom=nom;c.type=_v('ecType')||c.type;c.tel=_v('ecTel')||'—';c.mail=_v('ecMail');c.adr=_v('ecAdr');c.ville=_v('ecVille');c.demande=_v('ecDem');c.note=_v('ecNote');document.querySelectorAll('.overlay').forEach(o=>o.remove());render();saveState();toast('Coordonnées mises à jour','ok','ti-user-check');openClient(id);}
 
+/* ===== Multi-dossiers de devis ===== */
+function _syncCurDevis(){if(!currentDevis||!Array.isArray(devisDossiers))return;const d=devisDossiers.find(x=>x.id===currentDevis);if(d){d.lignes=devisLignes.slice();d.clientId=devisClient;d.maj=Date.now();}}
+function _migrateDevis(){if(!Array.isArray(devisDossiers)||devisDossiers.length)return;devisDossiers.push({id:'dv'+Date.now(),ref:'D-2026-0142',clientId:devisClient||'',lignes:devisLignes.slice(),maj:Date.now()});}
+function _dossierTotal(d){return ((d&&d.lignes)||[]).reduce((a,l)=>a+(+l.qte||0)*(+l.pu||0),0);}
+function openDevisDossier(id){const d=devisDossiers.find(x=>x.id===id);if(!d)return;_syncCurDevis();currentDevis=id;devisLignes.length=0;(d.lignes||[]).forEach(l=>devisLignes.push(l));devisClient=d.clientId||'';view='devis';renderNav();render();}
+function newDevis(){_syncCurDevis();const n=143+devisDossiers.length;const id='dv'+Date.now();devisDossiers.unshift({id,ref:'D-2026-0'+n,clientId:'',lignes:[],maj:Date.now()});currentDevis=id;devisLignes.length=0;devisClient='';view='devis';render();toast('Nouveau devis créé — ajoute tes ouvrages','ok','ti-file-plus');}
+function backToDevisList(){_syncCurDevis();currentDevis=null;render();}
+function delDevisDossier(id){if(!confirm('Supprimer définitivement ce devis ?'))return;const i=devisDossiers.findIndex(x=>x.id===id);if(i<0)return;devisDossiers.splice(i,1);if(currentDevis===id){currentDevis=null;devisLignes.length=0;devisClient='';}render();toast('Devis supprimé','info','ti-trash');}
+function devisListView(){return `<div class="view"><div class="page-head"><div><h1>Devis</h1><p>${devisDossiers.length} dossier${devisDossiers.length>1?'s':''} en cours · travaille sur plusieurs en parallèle</p></div><button class="btn primary" onclick="newDevis()"><i class="ti ti-file-plus"></i> Nouveau devis</button></div>${devisDossiers.length?`<div class="grid cols-2" style="gap:14px">${devisDossiers.slice().sort((a,b)=>(b.maj||0)-(a.maj||0)).map(d=>{const c=d.clientId?cli(d.clientId):null;const ht=_dossierTotal(d);const nl=(d.lignes||[]).length;return `<div class="card" style="cursor:pointer" onclick="openDevisDossier('${d.id}')"><div class="card-pad"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px"><div style="min-width:0"><div style="font-weight:800;font-size:15px">${d.ref}</div><div class="tiny" style="margin-top:3px;color:var(--ink-2)">${c?c.nom:'<span style="color:var(--ink-3)">Sans client</span>'}</div></div><button class="icon-x" title="Supprimer le devis" onclick="event.stopPropagation();delDevisDossier('${d.id}')"><i class="ti ti-trash"></i></button></div><div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:14px"><div><div class="tiny" style="color:var(--ink-3)">Total HT</div><div style="font-weight:800;font-size:20px;color:var(--orange-dark)">${fmt(ht)}</div></div><span class="tag" style="background:var(--surface-2);color:var(--ink-2)">${nl} ligne${nl>1?'s':''}</span></div></div></div>`;}).join('')}</div>`:emptyState('ti-file-invoice','Aucun devis en cours','Clique « Nouveau devis » pour démarrer un dossier. Tu peux en gérer plusieurs en parallèle.')}</div>`;}
+views.factures=()=>`<div class="view"><div class="page-head"><div><h1>Factures</h1><p>${factures.length} facture${factures.length>1?'s':''}</p></div></div><div class="card"><table><thead><tr><th>N°</th><th>Client</th><th>Type</th><th>TTC</th><th>Statut</th><th>Échéance</th><th></th></tr></thead><tbody>${factures.length?factures.map(f=>`<tr><td>${f.num}</td><td>${f.clientNom}</td><td>${f.type}</td><td>${fmt(f.ttc)}</td><td><span class="tag" style="background:${FSTAT[f.statut][1]};color:${FSTAT[f.statut][2]}"><span class="tdot"></span>${FSTAT[f.statut][0]}</span></td><td>${f.echeance}</td><td><button class="btn sm" onclick="exportFacturePDF('${f.num}')"><i class="ti ti-download"></i> PDF</button></td></tr>`).join(''):`<tr><td colspan="7" style="text-align:center;color:var(--ink-3);padding:24px">Aucune facture pour le moment. Crée-la depuis un devis.</td></tr>`}</tbody></table></div></div>`;
 views.devis=()=>{
+  _migrateDevis();
+  if(!currentDevis)return devisListView();
   const dc=devisClient?cli(devisClient):null;
   const cats=[...new Set(ouvrages.map(o=>o.cat||'Autres'))];
   const rdvN=dc?rdvs.filter(r=>r.client===dc.nom):[];
   const ocard=o=>`<button onclick="addOuvrage('${o.id}')" style="border:1px solid var(--line);background:var(--surface);border-radius:13px;padding:12px;text-align:left;cursor:pointer;transition:.15s;font-family:inherit;box-shadow:var(--shadow-s)" onmouseover="this.style.transform='translateY(-3px)';this.style.borderColor='var(--orange)';this.style.boxShadow='var(--shadow)'" onmouseout="this.style.transform='';this.style.borderColor='var(--line)';this.style.boxShadow='var(--shadow-s)'"><div style="display:flex;align-items:center;gap:9px;margin-bottom:9px"><div style="width:34px;height:34px;border-radius:10px;background:rgba(243,146,0,.14);color:var(--orange);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0"><i class="ti ${o.icon}"></i></div><div style="font-weight:700;font-size:12.5px;line-height:1.15">${o.nom}</div></div><div style="display:flex;align-items:center;justify-content:space-between"><span class="rnd" style="font-weight:800;color:var(--orange-dark);font-size:14px">${ouvrPU(o)} €<span style="font-size:10px;color:var(--ink-3);font-weight:600">/${o.unite}</span></span><i class="ti ti-circle-plus" style="color:var(--olive);font-size:18px"></i></div><div class="tiny" style="margin-top:7px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding-top:6px"><span style="color:var(--ink-3)">Déb. <b style="color:#B5651D">${fmt(ouvrCout(o))}</b></span><span style="color:${(ouvrPU(o)-ouvrCout(o))>=0?'var(--olive)':'var(--alerte)'};font-weight:800">marge ${(ouvrPU(o)-ouvrCout(o))>=0?'+':''}${fmt(ouvrPU(o)-ouvrCout(o))}</span></div></button>`;
   return `<div class="view">
-  <div class="page-head"><div><h1>Devis & factures</h1><p>Devis D-2026-0142 · TVA 10% rénovation</p></div>
+  <div class="page-head"><div style="display:flex;align-items:center;gap:10px;min-width:0"><button class="btn sm" onclick="backToDevisList()"><i class="ti ti-arrow-left"></i> Tous les devis</button><div style="min-width:0"><h1 style="font-size:21px">${(devisDossiers.find(x=>x.id===currentDevis)||{}).ref||'Devis'}</h1><p>TVA 10% rénovation</p></div></div>
     <div style="display:flex;gap:8px"><button class="btn" onclick="exportDevisPDF()"><i class="ti ti-download"></i> PDF</button><button class="btn primary" onclick="toast('Devis envoyé au client','ok','ti-send')"><i class="ti ti-send"></i> Envoyer</button></div></div>
   <div class="card" style="margin-bottom:18px"><div class="card-pad" style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
     <div style="flex:1;min-width:240px"><label class="tiny" style="font-weight:700">CLIENT DU DEVIS</label>
@@ -1864,10 +1881,7 @@ views.devis=()=>{
       <button class="btn" style="width:100%;justify-content:center;margin-top:12px;background:rgba(122,139,79,.16);color:var(--olive);border-color:transparent;font-weight:800" onclick="validerDevisStock()"><i class="ti ti-checks"></i> Valider le devis → réserver le stock</button>
       <div style="display:flex;gap:10px;margin-top:10px"><button class="btn" style="flex:1;justify-content:center" onclick="exportDevisPDF()"><i class="ti ti-download"></i> PDF</button><button class="btn primary" style="flex:1.4;justify-content:center" onclick="devisToFacture()"><i class="ti ti-arrow-right"></i> → Facture d'acompte</button></div>
     </div>
-  </div>
-  <div class="card" style="margin-top:18px"><div class="card-head"><h3><i class="ti ti-receipt"></i> Factures</h3></div><table><thead><tr><th>N°</th><th>Client</th><th>Type</th><th>TTC</th><th>Statut</th><th>Échéance</th><th></th></tr></thead><tbody>
-    ${factures.map(f=>`<tr><td>${f.num}</td><td>${f.clientNom}</td><td>${f.type}</td><td>${fmt(f.ttc)}</td><td><span class="tag" style="background:${FSTAT[f.statut][1]};color:${FSTAT[f.statut][2]}"><span class="tdot"></span>${FSTAT[f.statut][0]}</span></td><td>${f.echeance}</td><td><button class="btn sm" onclick="exportFacturePDF('${f.num}')"><i class="ti ti-download"></i> PDF</button></td></tr>`).join('')}
-  </tbody></table></div></div>`;
+  </div></div>`;
 };
 function _lineCout(l){return (+l.h||0)*coutMO+(l.four||[]).reduce((a,f)=>a+((catF(f.fid)||{achat:0}).achat||0)*(+f.qte||0),0);}
 function devisTotals(){let st=0,cout=0;devisLignes.forEach(l=>{const q=+l.qte||0;st+=q*(+l.pu||0);cout+=q*_lineCout(l);});return {st,cout,marge:st-cout,tva:st*0.1,ttc:st*1.1};}
@@ -1960,7 +1974,7 @@ function factureDocHTML(f){
     <div style="margin-top:18px;border-top:1px solid #ddd;padding-top:9px;font-size:10.5px;color:#6B6B6B">Règlement à réception. Pénalités de retard : 3× le taux légal. Pas d'escompte pour paiement anticipé. Assurance décennale AXA n° 2026-7741.</div>
   </div>`;}
 function exportFacturePDF(num){const f=factures.find(x=>x.num===num);if(f){printDoc(factureDocHTML(f));toast("Fenêtre d'impression — choisissez « Enregistrer en PDF »",'info','ti-file-download');}}
-function devisToFacture(){const t=devisTotals();if(t.ttc<=0){toast('Le devis est vide','info','ti-alert-circle');return;}const c=devisClient?cli(devisClient):null;const num='F-'+String(104+factures.length);factures.unshift({num,clientNom:c?c.nom:'—',type:'Acompte 30%',ttc:Math.round(t.ttc*0.3),statut:'attente',echeance:'à 30 j'});render();toast("Facture d'acompte créée — "+fmt(t.ttc*0.3),'ok','ti-file-check');}
+function devisToFacture(){const t=devisTotals();if(t.ttc<=0){toast('Le devis est vide','info','ti-alert-circle');return;}const c=devisClient?cli(devisClient):null;const num='F-'+String(104+factures.length);factures.unshift({num,clientNom:c?c.nom:'—',type:'Acompte 30%',ttc:Math.round(t.ttc*0.3),statut:'attente',echeance:'à 30 j'});go('factures');toast("Facture d'acompte créée — "+fmt(t.ttc*0.3),'ok','ti-file-check');}
 function _devisBesoins(){const need={};devisLignes.forEach(l=>{const q=+l.qte||0;if(l.four&&l.four.length){l.four.forEach(f=>{if(f.fid)need[f.fid]=(need[f.fid]||0)+(+f.qte||0)*q;});}else if(l.ovId){const o=ouvr(l.ovId);if(o&&o.four)o.four.forEach(f=>{need[f.fid]=(need[f.fid]||0)+(+f.qte||0)*q;});}});return need;}
 function validerDevisStock(){const need=_devisBesoins();const ids=Object.keys(need);
   if(!ids.length){toast('Aucun produit à réserver — ce devis n\'utilise pas d\'ouvrage de la bibliothèque','info','ti-info-circle');return;}
@@ -2073,8 +2087,9 @@ views.profils=()=>`<div class="view"><div class="page-head"><div><h1>Profils zin
   </tbody></table></div></div>`;
 
 views.stock=()=>{const bas=produitsBas();const num=(id,f,v,w)=>`<input class="cell noarrow" type="number" min="0" step="any" value="${v||0}" onchange="stockSet('${id}','${f}',this.value)" style="width:${w}px;text-align:center;font-weight:700;font-size:15px">`;
+  const numM=(id,f,v)=>`<input class="cell noarrow" type="number" min="0" step="any" value="${v||0}" onchange="stockSet('${id}','${f}',this.value)" style="width:100%;text-align:center;font-weight:700;font-size:16px;box-sizing:border-box">`;
   return `<div class="view"><div class="page-head"><div><h1>Stock & inventaire</h1><p>${catFournitures.length} produits · <span style="color:var(--alerte);font-weight:600">${bas.length} sous le seuil</span> · saisie directe des quantités</p></div><div style="display:flex;gap:8px"><button class="btn primary" onclick="openScanner()"><i class="ti ti-qrcode"></i> Scanner un QR</button><button class="btn" onclick="biblioTab='produits';go('biblio')"><i class="ti ti-package"></i> Gérer les produits</button></div></div>
-  <div class="card"><table><thead><tr><th>Produit</th><th style="text-align:center">Stock disponible</th><th style="text-align:center">Réservé chantier</th><th>Dispo. réel</th><th>Niveau</th><th style="text-align:center">Seuil d'alerte</th><th>Statut</th><th>QR</th></tr></thead><tbody>
+  <div class="card only-desktop"><table><thead><tr><th>Produit</th><th style="text-align:center">Stock disponible</th><th style="text-align:center">Réservé chantier</th><th>Dispo. réel</th><th>Niveau</th><th style="text-align:center">Seuil d'alerte</th><th>Statut</th><th>QR</th></tr></thead><tbody>
     ${catFournitures.map(p=>{const d=stockDispo(p),low=stockBas(p),pc=Math.min(100,Math.round(d/(((p.seuil||1)*2))*100));return `<tr><td style="font-weight:600">${p.nom}<div class="tiny" style="color:var(--ink-3)">${p.cat||'Divers'} · ${p.u}</div></td>
       <td style="text-align:center">${num(p.id,'stock',p.stock,72)} <span class="tiny" style="color:var(--ink-3)">${p.u}</span></td>
       <td style="text-align:center">${num(p.id,'reserve',p.reserve,64)} <span class="tiny" style="color:var(--ink-3)">${p.u}</span><div class="tiny" style="color:var(--ink-3)">auto à la validation devis</div></td>
@@ -2084,6 +2099,22 @@ views.stock=()=>{const bas=produitsBas();const num=(id,f,v,w)=>`<input class="ce
       <td>${low?'<span class="tag" style="background:rgba(184,58,38,.13);color:var(--alerte)"><i class="ti ti-alert-triangle" style="font-size:12px"></i> réappro</span>':'<span class="tag" style="background:rgba(122,139,79,.16);color:var(--olive)"><span class="tdot"></span>OK</span>'}</td>
       <td><button class="btn sm ghost" title="QR code de rayonnage" onclick="showProdQR('${p.id}')"><i class="ti ti-qrcode"></i></button></td></tr>`}).join('')}
   </tbody></table></div>
+  <div class="only-mobile" style="flex-direction:column;gap:11px">${catFournitures.map(p=>{const d=stockDispo(p),low=stockBas(p),pc=Math.min(100,Math.round(d/(((p.seuil||1)*2))*100));return `<div class="card" style="padding:13px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+      <div style="min-width:0"><div style="font-weight:700;font-size:14px">${p.nom}</div><div class="tiny" style="color:var(--ink-3)">${p.cat||'Divers'} · ${p.u}</div></div>
+      ${low?'<span class="tag" style="background:rgba(184,58,38,.13);color:var(--alerte);flex-shrink:0"><i class="ti ti-alert-triangle" style="font-size:12px"></i> réappro</span>':'<span class="tag" style="background:rgba(122,139,79,.16);color:var(--olive);flex-shrink:0"><span class="tdot"></span> OK</span>'}
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;margin:11px 0 10px">
+      <div style="flex:1"><div class="bar"><span style="width:${pc}%;background:${low?'var(--alerte)':'var(--olive)'}"></span></div></div>
+      <div style="text-align:right;flex-shrink:0"><span class="tiny" style="color:var(--ink-3)">Dispo. réel </span><b style="font-size:17px;color:${low?'var(--alerte)':'var(--ink)'}">${d}</b> <span class="tiny" style="color:var(--ink-3)">${p.u}</span></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center">
+      <div><div class="tiny" style="color:var(--ink-3);margin-bottom:3px">Stock dispo.</div>${numM(p.id,'stock',p.stock)}</div>
+      <div><div class="tiny" style="color:var(--ink-3);margin-bottom:3px">Réservé</div>${numM(p.id,'reserve',p.reserve)}</div>
+      <div><div class="tiny" style="color:var(--ink-3);margin-bottom:3px">Seuil</div>${numM(p.id,'seuil',p.seuil)}</div>
+    </div>
+    <button class="btn sm ghost" style="width:100%;justify-content:center;margin-top:11px" onclick="showProdQR('${p.id}')"><i class="ti ti-qrcode"></i> QR rayonnage</button>
+  </div>`;}).join('')}</div>
   <div class="tiny" style="color:var(--ink-3);margin-top:10px"><i class="ti ti-info-circle"></i> Tape directement la quantité réelle dans les cases. Dispo. réel = stock disponible − réservé chantier. Imprime le QR d'un produit pour le coller sur son étagère : le gestionnaire le scanne pour ajouter/retirer du stock en un geste.</div></div>`;};
 
 /* ===== QR code produit + scanner stock ===== */
@@ -2693,10 +2724,10 @@ function _doReset(){if(!_resetEmail){doLogin();return;}const c=comptes.find(x=>x
 async function logout(){closeMenus();try{if(sb)await sb.auth.signOut();}catch(e){}_cloudReady=false;sessionEmail=null;saveState();showLogin();}
 /* ===== Persistance locale (localStorage) + cloud (Supabase) ===== */
 const ZP_STORE_KEY='zp_erp_state_v3';
-const _persistArrays={salaries,equipes,clients,chantiers,stock,profils,bureau,taches,demandesList,congesList,carnet,rdvs,devisLignes,catFournitures,ouvrages,factures,comptes,prodCats,ouvrCats};
+const _persistArrays={salaries,equipes,clients,chantiers,stock,profils,bureau,taches,demandesList,congesList,carnet,rdvs,devisLignes,catFournitures,ouvrages,factures,comptes,prodCats,ouvrCats,devisDossiers};
 const _persistObjects={congesBalance,planStore,chatMsgs,chantierSteps,profilUser};
-function _stateObj(){const d={arr:{},obj:{},scal:{tauxMO,coutMO,devisClient,rdvSeq,agendaWeek,planWeek,carnetChef,coefMargeDefaut,sessionEmail}};for(const k in _persistArrays)d.arr[k]=_persistArrays[k];for(const k in _persistObjects)d.obj[k]=_persistObjects[k];return d;}
-function _applyState(d){if(!d)return;if(d.arr)for(const k in _persistArrays){const v=d.arr[k];if(Array.isArray(v)){const a=_persistArrays[k];a.length=0;v.forEach(x=>a.push(x));}}if(d.obj)for(const k in _persistObjects){const v=d.obj[k];if(v&&typeof v==='object'){const o=_persistObjects[k];Object.keys(o).forEach(kk=>delete o[kk]);Object.assign(o,v);}}if(d.scal){const s=d.scal;if(typeof s.tauxMO==='number')tauxMO=s.tauxMO;if(s.devisClient!=null)devisClient=s.devisClient;if(typeof s.rdvSeq==='number')rdvSeq=s.rdvSeq;if(typeof s.agendaWeek==='number')agendaWeek=s.agendaWeek;if(typeof s.planWeek==='number')planWeek=s.planWeek;if(typeof s.carnetChef==='string')carnetChef=s.carnetChef;if(typeof s.coefMargeDefaut==='number')coefMargeDefaut=s.coefMargeDefaut;if(typeof s.coutMO==='number')coutMO=s.coutMO;}planData=planWeekData(planWeek);}
+function _stateObj(){if(typeof _syncCurDevis==='function')_syncCurDevis();const d={arr:{},obj:{},scal:{tauxMO,coutMO,devisClient,currentDevis,rdvSeq,agendaWeek,planWeek,carnetChef,coefMargeDefaut,sessionEmail}};for(const k in _persistArrays)d.arr[k]=_persistArrays[k];for(const k in _persistObjects)d.obj[k]=_persistObjects[k];return d;}
+function _applyState(d){if(!d)return;if(d.arr)for(const k in _persistArrays){const v=d.arr[k];if(Array.isArray(v)){const a=_persistArrays[k];a.length=0;v.forEach(x=>a.push(x));}}if(d.obj)for(const k in _persistObjects){const v=d.obj[k];if(v&&typeof v==='object'){const o=_persistObjects[k];Object.keys(o).forEach(kk=>delete o[kk]);Object.assign(o,v);}}if(d.scal){const s=d.scal;if(typeof s.tauxMO==='number')tauxMO=s.tauxMO;if(s.devisClient!=null)devisClient=s.devisClient;if(s.currentDevis!==undefined)currentDevis=s.currentDevis;if(typeof s.rdvSeq==='number')rdvSeq=s.rdvSeq;if(typeof s.agendaWeek==='number')agendaWeek=s.agendaWeek;if(typeof s.planWeek==='number')planWeek=s.planWeek;if(typeof s.carnetChef==='string')carnetChef=s.carnetChef;if(typeof s.coefMargeDefaut==='number')coefMargeDefaut=s.coefMargeDefaut;if(typeof s.coutMO==='number')coutMO=s.coutMO;}planData=planWeekData(planWeek);}
 function saveState(){try{localStorage.setItem(ZP_STORE_KEY,JSON.stringify(_stateObj()));}catch(e){}_cloudPush();}
 function loadState(){try{const raw=localStorage.getItem(ZP_STORE_KEY);if(!raw)return;const d=JSON.parse(raw);if(!d)return;_applyState(d);if(d.scal&&d.scal.sessionEmail!==undefined)sessionEmail=d.scal.sessionEmail;}catch(e){}}
 function resetState(){try{localStorage.removeItem(ZP_STORE_KEY);}catch(e){}location.reload();}
