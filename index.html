@@ -2740,7 +2740,7 @@ const SUPA_URL='https://xmsdqrmsvmxqnikcivhv.supabase.co';
 const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhtc2Rxcm1zdm14cW5pa2Npdmh2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3NDIxODEsImV4cCI6MjA5ODMxODE4MX0.alBvBxSkIItEO25vmxBvmImXn0wXnOZoHUVinoiHVNA';
 let sb=null;try{if(window.supabase&&window.supabase.createClient)sb=window.supabase.createClient(SUPA_URL,SUPA_KEY);}catch(e){}
 let _cloudReady=false,_pushT=null,_lastSync=0;
-function _cloudPush(immediate){if(!sb||!_cloudReady||!sessionEmail)return;clearTimeout(_pushT);const go=async()=>{try{const obj=_stateObj();obj._src=_clientId;obj._ts=Date.now();await sb.from('workspace').upsert({id:'main',data:obj,updated_at:new Date().toISOString()});_lastSync=Date.now();_syncFoot();}catch(e){}};if(immediate)return go();_pushT=setTimeout(go,1200);}
+function _cloudPush(immediate){if(!sb||!_cloudReady||!sessionEmail)return;clearTimeout(_pushT);const go=async()=>{try{const obj=_stateObj();obj._src=_clientId;obj._ts=Date.now();const ua=new Date().toISOString();await sb.from('workspace').upsert({id:'main',data:obj,updated_at:ua});_lastUpdatedAt=ua;_lastSync=Date.now();_syncFoot();}catch(e){}};if(immediate)return go();_pushT=setTimeout(go,1200);}
 function _syncFoot(){const el=document.getElementById('syncFoot');if(!el)return;if(!sb){el.innerHTML='<span class="pulse" style="background:#c9c2b4"></span> Hors-ligne (local)';return;}if(!sessionEmail){el.innerHTML='<span class="pulse"></span> Cloud prêt';return;}const s=_lastSync?Math.round((Date.now()-_lastSync)/1000):null;el.innerHTML='<span class="pulse"></span> '+(s!=null?('Synchronisé · il y a '+(s<60?(s+' s'):(Math.round(s/60)+' min'))):'Cloud connecté');}
 try{setInterval(_syncFoot,5000);}catch(e){}
 async function _cloudPull(){if(!sb)return 'error';try{const r=await sb.from('workspace').select('data').eq('id','main').maybeSingle();if(r.error)return 'error';const d=r.data&&r.data.data;if(d&&d.arr&&Object.keys(d.arr).length){_applyState(d);return 'has';}return 'empty';}catch(e){return 'error';}}
@@ -2751,32 +2751,36 @@ if(sb){try{sb.auth.onAuthStateChange((ev)=>{if(ev==='PASSWORD_RECOVERY'){const n
 const _renderOrig=render;render=function(){_renderOrig();saveState();_syncFoot();};
 /* ===== Synchro temps réel des données métier (anti-écrasement multi-utilisateurs) ===== */
 let _clientId=Math.random().toString(36).slice(2)+Date.now().toString(36);
-let _wsSub=null,_pendingRemote=null;
+let _wsSub=null,_remotePullT=null,_pendingPull=false,_lastUpdatedAt=null;
 function _isTyping(){const a=document.activeElement;return !!(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)&&a.type!=='checkbox'&&a.type!=='radio');}
-function _applyRemote(data){
-  if(!data||!data.arr)return;
-  if(_isTyping()){_pendingRemote=data;return;}      /* ne pas couper une saisie en cours */
-  _pendingRemote=null;
+async function _pullAndApply(){
+  if(!sb||!_cloudReady||!sessionEmail)return;
+  if(_isTyping()){_pendingPull=true;return;}        /* ne pas couper une saisie en cours */
+  _pendingPull=false;
   try{
-    _applyState(data);
+    const r=await sb.from('workspace').select('data,updated_at').eq('id','main').maybeSingle();
+    const row=r&&r.data; const d=row&&row.data;
+    if(row&&row.updated_at)_lastUpdatedAt=row.updated_at;
+    if(!d||!d.arr||d._src===_clientId)return;        /* rien, ou notre propre enregistrement */
+    _applyState(d);
     if(typeof renderNav==='function')renderNav();
-    _renderOrig();                                    /* re-render SANS re-pousser → évite le ping-pong */
+    _renderOrig();                                    /* re-render SANS re-pousser → pas de boucle */
     if(typeof _syncFoot==='function')_syncFoot();
     try{localStorage.setItem(ZP_STORE_KEY,JSON.stringify(_stateObj()));}catch(e){}
   }catch(e){}
 }
+function _scheduleRemotePull(){clearTimeout(_remotePullT);_remotePullT=setTimeout(_pullAndApply,300);}
 function _wsSubscribe(){
   if(!sb||_wsSub)return;
-  try{
-    _wsSub=sb.channel('rt-workspace').on('postgres_changes',{event:'*',schema:'public',table:'workspace',filter:'id=eq.main'},p=>{
-      const nd=p.new&&p.new.data;
-      if(!nd||nd._src===_clientId)return;            /* ignorer nos propres enregistrements */
-      _applyRemote(nd);
-    }).subscribe();
-  }catch(e){}
+  try{_wsSub=sb.channel('rt-workspace').on('postgres_changes',{event:'*',schema:'public',table:'workspace',filter:'id=eq.main'},()=>_scheduleRemotePull()).subscribe();}catch(e){}
 }
-try{document.addEventListener('focusout',()=>{if(_pendingRemote){const d=_pendingRemote;setTimeout(()=>{if(_pendingRemote===d)_applyRemote(d);},250);}});}catch(e){}
-try{document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&sb&&_cloudReady&&sessionEmail&&!_isTyping()){_cloudPull().then(st=>{if(st==='has'){if(typeof renderNav==='function')renderNav();_renderOrig();_syncFoot();}});}});}catch(e){}
+async function _pollCheck(){
+  if(!sb||!_cloudReady||!sessionEmail||_isTyping()||document.visibilityState!=='visible')return;
+  try{const r=await sb.from('workspace').select('updated_at').eq('id','main').maybeSingle();const ua=r&&r.data&&r.data.updated_at;if(ua&&ua!==_lastUpdatedAt)_pullAndApply();}catch(e){}
+}
+try{setInterval(_pollCheck,15000);}catch(e){}
+try{document.addEventListener('focusout',()=>{if(_pendingPull)setTimeout(()=>{if(_pendingPull)_pullAndApply();},250);});}catch(e){}
+try{document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&!_isTyping())_scheduleRemotePull();});}catch(e){}
 loadState();
 async function _boot(){
   renderNav();render();applyAvatar();_applyRoleUI();
