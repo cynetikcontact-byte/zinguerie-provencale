@@ -964,6 +964,7 @@ views.biblio=()=>{
         <div class="card-pad">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><div style="min-width:0"><div style="font-weight:700;font-size:14px">${o.nom}</div><span class="tag" style="background:rgba(243,146,0,.12);color:var(--orange-dark);margin-top:4px">${o.cat||'Divers'}</span></div><div style="text-align:right"><div style="font-weight:800;color:var(--orange-dark)">${ouvrPU(o)} €</div><div class="tiny" style="color:var(--ink-3);font-weight:600">/${o.unite}</div></div></div>
           <div class="tiny" style="color:var(--ink-3);margin-top:10px"><i class="ti ti-hammer"></i> ${o.h} h MO · <i class="ti ti-package"></i> ${o.four.length} produit${o.four.length>1?'s':''}</div>
+          <div class="tiny" style="margin-top:8px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding-top:8px"><span style="color:var(--ink-3)">Déboursé <b style="color:#B5651D">${fmt(ouvrCout(o))}</b></span><span style="color:${(ouvrPU(o)-ouvrCout(o))>=0?'var(--olive)':'var(--alerte)'};font-weight:800">Marge ${(ouvrPU(o)-ouvrCout(o))>=0?'+':''}${fmt(ouvrPU(o)-ouvrCout(o))}</span></div>
           <div style="display:flex;gap:8px;margin-top:10px"><button class="btn sm" style="flex:1;justify-content:center" onclick="editOuvrage('${o.id}')"><i class="ti ti-pencil"></i> Modifier</button><button class="icon-x" onclick="delOuvrage('${o.id}')"><i class="ti ti-trash"></i></button></div>
         </div></div>`).join('')}</div>
     `}
