@@ -301,8 +301,9 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;heigh
 html{-webkit-text-size-adjust:100%}
 @media(max-width:880px){
   html,body{overflow-x:hidden!important;max-width:100%}
-  .app,.main,.view,.card{max-width:100%;overflow-x:hidden}
-  .card{overflow-x:hidden}
+  .app{grid-template-columns:minmax(0,1fr)!important;min-width:0;max-width:100vw}
+  .main,.view,.card{max-width:100%;min-width:0;overflow-x:hidden}
+  .card table,.card tbody,.card tr,.card td,.card:has(table) table{min-width:0!important;max-width:100%}
   /* tableaux -> cartes empilées : plus de colonnes à faire défiler latéralement */
   .card table{display:block;width:100%}
   .card table thead{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;padding:0;margin:-1px}
