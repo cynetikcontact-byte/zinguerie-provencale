@@ -295,6 +295,19 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;heigh
   h1{font-size:20px}
   .card-pad{padding:14px}
 }
+/* ===== Barre d'onglets mobile (bottom nav) ===== */
+.bottomnav{display:none}
+@media(max-width:880px){
+  .bottomnav{display:flex;position:fixed;bottom:0;left:0;right:0;z-index:30;background:var(--surface);border-top:1px solid var(--line);box-shadow:0 -5px 18px rgba(40,30,10,.08);padding:7px 4px;padding-bottom:calc(7px + env(safe-area-inset-bottom,0px));justify-content:space-around;backdrop-filter:saturate(1.1)}
+  .bn-item{flex:1 1 0;display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:0;padding:3px 2px;color:var(--ink-3);font-family:inherit;cursor:pointer;min-width:0;transition:color .15s}
+  .bn-item .bn-ic{position:relative;font-size:23px;line-height:1;transition:transform .15s}
+  .bn-item .bn-lab{font-size:10px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;letter-spacing:.01em}
+  .bn-item.on{color:var(--orange-dark)}
+  .bn-item.on .bn-ic{transform:translateY(-2px)}
+  .bn-item.on .bn-ic::after{content:"";position:absolute;left:50%;bottom:-7px;transform:translateX(-50%);width:5px;height:5px;border-radius:50%;background:var(--orange)}
+  .bn-badge{position:absolute;top:-6px;right:-10px;background:var(--alerte);color:#fff;font-size:9px;font-weight:800;min-width:15px;height:15px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 3px;box-shadow:0 0 0 2px var(--surface)}
+  .main{padding-bottom:84px!important}
+}
 /* Composition des lignes de devis : nom sur sa propre ligne sur mobile */
 @media(max-width:620px){
   .compo-head{display:none!important}
@@ -345,6 +358,7 @@ input.noarrow{-moz-appearance:textfield;appearance:textfield}
   <main class="main" id="content"></main>
 </div>
 <div id="navScrim" onclick="closeSidebar()"></div>
+<nav id="bottomNav" class="bottomnav" aria-label="Navigation mobile"></nav>
 <div id="toasts"></div>
 
 <script>
@@ -619,7 +633,11 @@ function renderNav(){
     b.innerHTML=`<i class="ti ${it.ic}"></i>${it.lab}`+(bd?`<span class="nav-badge">${bd}</span>`:'');
     b.onclick=()=>go(it.id);n.appendChild(b);
   });
+  renderBottomNav();
 }
+const MOBNAV={patron:['dash','chantiers','devis','stock','chat'],chef:['aujourdhui','chantiers','planning','stock','chat'],gestion:['stock','profils','chat'],ouvrier:['aujourdhui','chantiers','planning','pointage','chat'],client:['espaceClient']};
+const BN_SHORT={dash:'Accueil',aujourdhui:"Aujourd'hui",chantiers:'Chantiers',planning:'Planning',pointage:'Pointage',devis:'Devis',stock:'Stock',chat:'Messages',profils:'Profilés',espaceClient:'Mon chantier',clients:'Clients',biblio:'Biblio',agenda:'Agenda'};
+function renderBottomNav(){const bn=document.getElementById('bottomNav');if(!bn)return;if(!sessionEmail){bn.style.display='none';bn.innerHTML='';return;}const items=(MOBNAV[role]||[]).map(id=>NAV.find(x=>x.id===id&&x.roles&&x.roles.includes(role))).filter(Boolean);if(items.length<2){bn.style.display='none';bn.innerHTML='';return;}bn.style.display='';const activeId=SUBVIEW[view]||view;bn.innerHTML=items.map(it=>{const on=activeId===it.id;const bd=navBadge(it.id);return `<button class="bn-item${on?' on':''}" onclick="go('${it.id}')"><span class="bn-ic"><i class="ti ${it.ic}"></i>${bd?`<span class="bn-badge">${bd}</span>`:''}</span><span class="bn-lab">${BN_SHORT[it.id]||it.lab}</span></button>`}).join('');}
 function go(v){view=v;currentCh=null;renderNav();render();closeSidebar();}
 
 /* ===== Navigation mobile & menus ===== */
@@ -650,6 +668,7 @@ let profilUser={
 };
 let _profilPhotoTmp=null;
 /* Identité = la personne réellement connectée (compte), pas le rôle générique */
+function _pretty(n){n=(n||'').trim();if(!n)return'';if(n.includes(' '))return n;if(/[._\d@]/.test(n)){const c=n.split('@')[0].replace(/[._]+/g,' ').replace(/\d+/g,'').trim();return c.split(' ').filter(Boolean).map(w=>w[0].toUpperCase()+w.slice(1)).join(' ')||n;}return n;}
 function _meName(){const c=currentCompte();return ((c&&c.nom)||(profilUser[role]&&profilUser[role].nom)||'');}
 function _mePhoto(){const c=currentCompte();return (c&&c.photo)||(profilUser[role]&&profilUser[role].photo)||'';}
 function _meInit(){const n=_meName();return n?initiales(n):roleAvatar[role];}
@@ -748,7 +767,7 @@ views.dash=()=>{
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:14px">
     <div style="display:flex;align-items:center;gap:14px">
       <div style="width:52px;height:52px;border-radius:16px;${_mePhoto()?`background-image:url(${_mePhoto()});background-size:cover;background-position:center`:'background:linear-gradient(135deg,#FFB347,#F39200)'};display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;font-weight:800;box-shadow:var(--shadow-orange);flex-shrink:0">${_mePhoto()?'':_meInit()}</div>
-      <div><h1 style="font-size:25px">Bonjour ${(_meName().split(' ')[0])||'à vous'} 👋</h1><p class="muted" style="font-size:13px">Jeudi 25 juin 2026 · ${open.length} tâche${open.length>1?'s':''} à faire aujourd'hui</p></div>
+      <div><h1 style="font-size:25px">Bonjour ${(_pretty(_meName()).split(' ')[0])||'à vous'} 👋</h1><p class="muted" style="font-size:13px">Jeudi 25 juin 2026 · ${open.length} tâche${open.length>1?'s':''} à faire aujourd'hui</p></div>
     </div>
     <button class="btn primary" onclick="newChantier()"><i class="ti ti-plus"></i> Nouveau chantier</button>
   </div>
@@ -807,7 +826,7 @@ function kpiS(lab,val,sub,ic,col,bg){return `<div class="kpi"><div class="ic" st
 views.aujourdhui=()=>{
   const c=chn('ch1');
   return `<div class="view">
-  <div class="page-head"><div><h1>Aujourd'hui</h1><p>Bonjour ${(_meName().split(' ')[0])||'à vous'} ☀️ · jeudi 25 juin</p></div></div>
+  <div class="page-head"><div><h1>Aujourd'hui</h1><p>Bonjour ${(_pretty(_meName()).split(' ')[0])||'à vous'} ☀️ · jeudi 25 juin</p></div></div>
   <div class="hero" style="background:linear-gradient(135deg,${c.col}d9,${c.col}8c)"><div class="roof"></div><div class="veil"></div>
     <div class="hero-top"><div class="chip-w"><i class="ti ti-sun"></i> 24°</div><div class="people">${c.equipe.map(s=>`<span class="avatar-sm" style="background:${sal(s).col}">${sal(s).init}</span>`).join('')}</div></div>
     <div><div class="eyebrow">AUJOURD'HUI SUR</div><h2>${c.nom}</h2>
