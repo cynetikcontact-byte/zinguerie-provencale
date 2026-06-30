@@ -2160,38 +2160,32 @@ views.conges=()=>{
   </div></div>`;
 };
 
-let chatChan=null, chatSort='recent';
-let chatMsgs={
-  ch1:[{who:'km',txt:'On démarre la pose zinc demain, prévoyez le harnais.',time:'08:12'},{who:'lb',txt:'Reçu chef 👍 Je passe prendre la soudure au dépôt.',time:'08:15',me:true},{who:'as',txt:'Métré chéneau ok, 12 ml comme prévu.',time:'09:02'}],
-  ch2:[{who:'km',txt:'Échafaudage monté côté est, ça avance bien.',time:'07:50'},{who:'as',txt:"Il manque 2 bobines de zinc, j'ai fait une demande.",time:'10:20'}],
-  ch3:[{who:'as',txt:'Bardage à préparer, métré envoyé au bureau.',time:'Hier'}],
-};
-function sendChatMsg(){const inp=document.getElementById('chatInput');const v=(inp.value||'').trim();if(!v||!chatChan)return;(chatMsgs[chatChan]=chatMsgs[chatChan]||[]).push({who:'lb',txt:v,time:new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}),me:true});render();}
+let chatChan='general', chatSort='recent';
+let chatMsgs={};
+let chatStore={}, _chatSub=null, _chatLoaded={};
+function _chatRender(){const inp=document.getElementById('chatInput');const v=inp?inp.value:null;const foc=inp&&document.activeElement===inp;render();if(v!=null){const n=document.getElementById('chatInput');if(n){n.value=v;if(foc)n.focus();}}}
+async function chatLoad(channel){if(!sb)return;try{const r=await sb.from('messages').select('*').eq('channel',channel).order('created_at',{ascending:true}).limit(300);if(!r.error){chatStore[channel]=r.data||[];if(view==='chat')_chatRender();}}catch(e){}}
+function chatSubscribe(){if(!sb||_chatSub)return;try{_chatSub=sb.channel('rt-messages').on('postgres_changes',{event:'INSERT',schema:'public',table:'messages'},p=>{const m=p.new;if(!m)return;const arr=chatStore[m.channel]=chatStore[m.channel]||[];if(!arr.some(x=>x.id===m.id)){arr.push(m);if(view==='chat')_chatRender();}}).subscribe();}catch(e){}}
+async function sendChatMsg(){const inp=document.getElementById('chatInput');if(!inp)return;const v=(inp.value||'').trim();if(!v)return;const c=currentCompte();const email=(sessionEmail||'').toLowerCase();const name=c?c.nom:((email.split('@')[0])||'Moi');inp.value='';if(sb){try{const r=await sb.from('messages').insert({channel:chatChan,author_email:email,author_name:name,body:v}).select().single();if(r.error){inp.value=v;toast('Message non envoyé','info','ti-alert-circle');return;}const arr=chatStore[chatChan]=chatStore[chatChan]||[];if(r.data&&!arr.some(x=>x.id===r.data.id))arr.push(r.data);render();}catch(e){inp.value=v;}}else{const arr=chatStore[chatChan]=chatStore[chatChan]||[];arr.push({id:'l'+Date.now(),channel:chatChan,author_email:email,author_name:name,body:v,created_at:new Date().toISOString()});render();}}
+function _chatTime(iso){try{const d=new Date(iso),now=new Date();return d.toDateString()===now.toDateString()?d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}):(d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})+' '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}));}catch(e){return '';}}
+function _chatScrollBottom(){const el=document.getElementById('chatMsgs');if(el)el.scrollTop=el.scrollHeight;}
 views.chat=()=>{
-  const chans=chantiers.filter(c=>['cours','prep'].includes(c.statut));
-  if(!chatChan||!chans.find(c=>c.id===chatChan))chatChan=(chans[0]||{}).id;
-  const nbMsg=c=>(chatMsgs[c.id]||[]).length;
-  const lastMsg=c=>{const m=chatMsgs[c.id]||[];return m.length?m[m.length-1]:null;};
-  let sorted=[...chans];
-  if(chatSort==='nom')sorted.sort((a,b)=>a.nom.localeCompare(b.nom));
-  else if(chatSort==='statut')sorted.sort((a,b)=>a.statut.localeCompare(b.statut)||a.nom.localeCompare(b.nom));
-  else sorted.sort((a,b)=>nbMsg(b)-nbMsg(a));
-  const cur=chn(chatChan);const msgs=cur?(chatMsgs[chatChan]||[]):[];
-  return `<div class="view"><div class="page-head"><div><h1>Messagerie</h1><p>Un fil par chantier en cours ou en préparation · ${chans.length} discussions</p></div>
-    <div style="display:flex;align-items:center;gap:8px"><span class="tiny" style="font-weight:700">Trier :</span><select class="cell" onchange="chatSort=this.value;render()" style="height:38px"><option value="recent" ${chatSort==='recent'?'selected':''}>Plus actifs</option><option value="nom" ${chatSort==='nom'?'selected':''}>Chantier (A→Z)</option><option value="statut" ${chatSort==='statut'?'selected':''}>Statut</option></select></div></div>
+  chatSubscribe();
+  const chanList=[{id:'general',nom:'Équipe Zinguerie',col:'#F39200',icon:'ti-users-group',sub:'Toute l\'équipe'}].concat(chantiers.filter(c=>['cours','prep'].includes(c.statut)).map(c=>({id:'ch:'+c.id,nom:c.nom,col:c.col,icon:'ti-building',sub:c.statut==='prep'?'En préparation':'En cours'})));
+  if(!chanList.find(c=>c.id===chatChan))chatChan='general';
+  if(sb&&!_chatLoaded[chatChan]){_chatLoaded[chatChan]=true;chatLoad(chatChan);}
+  const cur=chanList.find(c=>c.id===chatChan);const msgs=chatStore[chatChan]||[];const meEmail=(sessionEmail||'').toLowerCase();
+  setTimeout(_chatScrollBottom,0);
+  const ini=n=>(n||'?').split(' ').filter(Boolean).map(x=>x[0]).slice(0,2).join('').toUpperCase();
+  const colorOf=e=>{let h=0;for(let i=0;i<(e||'').length;i++)h=(h*31+e.charCodeAt(i))%360;return 'hsl('+h+',45%,52%)';};
+  return `<div class="view"><div class="page-head"><div><h1>Messagerie d'équipe</h1><p>Chat partagé en temps réel · ${chanList.length} canaux</p></div></div>
   <div class="grid" style="grid-template-columns:280px 1fr;align-items:start;gap:16px">
-    <div class="card" style="overflow:hidden"><div class="card-head"><h3><i class="ti ti-messages"></i> Chantiers</h3><span class="tag t-blue">${chans.length}</span></div>
-      <div>${sorted.map(c=>{const lm=lastMsg(c),on=c.id===chatChan;return `<button onclick="chatChan='${c.id}';render()" style="display:flex;align-items:flex-start;gap:10px;width:100%;text-align:left;border:none;background:${on?'var(--surface-2)':'transparent'};border-left:3px solid ${on?c.col:'transparent'};padding:12px 14px;cursor:pointer;font-family:inherit;border-bottom:1px solid var(--line)">
-        <span style="width:11px;height:11px;border-radius:50%;background:${c.col};margin-top:4px;flex-shrink:0"></span>
-        <div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:6px"><span style="font-weight:700;font-size:13px">${c.nom}</span>${nbMsg(c)?`<span style="margin-left:auto;font-size:10px;font-weight:700;background:var(--orange);color:#fff;border-radius:20px;padding:1px 7px">${nbMsg(c)}</span>`:''}</div>
-          <div class="tiny" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${lm?(sal(lm.who).nom.split(' ')[0]+' : '+lm.txt):'Aucun message'}</div>
-          <span class="tag ${c.statut==='prep'?'t-amber':'t-blue'}" style="margin-top:4px;font-size:9.5px">${c.statut==='prep'?'En préparation':'En cours'}</span></div>
-      </button>`}).join('')}</div></div>
-    ${cur?`<div class="card" style="display:flex;flex-direction:column;height:72vh">
-      <div class="card-head"><h3><span style="width:10px;height:10px;border-radius:50%;background:${cur.col};display:inline-block;margin-right:8px"></span>${cur.nom}</h3><span class="people">${cur.equipe.map(s=>`<span class="avatar-sm" style="background:${sal(s).col}">${sal(s).init}</span>`).join('')}</span></div>
-      <div style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:14px">${msgs.length?msgs.map(m=>`<div style="display:flex;gap:10px;${m.me?'flex-direction:row-reverse':''}"><span class="avatar-sm" style="background:${sal(m.who).col}">${sal(m.who).init}</span><div style="max-width:70%"><div style="background:${m.me?'var(--orange)':'var(--surface-2)'};color:${m.me?'#fff':'var(--ink)'};padding:10px 13px;border-radius:14px;font-size:13px">${m.txt}</div><div class="tiny" style="margin-top:3px;${m.me?'text-align:right':''}">${sal(m.who).nom.split(' ')[0]} · ${m.time}</div></div></div>`).join(''):'<div style="margin:auto;text-align:center;color:var(--ink-3)"><i class="ti ti-message-2" style="font-size:30px"></i><div style="margin-top:8px">Démarrez la discussion</div></div>'}</div>
-      <div style="display:flex;gap:8px;padding:14px;border-top:1px solid var(--line)"><input id="chatInput" class="cell" style="flex:1" placeholder="Écrire à l'équipe de ${cur.nom}…" onkeydown="if(event.key==='Enter')sendChatMsg()"><button class="btn primary" onclick="sendChatMsg()"><i class="ti ti-send"></i></button></div>
-    </div>`:emptyState('ti-messages-off','Aucun chantier actif','Les discussions apparaissent pour les chantiers en cours ou en préparation.')}
+    <div class="card" style="overflow:hidden"><div class="card-head"><h3><i class="ti ti-messages"></i> Canaux</h3><span class="tag t-blue">${chanList.length}</span></div>
+      <div>${chanList.map(c=>{const on=c.id===chatChan;const cm=chatStore[c.id]||[];const lm=cm[cm.length-1];return `<button onclick="chatChan='${c.id}';render()" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:none;background:${on?'var(--surface-2)':'transparent'};border-left:3px solid ${on?c.col:'transparent'};padding:11px 14px;cursor:pointer;font-family:inherit;border-bottom:1px solid var(--line)"><span style="width:34px;height:34px;border-radius:9px;background:${c.col}22;color:${c.col};display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="ti ${c.icon}"></i></span><div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.nom}</div><div class="tiny" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink-3)">${lm?(((lm.author_name||'').split(' ')[0])+' : '+lm.body):c.sub}</div></div></button>`}).join('')}</div></div>
+    ${cur?`<div class="card" style="display:flex;flex-direction:column;height:72vh"><div class="card-head"><h3><span style="width:28px;height:28px;border-radius:8px;background:${cur.col}22;color:${cur.col};display:inline-flex;align-items:center;justify-content:center;margin-right:8px;vertical-align:middle"><i class="ti ${cur.icon}"></i></span>${cur.nom}</h3><span class="tiny" style="color:var(--ink-3)">${sb?'<i class="ti ti-bolt" style="color:var(--olive)"></i> temps réel':'hors-ligne'}</span></div>
+      <div id="chatMsgs" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:11px;background:var(--surface-2)">${msgs.length?msgs.map(m=>{const me=(m.author_email||'').toLowerCase()===meEmail;const nm=m.author_name||((m.author_email||'').split('@')[0])||'?';return `<div style="display:flex;gap:9px;${me?'flex-direction:row-reverse':''}"><span class="avatar-sm" style="background:${me?'var(--orange)':colorOf(m.author_email)};flex-shrink:0">${ini(nm)}</span><div style="max-width:72%"><div style="background:${me?'var(--orange)':'#fff'};color:${me?'#fff':'var(--ink)'};padding:9px 13px;border-radius:14px;font-size:13px;line-height:1.4;box-shadow:0 1px 2px rgba(0,0,0,.06);word-break:break-word">${(m.body||'').replace(/</g,'&lt;')}</div><div class="tiny" style="margin-top:3px;color:var(--ink-3);${me?'text-align:right':''}">${me?'Moi':nm.split(' ')[0]} · ${_chatTime(m.created_at)}</div></div></div>`}).join(''):`<div style="margin:auto;text-align:center;color:var(--ink-3)"><i class="ti ti-message-2" style="font-size:32px"></i><div style="margin-top:8px">Aucun message — lance la discussion 👋</div></div>`}</div>
+      <div style="display:flex;gap:8px;padding:14px;border-top:1px solid var(--line)"><input id="chatInput" class="cell" style="flex:1" placeholder="Écrire dans « ${cur.nom} »…" onkeydown="if(event.key==='Enter')sendChatMsg()" autocomplete="off"><button class="btn primary" onclick="sendChatMsg()"><i class="ti ti-send"></i></button></div>
+    </div>`:''}
   </div></div>`;
 };
 
