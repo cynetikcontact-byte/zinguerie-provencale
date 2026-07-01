@@ -1128,6 +1128,23 @@ const planLab=k=>k==='conge'?'Congé':k==='form'?'Formation':chn(k)?chn(k).nom:k
 const planCol=k=>chn(k)?chn(k).col:'#9c958a';
 function setMode(m){planMode=m;render();}
 function planNav(dir){if(planMode==='jour'){planDay=Math.max(0,Math.min(5,planDay+dir));}else{planWeek+=dir;planData=planWeekData(planWeek);}render();toast(planMode==='jour'?JOURS[planDay]:planMode==='mois'?'Mois suivant':'Semaine '+planWeek);}
+function planDayNext(){if(planDay<5)planDay++;else{planWeek++;planData=planWeekData(planWeek);planDay=0;}render();}
+function planDayPrev(){if(planDay>0)planDay--;else if(planWeek>26){planWeek--;planData=planWeekData(planWeek);planDay=5;}render();}
+function planMobileDay(){const d=planDay;const lab=k=>k==='conge'?'Congé':k==='form'?'Formation':(chn(k)?chn(k).nom:k);const colOf=k=>(k==='conge'||k==='form')?'#9c958a':(chn(k)?chn(k).col:'#9c958a');const dayTot=salaries.filter(s=>isCh(planData[s.id][d])).length*HJ;
+  return `<div class="only-mobile" style="flex-direction:column;gap:10px">
+    <div class="card card-pad" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+      <button class="icon-btn" onclick="planDayPrev()" title="Jour précédent"><i class="ti ti-chevron-left"></i></button>
+      <div style="text-align:center"><div style="font-weight:800;font-size:16px">${dlabel(d)}</div><div class="tiny" style="color:var(--ink-3)">Semaine ${planWeek} · ${dayTot} h planifiées</div></div>
+      <button class="icon-btn" onclick="planDayNext()" title="Jour suivant"><i class="ti ti-chevron-right"></i></button>
+    </div>
+    ${salaries.map(s=>{const k=planData[s.id][d];const on=isCh(k);return `<div class="card" style="padding:11px 12px;display:flex;align-items:center;gap:11px">
+      <span class="avatar-sm" style="background:${s.col};flex-shrink:0">${s.init}</span>
+      <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px">${s.nom}</div>
+        ${k?`<span style="display:inline-flex;align-items:center;gap:6px;margin-top:4px;background:${on?colOf(k):'var(--surface-3)'};color:${on?'#fff':'var(--ink-2)'};padding:4px 10px;border-radius:14px;font-size:12px;font-weight:700"><i class="ti ti-${on?'home-bolt':(k==='conge'?'beach':'school')}" style="font-size:12px"></i> ${lab(k)}${on?' · '+HJ+'h':''}${on&&badDay(d)?' ⚠️':''}</span>`:`<div class="tiny" style="color:var(--ink-3);margin-top:2px">Libre</div>`}
+      </div>
+      <div style="display:flex;gap:5px;flex-shrink:0"><button class="btn sm" onclick="assignCell('${s.id}',${d})"><i class="ti ti-${k?'pencil':'plus'}"></i></button>${k?`<button class="icon-x" onclick="removeCell('${s.id}',${d})" title="Retirer"><i class="ti ti-x"></i></button>`:''}</div>
+    </div>`;}).join('')}
+  </div>`;}
 
 /* grille jour / semaine / perso pour une liste de jours */
 function planGridHTML(days){
@@ -1247,7 +1264,7 @@ views.planning=()=>{
   <div class="page-head"><div><h1>Planning</h1><p>Vue ${planMode==='jour'?'journée':planMode==='mois'?'mensuelle':planMode==='perso'?'personnalisée':'hebdomadaire'} · glisser-déposer ou cliquer une case</p></div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <div class="role-switch">${[['jour','Jour'],['semaine','Semaine'],['mois','Mois'],['perso','Perso']].map(m=>`<button class="${planMode===m[0]?'active':''}" onclick="setMode('${m[0]}')">${m[1]}</button>`).join('')}</div>
-      ${planMode!=='perso'?`<div style="display:flex;align-items:center;gap:7px">
+      ${planMode!=='perso'?`<div class="only-desktop" style="display:flex;align-items:center;gap:7px">
         <button class="icon-btn" onclick="planNav(-1)" title="${planMode==='jour'?'Jour précédent':planMode==='mois'?'Mois précédent':'Semaine précédente'}"><i class="ti ti-chevron-left"></i></button>
         <div style="text-align:center;min-width:128px;font-weight:700;font-size:14px;line-height:1.1">${planMode==='mois'?'Juin 2026':planMode==='jour'?JOURS[planDay]:'Semaine '+planWeek}${planMode==='semaine'?`<div class="tiny" style="font-weight:500;margin-top:1px">${weekRange}</div>`:''}</div>
         <button class="icon-btn" onclick="planNav(1)" title="${planMode==='jour'?'Jour suivant':planMode==='mois'?'Mois suivant':'Semaine suivante'}"><i class="ti ti-chevron-right"></i></button>
@@ -1264,7 +1281,7 @@ views.planning=()=>{
     ${kpiS('Disponibilités','3 ½‑j','cases libres','ti-calendar-plus','var(--bleu-mer)','rgba(61,138,198,.14)')}
   </div>
 
-  ${planMode!=='mois'?`<div class="card card-pad" style="margin-bottom:14px;display:flex;align-items:center;gap:9px;flex-wrap:wrap">
+  ${planMode!=='mois'?`<div class="card card-pad only-desktop" style="margin-bottom:14px;display:flex;align-items:center;gap:9px;flex-wrap:wrap">
     <span style="font-weight:700;font-size:13px;display:flex;align-items:center;gap:6px;white-space:nowrap"><i class="ti ti-brush" style="color:var(--orange);font-size:18px"></i> Affecter :</span>
     ${chList.map(c=>bchip(c.id,c.nom,c.col)).join('')}
     ${bchip('conge','Congé','#9c958a')}${bchip('form','Formation','#9c958a')}
@@ -1273,7 +1290,7 @@ views.planning=()=>{
   </div>`:''}
 
   ${planChantierSummary()}
-  <div class="card" style="overflow:auto">${planMode==='mois'?planMonthGrid():planGridHTML(planMode==='jour'?[planDay]:[0,1,2,3,4,5])}</div>
+  <div class="card only-desktop" style="overflow:auto">${planMode==='mois'?planMonthGrid():planGridHTML(planMode==='jour'?[planDay]:[0,1,2,3,4,5])}</div>${planMobileDay()}
   <p class="tiny" style="margin-top:12px"><i class="ti ti-info-circle"></i> Choisissez un chantier en haut puis cliquez les jours pour l'affecter. Gomme pour retirer. (Vous pouvez aussi glisser une case vers une autre.) Les jours de pluie/vent sont en rouge.</p>
   </div>`;
 };
