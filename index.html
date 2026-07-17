@@ -370,7 +370,7 @@ input.noarrow{-moz-appearance:textfield;appearance:textfield}
     <nav id="nav"></nav>
     <div class="side-foot">
       <span class="live" id="syncFoot"><span class="pulse"></span> Cloud Supabase</span><br>
-      <span style="opacity:.8">Zinguerie Provençale · v2.0</span>
+      <span style="opacity:.8">Zinguerie Provençale · v2.1</span>
     </div>
   </aside>
 
@@ -496,6 +496,7 @@ let congesList=[
 const MOTIFS=['Congés payés','RTT','Maladie','Sans solde','Formation','Récupération'];
 function congeDays(from,to){const s=new Date(from),e=new Date(to);if(isNaN(s)||isNaN(e)||e<s)return 0;let n=0;for(let d=new Date(s);d<=e;d.setDate(d.getDate()+1)){const wd=(d.getDay()+6)%7;if(wd<5)n++;}return n;}
 function dateFr(x){const d=new Date(x);return isNaN(d)?'—':d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'});}
+function _todayFr(cap,short){const o=short?{weekday:'long',day:'numeric',month:'long'}:{weekday:'long',day:'numeric',month:'long',year:'numeric'};const s=new Date().toLocaleDateString('fr-FR',o);return cap?s.charAt(0).toUpperCase()+s.slice(1):s;}
 function congeToPlanning(sal,from,to,clear){const base=new Date(2026,5,22);const s=new Date(from),e=new Date(to);for(let d=new Date(s);d<=e;d.setDate(d.getDate()+1)){const diff=Math.round((d-base)/86400000);if(diff<0)continue;const wk=26+Math.floor(diff/7),day=((diff%7)+7)%7;if(day<=5){const wd=planWeekData(wk);if(wd[sal]){if(clear){if(wd[sal][day]==='conge')wd[sal][day]=null;}else wd[sal][day]='conge';}}}}
 function validateConge(id){const c=congesList.find(x=>x.id===id);if(!c)return;c.statut='valide';congesBalance[c.sal]=Math.max(0,(congesBalance[c.sal]||0)-congeDays(c.from,c.to));congeToPlanning(c.sal,c.from,c.to,false);render();toast('Congé validé · ajouté au planning','ok','ti-calendar-check');}
 function refuseConge(id){const c=congesList.find(x=>x.id===id);if(c){if(c.statut==='valide'){congesBalance[c.sal]+=congeDays(c.from,c.to);congeToPlanning(c.sal,c.from,c.to,true);}congesList=congesList.filter(x=>x.id!==id);}render();toast('Congé refusé / supprimé','info','ti-x');}
@@ -817,7 +818,7 @@ views.dash=()=>{
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:14px">
     <div style="display:flex;align-items:center;gap:14px">
       <div style="width:52px;height:52px;border-radius:16px;${_mePhoto()?`background-image:url(${_mePhoto()});background-size:cover;background-position:center`:'background:linear-gradient(135deg,#FFB347,#F39200)'};display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;font-weight:800;box-shadow:var(--shadow-orange);flex-shrink:0">${_mePhoto()?'':_meInit()}</div>
-      <div><h1 style="font-size:25px">Bonjour ${(_pretty(_meName()).split(' ')[0])||'à vous'} 👋</h1><p class="muted" style="font-size:13px">Jeudi 25 juin 2026 · ${open.length} tâche${open.length>1?'s':''} à faire aujourd'hui</p></div>
+      <div><h1 style="font-size:25px">Bonjour ${(_pretty(_meName()).split(' ')[0])||'à vous'} 👋</h1><p class="muted" style="font-size:13px">${_todayFr(true)} · ${open.length} tâche${open.length>1?'s':''} à faire aujourd'hui</p></div>
     </div>
     <button class="btn primary" onclick="newChantier()"><i class="ti ti-plus"></i> Nouveau chantier</button>
   </div>
@@ -876,7 +877,7 @@ function kpiS(lab,val,sub,ic,col,bg){return `<div class="kpi"><div class="ic" st
 views.aujourdhui=()=>{
   const c=chn('ch1');
   return `<div class="view">
-  <div class="page-head"><div><h1>Aujourd'hui</h1><p>Bonjour ${(_pretty(_meName()).split(' ')[0])||'à vous'} ☀️ · jeudi 25 juin</p></div></div>
+  <div class="page-head"><div><h1>Aujourd'hui</h1><p>Bonjour ${(_pretty(_meName()).split(' ')[0])||'à vous'} ☀️ · ${_todayFr(false,true)}</p></div></div>
   <div class="hero" style="background:linear-gradient(135deg,${c.col}d9,${c.col}8c)"><div class="roof"></div><div class="veil"></div>
     <div class="hero-top"><div class="chip-w"><i class="ti ti-sun"></i> 24°</div><div class="people">${c.equipe.map(s=>`<span class="avatar-sm" style="background:${sal(s).col}">${sal(s).init}</span>`).join('')}</div></div>
     <div><div class="eyebrow">AUJOURD'HUI SUR</div><h2>${c.nom}</h2>
@@ -1339,7 +1340,7 @@ views.pointage=()=>`<div class="view">
     <button class="tbtn" style="background:rgba(198,107,61,.15);color:var(--terracotta);min-height:96px" onclick="toast('Pointage manuel (démo)')"><i class="ti ti-pencil"></i>Saisie manuelle</button>
   </div>
   <div id="clockState" style="margin-top:18px"></div>
-  <div class="card" style="margin-top:18px"><div class="card-head"><h3><i class="ti ti-clock-check"></i> Pointages du jour</h3><span class="sub">jeudi 25 juin</span></div>
+  <div class="card" style="margin-top:18px"><div class="card-head"><h3><i class="ti ti-clock-check"></i> Pointages du jour</h3><span class="sub">${_todayFr(false,true)}</span></div>
     <table><thead><tr><th>Salarié</th><th>Chantier</th><th>Arrivée</th><th>Départ</th><th>Durée</th><th>GPS</th></tr></thead><tbody>
       ${[['lb','ch1','07:42','en cours','—',1],['as','ch3','07:30','12:00','4h30',1],['km','ch2','08:00','en cours','—',1],['jp','ch1','08:05','12:00','3h55',0]].map(p=>`<tr><td style="font-weight:600"><span class="avatar-sm" style="background:${sal(p[0]).col}">${sal(p[0]).init}</span> ${sal(p[0]).nom}</td><td>${chn(p[1]).nom}</td><td>${p[2]}</td><td>${p[3]==='en cours'?'<span class="tag" style="background:rgba(122,139,79,.16);color:var(--olive)"><span class="tdot"></span>en cours</span>':p[3]}</td><td>${p[4]}</td><td>${p[5]?'<i class="ti ti-map-pin" style="color:var(--olive)"></i>':'<i class="ti ti-map-pin-off" style="color:var(--ink-3)"></i>'}</td></tr>`).join('')}
     </tbody></table></div></div>`;
@@ -2589,10 +2590,12 @@ views.reglages=()=>`<div class="view">
         ${[['Pointage géolocalisé obligatoire',true],['Rayon de la zone chantier : 150 m',true],['Mode gants (gros boutons)',true],['Écran toujours allumé au pointage',true]].map(o=>`<div class="kv"><span class="k">${o[0]}</span><span class="v"><span style="display:inline-block;width:38px;height:22px;border-radius:20px;background:${o[1]?'var(--olive)':'var(--surface-3)'};position:relative;vertical-align:middle"><span style="position:absolute;top:2px;${o[1]?'right:2px':'left:2px'};width:18px;height:18px;border-radius:50%;background:#fff"></span></span></span></div>`).join('')}
       </div></div>
       <div class="card"><div class="card-head"><h3><i class="ti ti-database"></i> Données &amp; sauvegarde</h3></div><div class="card-pad">
-        <div class="tiny" style="color:var(--ink-3);margin-bottom:10px">Tes données sont synchronisées dans le cloud et entre tous les appareils, en temps réel. Tu peux en plus télécharger une copie de sauvegarde sur ton ordinateur, ou la restaurer.</div>
+        <div class="tiny" style="color:var(--ink-3);margin-bottom:10px">Tes données sont synchronisées dans le cloud et entre tous les appareils, en temps réel. Une sauvegarde automatique est prise <b>chaque nuit</b> dans le cloud (conservée 30 jours) — restaurable ci-dessous. Tu peux aussi télécharger une copie sur ton ordinateur.</div>
         <div style="display:flex;flex-wrap:wrap;gap:8px">
           <button class="btn sm primary" onclick="exportData()"><i class="ti ti-download"></i> Exporter une sauvegarde</button>
-          <button class="btn sm" onclick="document.getElementById('importDataInput').click()"><i class="ti ti-upload"></i> Restaurer une sauvegarde</button>
+          <button class="btn sm" onclick="openCloudRestore()"><i class="ti ti-cloud-download"></i> Restaurer depuis le cloud</button>
+          <button class="btn sm" onclick="snapshotNow()"><i class="ti ti-database-plus"></i> Snapshot cloud maintenant</button>
+          <button class="btn sm" onclick="document.getElementById('importDataInput').click()"><i class="ti ti-upload"></i> Restaurer depuis un fichier</button>
           <input type="file" id="importDataInput" accept="application/json,.json" style="display:none" onchange="importData(this)">
         </div>
         <div style="height:1px;background:var(--line);margin:13px 0"></div>
@@ -2617,6 +2620,19 @@ function exportData(){try{const data=JSON.stringify(_stateObj());const blob=new 
 function importData(input){const f=input.files&&input.files[0];if(!f){return;}input.value='';const r=new FileReader();r.onload=ev=>{let d;try{d=JSON.parse(ev.target.result);}catch(e){toast('Fichier illisible','info','ti-alert-circle');return;}if(!d||!d.arr){toast('Fichier de sauvegarde invalide','info','ti-alert-circle');return;}if(!confirm('Restaurer cette sauvegarde ? Les données actuelles seront remplacées par celles du fichier, sur tous les appareils.'))return;try{_applyState(d);if(typeof renderNav==='function')renderNav();render();toast('Sauvegarde restaurée','ok','ti-check');}catch(e){toast('Erreur lors de la restauration','info','ti-alert-circle');}};r.readAsText(f);}
 /* ===== Sécurité : ne jamais conserver de mot de passe en clair ===== */
 function _scrubPasswords(){try{if(!sb||!Array.isArray(comptes))return false;let changed=false;comptes.forEach(c=>{if(c&&c.pass!==undefined){delete c.pass;changed=true;}});return changed;}catch(e){return false;}}
+/* ===== P0-1 : sauvegardes cloud (table `workspace_backups`, snapshot auto chaque nuit côté serveur) ===== */
+async function snapshotNow(){if(!sb||!sessionEmail){toast('Connecte-toi d\'abord','info','ti-alert-circle');return;}try{const who=((typeof currentCompte==='function'&&currentCompte())||{}).nom||sessionEmail;const r=await sb.from('workspace_backups').insert({workspace_id:'main',data:_stateObj(),note:'manuel — '+who}).select('id').single();if(r.error)throw r.error;toast('Snapshot cloud créé ✓','ok','ti-database-plus');}catch(e){toast('Erreur snapshot : '+((e&&e.message)||'inconnue'),'info','ti-alert-circle');}}
+async function openCloudRestore(){if(!sb){toast('Cloud indisponible','info','ti-alert-circle');return;}let list=[];try{const r=await sb.from('workspace_backups').select('id,created_at,note').order('created_at',{ascending:false}).limit(40);if(r.error)throw r.error;list=r.data||[];}catch(e){toast('Impossible de lister les sauvegardes','info','ti-alert-circle');return;}
+if(!list.length){toast('Aucune sauvegarde cloud pour l\'instant','info','ti-database-off');return;}
+modal(`<div class="modal-head"><h3><i class="ti ti-cloud-download"></i> Restaurer une sauvegarde cloud</h3><button class="icon-x" onclick="this.closest('.overlay').remove()"><i class="ti ti-x"></i></button></div><div class="modal-body"><div class="tiny" style="color:var(--ink-3);margin-bottom:10px">Une sauvegarde automatique est prise chaque nuit (conservée 30 jours). Restaurer remplace les données actuelles sur tous les appareils — un snapshot de l'état actuel est créé automatiquement juste avant, par sécurité.</div>${list.map(b=>{const d=new Date(b.created_at);const lbl=d.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})+' · '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});const note=String(b.note||'').replace(/&/g,'&amp;').replace(/</g,'&lt;');return `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--line)"><div style="min-width:0"><div style="font-weight:600;font-size:13px">${lbl}</div><div class="tiny" style="color:var(--ink-3)">${note}</div></div><button class="btn sm" onclick="restoreCloudBackup(${Number(b.id)})"><i class="ti ti-restore"></i> Restaurer</button></div>`;}).join('')}</div>`);}
+async function restoreCloudBackup(id){if(!confirm('Restaurer cette sauvegarde ? Les données actuelles seront remplacées sur tous les appareils. (Un snapshot de l\'état actuel est créé juste avant, par sécurité.)'))return;try{
+  try{await sb.from('workspace_backups').insert({workspace_id:'main',data:_stateObj(),note:'auto — avant restauration'});}catch(e){}
+  const r=await sb.from('workspace_backups').select('data').eq('id',id).maybeSingle();
+  if(r.error||!r.data||!r.data.data||!r.data.data.arr){toast('Sauvegarde introuvable ou invalide','info','ti-alert-circle');return;}
+  _applyState(r.data.data);document.querySelectorAll('.overlay').forEach(o=>o.remove());
+  if(typeof renderNav==='function')renderNav();render();_cloudPush(true);
+  toast('Sauvegarde restaurée ✓ — synchronisée sur tous les appareils','ok','ti-check');
+}catch(e){toast('Erreur lors de la restauration','info','ti-alert-circle');}}
 
 /* ===== RENDER ===== */
 function render(){
@@ -2874,11 +2890,27 @@ function resetState(){try{localStorage.removeItem(ZP_STORE_KEY);}catch(e){}locat
 const SUPA_URL='https://xmsdqrmsvmxqnikcivhv.supabase.co';
 const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhtc2Rxcm1zdm14cW5pa2Npdmh2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3NDIxODEsImV4cCI6MjA5ODMxODE4MX0.alBvBxSkIItEO25vmxBvmImXn0wXnOZoHUVinoiHVNA';
 let sb=null;try{if(window.supabase&&window.supabase.createClient)sb=window.supabase.createClient(SUPA_URL,SUPA_KEY);}catch(e){}
+/* ===== P0-3 : monitoring d'erreurs (table Supabase `errors`) ===== */
+let _errCount=0,_errLast='';
+function _logErr(msg,stack){try{if(!sb)return;msg=String(msg||'').slice(0,500);if(_errCount>=10||msg===_errLast)return;_errCount++;_errLast=msg;sb.from('errors').insert({user_email:(typeof sessionEmail==='string'?sessionEmail:null),message:msg,stack:String(stack||'').slice(0,2000),page:(typeof view==='string'?view:''),user_agent:(navigator.userAgent||'').slice(0,300)}).then(()=>{},()=>{});}catch(e){}}
+try{window.addEventListener('error',function(e){_logErr((e&&e.message)||'Erreur script',(e&&e.error&&e.error.stack)||((e&&e.filename)||'')+':'+((e&&e.lineno)||''));});
+window.addEventListener('unhandledrejection',function(e){const r=(e&&e.reason)||{};_logErr('Promise: '+(r.message||String(r)),r.stack||'');});}catch(e){}
 let _cloudReady=false,_pushT=null,_lastSync=0;
-function _cloudPush(immediate){if(!sb||!_cloudReady||!sessionEmail)return;clearTimeout(_pushT);const go=async()=>{try{const obj=_stateObj();obj._src=_clientId;obj._ts=Date.now();const ua=new Date().toISOString();await sb.from('workspace').upsert({id:'main',data:obj,updated_at:ua});_lastUpdatedAt=ua;_lastSync=Date.now();_syncFoot();}catch(e){}};if(immediate)return go();_pushT=setTimeout(go,1200);}
+function _cloudPush(immediate){if(!sb||!_cloudReady||!sessionEmail)return;clearTimeout(_pushT);const go=async()=>{try{const obj=_stateObj();obj._src=_clientId;obj._ts=Date.now();const ua=new Date().toISOString();
+  /* P0-2 : verrou optimiste — on n'écrase que si personne n'a enregistré entre-temps (colonne version, trigger côté serveur) */
+  if(_lastVersion==null){
+    const r=await sb.from('workspace').upsert({id:'main',data:obj,updated_at:ua}).select('version,updated_at').maybeSingle();
+    if(!r.error&&r.data){if(r.data.version!=null)_lastVersion=r.data.version;if(r.data.updated_at)_lastUpdatedAt=r.data.updated_at;}else{_lastUpdatedAt=ua;}
+  }else{
+    const r=await sb.from('workspace').update({data:obj,updated_at:ua}).eq('id','main').eq('version',_lastVersion).select('version,updated_at').maybeSingle();
+    if(r.error)return;
+    if(r.data){if(r.data.version!=null)_lastVersion=r.data.version;if(r.data.updated_at)_lastUpdatedAt=r.data.updated_at;}
+    else{/* conflit : un autre poste a enregistré entre-temps → on recharge au lieu d'écraser */toast('Modifié sur un autre poste — rechargement des données','info','ti-refresh-alert');_scheduleRemotePull();return;}
+  }
+  _lastSync=Date.now();_syncFoot();}catch(e){}};if(immediate)return go();_pushT=setTimeout(go,1200);}
 function _syncFoot(){const el=document.getElementById('syncFoot');if(!el)return;if(!sb){el.innerHTML='<span class="pulse" style="background:#c9c2b4"></span> Hors-ligne (local)';return;}if(!sessionEmail){el.innerHTML='<span class="pulse"></span> Cloud prêt';return;}const s=_lastSync?Math.round((Date.now()-_lastSync)/1000):null;el.innerHTML='<span class="pulse"></span> '+(s!=null?('Synchronisé · il y a '+(s<60?(s+' s'):(Math.round(s/60)+' min'))):'Cloud connecté');}
 try{setInterval(_syncFoot,5000);}catch(e){}
-async function _cloudPull(){if(!sb)return 'error';try{const r=await sb.from('workspace').select('data').eq('id','main').maybeSingle();if(r.error)return 'error';const d=r.data&&r.data.data;if(d&&d.arr&&Object.keys(d.arr).length){_applyState(d);return 'has';}return 'empty';}catch(e){return 'error';}}
+async function _cloudPull(){if(!sb)return 'error';try{const r=await sb.from('workspace').select('data,version,updated_at').eq('id','main').maybeSingle();if(r.error)return 'error';if(r.data){if(r.data.version!=null)_lastVersion=r.data.version;if(r.data.updated_at)_lastUpdatedAt=r.data.updated_at;}const d=r.data&&r.data.data;if(d&&d.arr&&Object.keys(d.arr).length){_applyState(d);return 'has';}return 'empty';}catch(e){return 'error';}}
 async function _afterAuth(email){sessionEmail=email;const st=await _cloudPull();_cloudReady=true;_wsSubscribe();_scrubPasswords();_seedCats();if(st==='empty'){await _cloudPush(true);}let c=currentCompte();if(!c){const hasG=comptes.some(x=>x.role==='Gérant');comptes.push({id:'u'+Date.now(),nom:email.split('@')[0],role:hasG?'Salarié':'Gérant',tel:'',email,photo:''});c=currentCompte();}role=ROLEMAP[c.role]||'ouvrier';const allowed=NAV.filter(i=>i.id&&i.roles.includes(role)).map(i=>i.id);view=allowed.includes(roleHome[role])?roleHome[role]:allowed[0];currentCh=null;removeLogin();renderNav();render();applyAvatar();_applyRoleUI();saveState();toast('Bienvenue '+((c.nom||'').split(' ')[0])+' 👋','ok','ti-login-2');_consumeQR();}
 function _authMsg(e){const m=(e&&e.message)||String(e||'');if(/already registered|already been registered/i.test(m))return 'Ce compte existe déjà — vérifie ton mot de passe.';if(/invalid login/i.test(m))return 'Email ou mot de passe incorrect.';if(/at least 6|password should be/i.test(m))return 'Mot de passe trop court (6 caractères minimum).';if(/network|fetch/i.test(m))return 'Problème réseau, réessaie.';return m;}
 function _loginBusy(b){const btn=document.getElementById('loginBtn');if(btn){btn.disabled=b;btn.style.opacity=b?'.6':'1';btn.innerHTML=b?'<i class="ti ti-loader-2"></i> Connexion…':'<i class="ti ti-login-2"></i> Se connecter';}}
@@ -2886,16 +2918,17 @@ if(sb){try{sb.auth.onAuthStateChange((ev)=>{if(ev==='PASSWORD_RECOVERY'){const n
 const _renderOrig=render;render=function(){_renderOrig();saveState();_syncFoot();};
 /* ===== Synchro temps réel des données métier (anti-écrasement multi-utilisateurs) ===== */
 let _clientId=Math.random().toString(36).slice(2)+Date.now().toString(36);
-let _wsSub=null,_remotePullT=null,_pendingPull=false,_lastUpdatedAt=null;
+let _wsSub=null,_remotePullT=null,_pendingPull=false,_lastUpdatedAt=null,_lastVersion=null;
 function _isTyping(){const a=document.activeElement;return !!(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)&&a.type!=='checkbox'&&a.type!=='radio');}
 async function _pullAndApply(){
   if(!sb||!_cloudReady||!sessionEmail)return;
   if(_isTyping()){_pendingPull=true;return;}        /* ne pas couper une saisie en cours */
   _pendingPull=false;
   try{
-    const r=await sb.from('workspace').select('data,updated_at').eq('id','main').maybeSingle();
+    const r=await sb.from('workspace').select('data,version,updated_at').eq('id','main').maybeSingle();
     const row=r&&r.data; const d=row&&row.data;
     if(row&&row.updated_at)_lastUpdatedAt=row.updated_at;
+    if(row&&row.version!=null)_lastVersion=row.version;
     if(!d||!d.arr||d._src===_clientId)return;        /* rien, ou notre propre enregistrement */
     _applyState(d);
     if(typeof renderNav==='function')renderNav();
