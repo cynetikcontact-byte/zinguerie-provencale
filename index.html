@@ -370,7 +370,7 @@ input.noarrow{-moz-appearance:textfield;appearance:textfield}
     <nav id="nav"></nav>
     <div class="side-foot">
       <span class="live" id="syncFoot"><span class="pulse"></span> Cloud Supabase</span><br>
-      <span style="opacity:.8">Zinguerie Provençale · v2.4</span>
+      <span style="opacity:.8">Zinguerie Provençale · v2.5</span>
     </div>
   </aside>
 
@@ -856,11 +856,10 @@ views.dash=()=>{
       <div id="tachesList">${tachesRows()}</div>
     </div>
     <div style="display:flex;flex-direction:column;gap:18px">
-      <div class="card"><div class="card-head"><h3><i class="ti ti-bell-ringing"></i> À surveiller</h3><span class="tag" style="background:rgba(184,58,38,.14);color:var(--alerte)">5</span></div><div class="card-pad" style="display:flex;flex-direction:column;gap:9px">
-        ${alertLink('ti-alert-triangle','var(--alerte)','Bardage Gémenos en retard (18/06)','Ouvrir le chantier',"currentCh='ch3';view='chantierDetail';renderNav();render()")}
+      <div class="card"><div class="card-head"><h3><i class="ti ti-bell-ringing"></i> À surveiller</h3><span class="tag" style="background:rgba(184,58,38,.14);color:var(--alerte)">${_computeNotifs().length}</span></div><div class="card-pad" style="display:flex;flex-direction:column;gap:9px">
+        ${chantiers.filter(c=>c.statut==='retard'||((_parseFinFr(c.fin)||new Date(9999,0,1))<new Date()&&c.statut!=='fini')).slice(0,3).map(c=>alertLink('ti-alert-triangle','var(--alerte)',(c.nom||'Chantier')+' en retard'+(c.fin?' ('+c.fin+')':''),'Ouvrir le chantier',"currentCh='"+c.id+"';view='chantierDetail';renderNav();render()")).join('')}
         ${produitsBas().length?alertLink('ti-package','var(--soleil)',produitsBas().length+' produit'+(produitsBas().length>1?'s':'')+' sous le seuil de stock','Voir le stock',"go('stock')"):''}
-        ${alertLink('ti-shield-half','var(--soleil)','Harnais J. Pons à inspecter',"Voir l'équipe","go('rh')")}
-        ${alertLink('ti-clock','var(--bleu-mer)','9 h pointées non imputées','Voir les heures',"go('supervision')")}
+        ${(demandesList||[]).length?alertLink('ti-message-report','var(--lavande)',demandesList.length+' demande'+(demandesList.length>1?'s':'')+' à valider (congés / matériel)','Voir les demandes',"go('dash')"):''}
         ${facturesImpayees().length?alertLink('ti-file-invoice','var(--alerte)','Facture '+facturesImpayees()[0].clientNom+' impayée — '+fmt(totalImpayes()),'Voir les factures',"go('devis')"):''}
       </div></div>
       <div class="card"><div class="card-head"><h3><i class="ti ti-cloud"></i> Météo 6 j</h3><span class="sub">Aubagne</span></div><div class="card-pad">
@@ -2822,7 +2821,18 @@ function newChantier(){modal(`<div class="modal-head"><h3>Nouveau chantier</h3><
 document.getElementById('roleSwitch').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(((currentCompte()||{}).role)!=='Gérant')return;role=b.dataset.role;[...e.currentTarget.children].forEach(c=>c.classList.toggle('active',c===b));applyAvatar();const allowed=NAV.filter(i=>i.id&&i.roles.includes(role)).map(i=>i.id);view=allowed.includes(roleHome[role])?roleHome[role]:allowed[0];currentCh=null;renderNav();render();toast('Profil : '+roleLabel[role],'info','ti-user-check');});
 document.getElementById('themeBtn').addEventListener('click',function(){document.body.classList.toggle('dark');const d=document.body.classList.contains('dark');this.innerHTML=`<i class="ti ti-${d?'sun':'moon'}"></i>`;render();});
 let notifLus=false;
-document.getElementById('bellBtn').addEventListener('click',function(e){e.stopPropagation();let dd=document.getElementById('notifDD');if(dd){dd.remove();return;}closeMenus();dd=document.createElement('div');dd.id='notifDD';dd.className='dropdown';dd.innerHTML=`<h4>Notifications ${notifLus?'':'<span class="tag" style="background:rgba(184,58,38,.14);color:var(--alerte)">3</span>'}<button class="btn sm" style="margin-left:auto" onclick="document.querySelector('.dot')&&document.querySelector('.dot').remove();this.closest('#notifDD').remove();notifLus=true;toast('Notifications lues','ok','ti-check')">Tout lire</button></h4>${[['ti-alert-triangle','var(--alerte)','rgba(184,58,38,.13)','Chantier en retard','Bardage Gémenos · échéance dépassée'],['ti-shield-half','#a9760d','rgba(232,181,71,.16)','EPI à inspecter','Harnais J. Pons avant 08/26'],['ti-clock','var(--bleu-mer)','rgba(61,138,198,.13)','Pointage en cours','L. Berto sur Villa Aubagne']].map(n=>`<div class="notif"><div class="ni" style="background:${n[2]};color:${n[1]}"><i class="ti ${n[0]}"></i></div><div><b>${n[3]}</b><br><span class="muted">${n[4]}</span></div></div>`).join('')}`;this.parentElement.style.position='relative';this.parentElement.appendChild(dd);});
+/* ===== Notifications réelles (calculées depuis les données) ===== */
+function _parseFinFr(s){if(!s||!/^\d{1,2}\/\d{1,2}/.test(String(s)))return null;const p=String(s).split('/');const d=new Date(new Date().getFullYear(),(+p[1])-1,+p[0]);return isNaN(d)?null:d;}
+function _computeNotifs(){const N=[];try{
+  chantiers.forEach(c=>{const f=_parseFinFr(c.fin);if(c.statut==='retard'||(f&&f<new Date()&&c.statut!=='fini'))N.push(['ti-alert-triangle','var(--alerte)','rgba(184,58,38,.13)','Chantier en retard',(c.nom||'')+(c.fin?' · échéance '+c.fin:''),"go('chantiers')"]);});
+  (facturesImpayees()||[]).forEach(f=>N.push(['ti-file-invoice','var(--alerte)','rgba(184,58,38,.13)','Facture en attente',(f.num||'')+' — '+(f.clientNom||'')+' · '+fmt(f.ttc||0),"go('factures')"]));
+  (produitsBas()||[]).forEach(p=>N.push(['ti-package','#a9760d','rgba(232,181,71,.16)','Stock sous le seuil',(p.nom||'')+' — reste '+stockDispo(p)+' '+(p.u||''),"go('stock')"]));
+  (demandesList||[]).forEach(d=>{const s=(typeof sal==='function'&&sal(d.who))||null;N.push(['ti-message-report','var(--lavande)','rgba(155,143,184,.18)','Demande à valider',(d.titre||'')+(s?' · '+s.nom.split(' ')[0]:''),"go('dash')"]);});
+  const vieux=Date.now()-7*86400000;devisDossiers.forEach(d=>{if((d.statut||'brouillon')==='brouillon'&&(d.maj||0)<vieux)N.push(['ti-file-alert','var(--bleu-mer)','rgba(61,138,198,.13)','Devis en brouillon',(d.titre||d.ref)+' — sans suite depuis '+Math.round((Date.now()-(d.maj||0))/86400000)+' j',"go('devis')"]);});
+}catch(e){}return N;}
+function _notifHash(N){return N.length+'|'+N.map(n=>n[3]+n[4]).join(';').slice(0,400);}
+function _updateBellDot(){try{const b=document.getElementById('bellBtn');if(!b)return;const N=_computeNotifs();let dot=b.querySelector('.dot');const lu=localStorage.getItem('zp_notif_lu')===_notifHash(N);if(N.length&&!lu){if(!dot){dot=document.createElement('span');dot.className='dot';b.appendChild(dot);}}else if(dot){dot.remove();}}catch(e){}}
+document.getElementById('bellBtn').addEventListener('click',function(e){e.stopPropagation();let dd=document.getElementById('notifDD');if(dd){dd.remove();return;}closeMenus();const N=_computeNotifs();dd=document.createElement('div');dd.id='notifDD';dd.className='dropdown';dd.innerHTML=`<h4>Notifications ${N.length?'<span class="tag" style="background:rgba(184,58,38,.14);color:var(--alerte)">'+N.length+'</span>':''}<button class="btn sm" style="margin-left:auto" onclick="localStorage.setItem('zp_notif_lu',_notifHash(_computeNotifs()));_updateBellDot();this.closest('#notifDD').remove();toast('Notifications lues','ok','ti-check')">Tout lire</button></h4>${N.length?N.map(n=>`<div class="notif" style="cursor:pointer" onclick="${n[5]};var _d=document.getElementById('notifDD');if(_d)_d.remove()"><div class="ni" style="background:${n[2]};color:${n[1]}"><i class="ti ${n[0]}"></i></div><div><b>${n[3]}</b><br><span class="muted">${n[4]}</span></div></div>`).join(''):'<div class="notif"><div class="ni" style="background:rgba(122,139,79,.15);color:var(--olive)"><i class="ti ti-checks"></i></div><div><b>Tout est en ordre</b><br><span class="muted">Aucune alerte en ce moment 🎉</span></div></div>'}`;this.parentElement.style.position='relative';this.parentElement.appendChild(dd);});
 document.addEventListener('click',e=>{const dd=document.getElementById('notifDD');if(dd&&!e.target.closest('#bellBtn')&&!e.target.closest('#notifDD'))dd.remove();if(!e.target.closest('.menu')&&!e.target.closest('#createBtn')&&!e.target.closest('#meAvatar'))document.querySelectorAll('.menu').forEach(m=>m.remove());});
 const sIn=document.getElementById('searchInput'),sRes=document.getElementById('searchRes');
 function _searchResults(q){q=(q||'').toLowerCase().trim();const res=[];if(!q)return res;
@@ -2944,7 +2954,7 @@ async function _afterAuth(email){sessionEmail=email;
 function _authMsg(e){const m=(e&&e.message)||String(e||'');if(/already registered|already been registered/i.test(m))return 'Ce compte existe déjà — vérifie ton mot de passe.';if(/invalid login/i.test(m))return 'Email ou mot de passe incorrect.';if(/at least 6|password should be/i.test(m))return 'Mot de passe trop court (6 caractères minimum).';if(/network|fetch/i.test(m))return 'Problème réseau, réessaie.';return m;}
 function _loginBusy(b){const btn=document.getElementById('loginBtn');if(btn){btn.disabled=b;btn.style.opacity=b?'.6':'1';btn.innerHTML=b?'<i class="ti ti-loader-2"></i> Connexion…':'<i class="ti ti-login-2"></i> Se connecter';}}
 if(sb){try{sb.auth.onAuthStateChange((ev)=>{if(ev==='PASSWORD_RECOVERY'){const np=prompt('Choisis ton nouveau mot de passe (6 caractères minimum) :');if(np&&np.length>=6){sb.auth.updateUser({password:np}).then(({error})=>{alert(error?('Erreur : '+error.message):'Mot de passe mis à jour ✓');});}}});}catch(e){}}
-const _renderOrig=render;render=function(){_renderOrig();saveState();_syncFoot();};
+const _renderOrig=render;render=function(){_renderOrig();saveState();_syncFoot();if(typeof _updateBellDot==='function')_updateBellDot();};
 /* ===== Synchro temps réel des données métier (anti-écrasement multi-utilisateurs) ===== */
 let _clientId=Math.random().toString(36).slice(2)+Date.now().toString(36);
 let _wsSub=null,_remotePullT=null,_pendingPull=false,_lastUpdatedAt=null,_lastVersion=null;
