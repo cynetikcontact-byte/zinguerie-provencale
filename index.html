@@ -370,7 +370,7 @@ input.noarrow{-moz-appearance:textfield;appearance:textfield}
     <nav id="nav"></nav>
     <div class="side-foot">
       <span class="live" id="syncFoot"><span class="pulse"></span> Cloud Supabase</span><br>
-      <span style="opacity:.8">Zinguerie Provençale · v2.1</span>
+      <span style="opacity:.8">Zinguerie Provençale · v2.2</span>
     </div>
   </aside>
 
@@ -776,11 +776,26 @@ function openCompte(id){closeMenus();_comptePhotoTmp=null;_compteEdit=id||null;c
   </div>`);
 }
 function _comptePhotoPick(input){const f=input.files&&input.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{const img=new Image();img.onload=()=>{const max=200;let w=img.width,h=img.height;const sc=Math.min(1,max/Math.max(w,h));const cw=Math.round(w*sc),ch=Math.round(h*sc);const cv=document.createElement('canvas');cv.width=cw;cv.height=ch;cv.getContext('2d').drawImage(img,0,0,cw,ch);_comptePhotoTmp=cv.toDataURL('image/jpeg',0.82);const p=document.getElementById('comptePhotoPrev');if(p){p.style.backgroundImage='url('+_comptePhotoTmp+')';p.style.backgroundSize='cover';p.style.backgroundPosition='center';p.textContent='';}};img.src=ev.target.result;};r.readAsDataURL(f);}
-function saveCompte(){const nom=_v('cpNom');if(!nom){toast('Indiquez le nom','info','ti-alert-circle');return;}const role=document.getElementById('cpRole').value,tel=_v('cpTel'),email=_v('cpMail');
-  if(_compteEdit){const u=comptes.find(x=>x.id===_compteEdit);if(u){u.nom=nom;u.role=role;u.tel=tel;u.email=email;delete u.pass;if(_comptePhotoTmp)u.photo=_comptePhotoTmp;}}
+function saveCompte(){const nom=_v('cpNom');if(!nom){toast('Indiquez le nom','info','ti-alert-circle');return;}const role=document.getElementById('cpRole').value,tel=_v('cpTel'),email=(_v('cpMail')||'').toLowerCase().trim();
+  if(role!=='Client'&&!/@/.test(email)){toast('Email requis : c\'est l\'identifiant de connexion de '+nom,'info','ti-alert-circle');return;}
+  let prevEmail=null;
+  if(_compteEdit){const u=comptes.find(x=>x.id===_compteEdit);if(u){prevEmail=(u.email||'').toLowerCase();u.nom=nom;u.role=role;u.tel=tel;u.email=email;delete u.pass;if(_comptePhotoTmp)u.photo=_comptePhotoTmp;}}
   else{comptes.push({id:'u'+Date.now(),nom,role,tel,email,photo:_comptePhotoTmp||''});}
-  document.querySelectorAll('.overlay').forEach(o=>o.remove());render();toast(_compteEdit?'Profil mis à jour':'Profil créé — '+role,'ok','ti-user-check');}
-function delCompte(id){const u=comptes.find(x=>x.id===id);if(!u)return;if(confirm('Supprimer le profil de '+u.nom+' ?')){comptes=comptes.filter(x=>x.id!==id);render();toast('Profil supprimé','info','ti-trash');}}
+  if(role!=='Client'){_syncAppUser(email,nom,role,prevEmail);}else if(prevEmail){_revokeAppUser(prevEmail);}
+  document.querySelectorAll('.overlay').forEach(o=>o.remove());render();
+  if(role==='Client'){toast('Profil client créé (sans accès de connexion)','ok','ti-user-check');}
+  else{toast((_compteEdit?'Profil mis à jour':'Accès créé')+' — '+nom+' se connecte avec '+email+' et choisit son mot de passe à sa 1re connexion','ok','ti-user-check');}}
+function delCompte(id){const u=comptes.find(x=>x.id===id);if(!u)return;
+  if(u.role==='Gérant'&&comptes.filter(x=>x.role==='Gérant'&&x.id!==id).length===0){toast('Impossible : il faut au moins un Gérant','info','ti-alert-circle');return;}
+  if((u.email||'').toLowerCase()===(sessionEmail||'').toLowerCase()&&!confirm('Attention : c\'est TON propre accès. Vraiment le supprimer ?'))return;
+  if(confirm('Supprimer le profil de '+u.nom+' ? Son accès de connexion sera aussi révoqué.')){comptes=comptes.filter(x=>x.id!==id);_revokeAppUser((u.email||'').toLowerCase());render();toast('Profil supprimé et accès révoqué','info','ti-trash');}}
+async function _syncAppUser(email,nom,role,prevEmail){if(!sb||!/@/.test(email||''))return;try{
+  if(prevEmail&&/@/.test(prevEmail)&&prevEmail!==email){await sb.from('app_users').delete().eq('email',prevEmail);}
+  const r=await sb.from('app_users').upsert({email,nom,role,actif:true});
+  if(r.error){toast('Accès non synchronisé ('+r.error.message+') — seul un Gérant peut gérer les accès','info','ti-alert-circle');}
+}catch(e){}}
+async function _revokeAppUser(email){if(!sb||!/@/.test(email||''))return;try{await sb.from('app_users').delete().eq('email',email);}catch(e){}}
+async function sendReset(email){email=(email||'').toLowerCase().trim();if(!/@/.test(email)){toast('Pas d\'email sur ce profil — ajoute-le d\'abord (Modifier)','info','ti-alert-circle');return;}if(!sb){toast('Cloud indisponible','info','ti-alert-circle');return;}try{const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin});if(error)throw error;toast('Email envoyé à '+email+' pour (ré)initialiser son mot de passe','ok','ti-mail-forward');}catch(e){toast('Échec de l\'envoi : '+((e&&e.message)||'réessaie'),'info','ti-alert-circle');}}
 /* état vide réutilisable */
 function emptyState(ic,titre,sub,cta){return `<div style="text-align:center;padding:40px 20px"><div style="width:64px;height:64px;border-radius:18px;margin:0 auto 14px;display:flex;align-items:center;justify-content:center;background:var(--surface-2);color:var(--ink-3)"><i class="ti ${ic}" style="font-size:30px"></i></div><div style="font-family:'Baloo 2';font-weight:700;font-size:16px">${titre}</div><div class="muted" style="font-size:13px;margin-top:4px">${sub||''}</div>${cta||''}</div>`;}
 
@@ -970,7 +985,7 @@ views.espaceClient=()=>{
 
 function _compteImg(u){if(u&&u.photo)return u.photo;try{if(u&&sessionEmail&&(u.email||'').toLowerCase()===sessionEmail.toLowerCase()){const p=profilUser[ROLEMAP[u.role]];if(p&&p.photo)return p.photo;}}catch(e){}return '';}
 views.comptes=()=>`<div class="view">
-  <div class="page-head"><div><h1>Utilisateurs & accès</h1><p>Créez et gérez les profils de votre équipe et de vos clients</p></div>
+  <div class="page-head"><div><h1>Utilisateurs & accès</h1><p>Créer un profil avec email = créer un accès. La personne se connecte avec son email et choisit son mot de passe à sa première connexion. Le bouton <i class="ti ti-key"></i> lui envoie un lien de réinitialisation.</p></div>
     <button class="btn primary" onclick="openCompte()"><i class="ti ti-user-plus"></i> Créer un profil</button></div>
   <div class="grid cols-3">
     ${comptes.map(u=>{const r=roleCompte(u.role);const im=_compteImg(u);return `<div class="card card-pad">
@@ -985,6 +1000,7 @@ views.comptes=()=>`<div class="view">
       </div>
       <div style="display:flex;gap:8px;margin-top:12px">
         <button class="btn sm" style="flex:1;justify-content:center" onclick="openCompte('${u.id}')"><i class="ti ti-pencil"></i> Modifier</button>
+        ${u.role!=='Client'?`<button class="btn sm" title="Envoyer le lien mot de passe" onclick="sendReset('${(u.email||'').replace(/'/g,'')}')"><i class="ti ti-key"></i></button>`:''}
         <button class="icon-x" onclick="delCompte('${u.id}')" title="Supprimer"><i class="ti ti-trash"></i></button>
       </div>
     </div>`}).join('')}
@@ -2911,7 +2927,11 @@ function _cloudPush(immediate){if(!sb||!_cloudReady||!sessionEmail)return;clearT
 function _syncFoot(){const el=document.getElementById('syncFoot');if(!el)return;if(!sb){el.innerHTML='<span class="pulse" style="background:#c9c2b4"></span> Hors-ligne (local)';return;}if(!sessionEmail){el.innerHTML='<span class="pulse"></span> Cloud prêt';return;}const s=_lastSync?Math.round((Date.now()-_lastSync)/1000):null;el.innerHTML='<span class="pulse"></span> '+(s!=null?('Synchronisé · il y a '+(s<60?(s+' s'):(Math.round(s/60)+' min'))):'Cloud connecté');}
 try{setInterval(_syncFoot,5000);}catch(e){}
 async function _cloudPull(){if(!sb)return 'error';try{const r=await sb.from('workspace').select('data,version,updated_at').eq('id','main').maybeSingle();if(r.error)return 'error';if(r.data){if(r.data.version!=null)_lastVersion=r.data.version;if(r.data.updated_at)_lastUpdatedAt=r.data.updated_at;}const d=r.data&&r.data.data;if(d&&d.arr&&Object.keys(d.arr).length){_applyState(d);return 'has';}return 'empty';}catch(e){return 'error';}}
-async function _afterAuth(email){sessionEmail=email;const st=await _cloudPull();_cloudReady=true;_wsSubscribe();_scrubPasswords();_seedCats();if(st==='empty'){await _cloudPush(true);}let c=currentCompte();if(!c){const hasG=comptes.some(x=>x.role==='Gérant');comptes.push({id:'u'+Date.now(),nom:email.split('@')[0],role:hasG?'Salarié':'Gérant',tel:'',email,photo:''});c=currentCompte();}role=ROLEMAP[c.role]||'ouvrier';const allowed=NAV.filter(i=>i.id&&i.roles.includes(role)).map(i=>i.id);view=allowed.includes(roleHome[role])?roleHome[role]:allowed[0];currentCh=null;removeLogin();renderNav();render();applyAvatar();_applyRoleUI();saveState();toast('Bienvenue '+((c.nom||'').split(' ')[0])+' 👋','ok','ti-login-2');_consumeQR();}
+async function _afterAuth(email){sessionEmail=email;
+  /* Liste blanche des accès : le compte doit exister dans app_users et être actif */
+  let au=null;try{const ar=await sb.from('app_users').select('email,nom,role,actif').eq('email',(email||'').toLowerCase()).maybeSingle();au=ar&&ar.data;}catch(e){}
+  if(!au||au.actif===false){_cloudReady=false;try{await sb.auth.signOut();}catch(e){}sessionEmail=null;showLogin();setTimeout(function(){_loginErr('Accès non autorisé pour '+email+'. Demande au gérant de créer ton accès dans « Utilisateurs & accès ».');},150);return;}
+  const st=await _cloudPull();_cloudReady=true;_wsSubscribe();_scrubPasswords();_seedCats();if(st==='empty'){await _cloudPush(true);}let c=currentCompte();if(!c){comptes.push({id:'u'+Date.now(),nom:au.nom||email.split('@')[0],role:au.role||'Salarié',tel:'',email,photo:''});c=currentCompte();}else if(au.role&&c.role!==au.role){c.role=au.role;/* le rôle officiel vient de la liste d'accès */}role=ROLEMAP[c.role]||'ouvrier';const allowed=NAV.filter(i=>i.id&&i.roles.includes(role)).map(i=>i.id);view=allowed.includes(roleHome[role])?roleHome[role]:allowed[0];currentCh=null;removeLogin();renderNav();render();applyAvatar();_applyRoleUI();saveState();toast('Bienvenue '+((c.nom||'').split(' ')[0])+' 👋','ok','ti-login-2');_consumeQR();}
 function _authMsg(e){const m=(e&&e.message)||String(e||'');if(/already registered|already been registered/i.test(m))return 'Ce compte existe déjà — vérifie ton mot de passe.';if(/invalid login/i.test(m))return 'Email ou mot de passe incorrect.';if(/at least 6|password should be/i.test(m))return 'Mot de passe trop court (6 caractères minimum).';if(/network|fetch/i.test(m))return 'Problème réseau, réessaie.';return m;}
 function _loginBusy(b){const btn=document.getElementById('loginBtn');if(btn){btn.disabled=b;btn.style.opacity=b?'.6':'1';btn.innerHTML=b?'<i class="ti ti-loader-2"></i> Connexion…':'<i class="ti ti-login-2"></i> Se connecter';}}
 if(sb){try{sb.auth.onAuthStateChange((ev)=>{if(ev==='PASSWORD_RECOVERY'){const np=prompt('Choisis ton nouveau mot de passe (6 caractères minimum) :');if(np&&np.length>=6){sb.auth.updateUser({password:np}).then(({error})=>{alert(error?('Erreur : '+error.message):'Mot de passe mis à jour ✓');});}}});}catch(e){}}
