@@ -370,7 +370,7 @@ input.noarrow{-moz-appearance:textfield;appearance:textfield}
     <nav id="nav"></nav>
     <div class="side-foot">
       <span class="live" id="syncFoot"><span class="pulse"></span> Cloud Supabase</span><br>
-      <span style="opacity:.8">Zinguerie Provençale · v2.7</span>
+      <span style="opacity:.8">Zinguerie Provençale · v2.8</span>
     </div>
   </aside>
 
@@ -636,6 +636,7 @@ const NAV=[
   {id:'espaceClient',ic:'ti-home-heart',lab:'Mon chantier',roles:['client']},
   {id:'aujourdhui',ic:'ti-sun-high',lab:"Aujourd'hui",roles:['ouvrier','chef']},
   {id:'dash',ic:'ti-layout-dashboard',lab:'Tableau de bord',roles:['patron','chef']},
+  {id:'stats',ic:'ti-chart-bar',lab:'Statistiques',roles:['patron']},
   {id:'chantiers',ic:'ti-home-bolt',lab:'Chantiers',roles:['patron','chef','ouvrier']},
   {id:'planning',ic:'ti-calendar-week',lab:'Planning chantiers',roles:['patron','chef','ouvrier']},
   {id:'agenda',ic:'ti-calendar-event',lab:'Agenda (visites & RDV)',roles:['patron','chef']},
@@ -2590,6 +2591,39 @@ function openMembre(id){
 let superTimer=null;
 function initSupervision(){ if(superTimer){clearInterval(superTimer);superTimer=null;} /* durées statiques réalistes, plus de chrono trompeur */ }
 
+views.stats=()=>{
+  const mois=[];const now=new Date();
+  for(let i=11;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth()-i,1);mois.push(d);}
+  const mk=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+  const fac={},enc={};let sansDate=0;
+  factures.forEach(f=>{
+    if(f.date){const k=mk(new Date(f.date));fac[k]=(fac[k]||0)+(+f.ttc||0);}else{sansDate++;}
+    if(f.statut==='payee'&&f.datePaiement){const k=mk(new Date(f.datePaiement));enc[k]=(enc[k]||0)+(+f.ttc||0);}
+  });
+  const maxV=Math.max(1,...mois.map(d=>Math.max(fac[mk(d)]||0,enc[mk(d)]||0)));
+  const bars=mois.map(d=>{const k=mk(d);const f=fac[k]||0,e=enc[k]||0;
+    return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0"><div style="display:flex;align-items:flex-end;gap:3px;height:120px"><div title="Facturé ${fmt(f)}" style="width:11px;border-radius:4px 4px 0 0;background:var(--bleu-mer);opacity:.55;height:${Math.round(f/maxV*112)+2}px"></div><div title="Encaissé ${fmt(e)}" style="width:11px;border-radius:4px 4px 0 0;background:var(--olive);height:${Math.round(e/maxV*112)+2}px"></div></div><div class="tiny" style="color:var(--ink-3)">${d.toLocaleDateString('fr-FR',{month:'short'})}</div></div>`;}).join('');
+  const cnt={};devisDossiers.forEach(d=>{const s=d.statut||'brouillon';cnt[s]=(cnt[s]||0)+1;});
+  const conv=DEVIS_STATUT_ORDER.map(k=>{const ss=DEVIS_STATUTS[k];return `<span class="tag" style="background:${ss[2]};color:${ss[1]}"><i class="ti ${ss[3]}"></i> ${ss[0]} : ${cnt[k]||0}</span>`;}).join(' ');
+  const txConv=((cnt.accepte||0)+(cnt.refuse||0))>0?Math.round((cnt.accepte||0)/((cnt.accepte||0)+(cnt.refuse||0))*100):null;
+  const chs=chantiers.map(c=>({c,r:rentaReel(c)})).filter(x=>(x.c.prix||0)>0).sort((a,b)=>b.r.marge-a.r.marge).slice(0,8);
+  const chRows=chs.map(x=>{const pct=x.r.pct||0;const col=pct>=margeObjectif?'var(--olive)':(pct>=0?'#a9760d':'var(--alerte)');
+    return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--line)"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${String(x.c.nom||'?').replace(/</g,'&lt;')}</div><div style="height:6px;border-radius:4px;background:var(--surface-2);margin-top:4px"><div style="height:6px;border-radius:4px;background:${col};width:${Math.max(2,Math.min(100,Math.abs(pct)))}%"></div></div></div><div style="text-align:right;flex-shrink:0"><div style="font-weight:700;font-size:13px;color:${col}">${fmt(x.r.marge)}</div><div class="tiny" style="color:var(--ink-3)">${pct}% · CA ${fmt(x.c.prix||0)}</div></div></div>`;}).join('');
+  const byCli={};factures.forEach(f=>{const n=f.clientNom||'—';byCli[n]=(byCli[n]||0)+(+f.ttc||0);});
+  const top=Object.entries(byCli).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const maxC=Math.max(1,...top.map(t=>t[1]));
+  const cliRows=top.map(t=>`<div style="display:flex;align-items:center;gap:10px;padding:6px 0"><div style="width:130px;font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${String(t[0]).replace(/</g,'&lt;')}</div><div style="flex:1;height:10px;border-radius:5px;background:var(--surface-2)"><div style="height:10px;border-radius:5px;background:var(--orange);width:${Math.round(t[1]/maxC*100)}%"></div></div><div style="width:84px;text-align:right;font-weight:700;font-size:12.5px">${fmt(t[1])}</div></div>`).join('');
+  let demoLeft=0;try{for(const cat in _DEMO_IDS){const arr=_demoArr(cat);if(Array.isArray(arr))demoLeft+=arr.filter(x=>_DEMO_IDS[cat].includes(String(x[_DEMO_KEY[cat]||'id']))).length;}}catch(e){}
+  return `<div class="view"><div class="page-head"><div><h1>Statistiques</h1><p>CA, marge et conversion — calculés en direct sur tes données</p></div></div>
+  ${demoLeft?`<div class="banner" style="background:rgba(232,181,71,.14);color:#a9760d;margin-bottom:14px"><i class="ti ti-alert-triangle"></i> Ces chiffres incluent encore ${demoLeft} données de démonstration — Réglages → « Trier les données de démo » pour affiner.</div>`:''}
+  ${sansDate?`<div class="tiny" style="color:var(--ink-3);margin-bottom:10px"><i class="ti ti-info-circle"></i> ${sansDate} facture${sansDate>1?'s':''} d'avant la v2.6 sans date de création — non ventilée${sansDate>1?'s':''} dans le graphique mensuel.</div>`:''}
+  <div class="grid cols-2" style="gap:16px;align-items:start">
+    <div class="card"><div class="card-head"><h3><i class="ti ti-chart-bar"></i> CA par mois — 12 mois</h3><span class="sub"><span style="color:var(--bleu-mer)">■</span> facturé · <span style="color:var(--olive)">■</span> encaissé</span></div><div class="card-pad"><div style="display:flex;gap:2px">${bars}</div></div></div>
+    <div class="card"><div class="card-head"><h3><i class="ti ti-users"></i> Top clients — CA facturé</h3></div><div class="card-pad">${cliRows||'<div class="tiny" style="color:var(--ink-3)">Aucune facture pour le moment.</div>'}</div></div>
+    <div class="card"><div class="card-head"><h3><i class="ti ti-wall"></i> Marge par chantier</h3><span class="sub">objectif ${margeObjectif} %</span></div><div class="card-pad">${chRows||'<div class="tiny" style="color:var(--ink-3)">Aucun chantier chiffré.</div>'}</div></div>
+    <div class="card"><div class="card-head"><h3><i class="ti ti-file-analytics"></i> Devis — conversion</h3>${txConv!=null?`<span class="sub">${txConv} % acceptés</span>`:''}</div><div class="card-pad" style="display:flex;flex-wrap:wrap;gap:8px">${conv}</div></div>
+  </div></div>`;
+};
 views.journal=()=>{const fmtT=t=>{const d=new Date(t);return d.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})+' · '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});};
   return `<div class="view"><div class="page-head"><div><h1>Journal d'activité</h1><p>Qui a fait quoi, quand — ${journal.length} action${journal.length>1?'s':''} enregistrée${journal.length>1?'s':''} (250 max conservées)</p></div></div>
   <div class="card"><div class="card-pad">${journal.length?journal.map(j=>`<div style="display:flex;gap:11px;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--line)"><div style="width:30px;height:30px;border-radius:9px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--ink-2)"><i class="ti ${j.ic||'ti-activity'}"></i></div><div style="min-width:0;flex:1"><div style="font-size:13px"><b>${j.par||'—'}</b> ${j.txt}</div><div class="tiny" style="color:var(--ink-3);margin-top:2px">${fmtT(j.t)}</div></div></div>`).join(''):emptyState('ti-history','Aucune activité pour l\'instant','Les actions de l\'équipe apparaîtront ici : devis, factures, clients, congés, accès, restaurations…')}</div></div></div>`;};
