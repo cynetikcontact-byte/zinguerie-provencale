@@ -370,7 +370,7 @@ input.noarrow{-moz-appearance:textfield;appearance:textfield}
     <nav id="nav"></nav>
     <div class="side-foot">
       <span class="live" id="syncFoot"><span class="pulse"></span> Cloud Supabase</span><br>
-      <span style="opacity:.8">Zinguerie Provençale · v2.6</span>
+      <span style="opacity:.8">Zinguerie Provençale · v2.7</span>
     </div>
   </aside>
 
@@ -2622,6 +2622,7 @@ views.reglages=()=>`<div class="view">
           <button class="btn sm" onclick="openCloudRestore()"><i class="ti ti-cloud-download"></i> Restaurer depuis le cloud</button>
           <button class="btn sm" onclick="snapshotNow()"><i class="ti ti-database-plus"></i> Snapshot cloud maintenant</button>
           <button class="btn sm" onclick="document.getElementById('importDataInput').click()"><i class="ti ti-upload"></i> Restaurer depuis un fichier</button>
+          <button class="btn sm" onclick="openDemoTri()"><i class="ti ti-wand"></i> Trier les données de démo</button>
           <input type="file" id="importDataInput" accept="application/json,.json" style="display:none" onchange="importData(this)">
         </div>
         <div style="height:1px;background:var(--line);margin:13px 0"></div>
@@ -2675,6 +2676,42 @@ function render(){
   if(view==='supervision')initSupervision();
   if(view==='reglages')initReglages();
   if(view==='carnet')initCarnetDnD();
+}
+/* ===== Tri des données de démonstration (ids des seeds d'origine) ===== */
+const _DEMO_IDS={chantiers:['ch1','ch2','ch3','ch4','ch5','ch6'],clients:['c1','c2','c3','c4'],factures:['F-0098','F-0101','F-0103'],taches:['t1','t2','t3','t4','t5'],rdvs:['r1','r2','r3','r4','r5'],carnet:['DE02176','DE02363','DE01144-02','DE01567-02','DE02381','DE02369','DE02415','DE02161','DE01963','DE02212','DE01826-04','DE01916-03','DE01743','DE02215-02','DE01820-02','DE02290-02'],demandesList:['dm1','dm2'],congesList:['cg1','cg2','cg3'],catFournitures:['f-zinc','f-gout','f-solin','f-ecran','f-liteau','f-evac'],ouvrages:['o1','o2','o3','o4','o5'],salaries:['km','lb','as','jp'],bureau:['dg','tim','sandra']};
+const _DEMO_KEY={factures:'num',carnet:'ref'};
+const _DEMO_LABELS={chantiers:'Chantiers',clients:'Clients',factures:'Factures',taches:'Tâches',rdvs:'RDV agenda',carnet:'Carnet de commande',demandesList:'Demandes',congesList:'Congés',catFournitures:'Produits / stock',ouvrages:'Ouvrages (bibliothèque)',salaries:'Salariés',bureau:'Équipe bureau'};
+const _DEMO_RISQUE=['salaries','catFournitures','ouvrages'];
+function _demoItemLabel(it){return (it&&(it.nom||it.titre||(it.num?it.num+' — '+(it.clientNom||''):null)||it.ref||it.id))||'?';}
+function _demoArr(cat){try{return {chantiers,clients,factures,taches,rdvs,carnet,demandesList,congesList,catFournitures,ouvrages,salaries,bureau}[cat];}catch(e){return null;}}
+function openDemoTri(){
+  const state=JSON.stringify(_stateObj());
+  let html='<div class="tiny" style="color:var(--ink-3);margin-bottom:10px">Coche ce qui est de la <b>démo</b> à supprimer. Rien n\'est pré-coché. Un snapshot cloud est créé automatiquement avant la suppression (restaurable via Réglages). Le nombre entre parenthèses = références ailleurs dans tes données : si &gt; 0, vérifie avant.</div>';
+  let tot=0;
+  for(const cat in _DEMO_IDS){
+    const arr=_demoArr(cat);if(!Array.isArray(arr))continue;
+    const key=_DEMO_KEY[cat]||'id';
+    const present=arr.filter(x=>_DEMO_IDS[cat].includes(String(x[key])));
+    if(!present.length)continue;tot+=present.length;
+    html+='<div style="margin-top:12px"><div style="font-weight:700;font-size:13px">'+_DEMO_LABELS[cat]+' <span class="tiny" style="color:var(--ink-3)">('+present.length+' issu'+(present.length>1?'s':'')+' de la démo)</span>'+(_DEMO_RISQUE.includes(cat)?' <span class="tag" style="background:rgba(232,181,71,.18);color:#a9760d">⚠ possiblement devenu réel</span>':'')+'</div>';
+    present.forEach(it=>{const id=String(it[key]);const occ=state.split('"'+id+'"').length-1;const refs=Math.max(0,occ-1);
+      html+='<label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:12.5px;cursor:pointer"><input type="checkbox" class="demotri" data-cat="'+cat+'" data-id="'+id.replace(/"/g,'')+'"> '+String(_demoItemLabel(it)).replace(/</g,'&lt;')+' <span class="tiny" style="color:'+(refs>0?'#a9760d':'var(--ink-3)')+'">('+refs+' réf.)</span></label>';});
+    html+='</div>';
+  }
+  if(!tot){toast('Aucune donnée de démo restante 🎉','ok','ti-checks');return;}
+  modal('<div class="modal-head"><h3><i class="ti ti-wand"></i> Trier les données de démonstration</h3><button class="icon-x" onclick="this.closest(\'.overlay\').remove()"><i class="ti ti-x"></i></button></div><div class="modal-body" style="max-height:62vh;overflow:auto">'+html+'<button class="btn primary" style="width:100%;justify-content:center;margin-top:14px" onclick="purgeDemoSelection()"><i class="ti ti-trash"></i> Supprimer la sélection (snapshot auto avant)</button></div>');
+}
+async function purgeDemoSelection(){
+  const sel=[...document.querySelectorAll('.demotri:checked')].map(c=>({cat:c.dataset.cat,id:c.dataset.id}));
+  if(!sel.length){toast('Rien de coché','info','ti-alert-circle');return;}
+  if(!confirm('Supprimer '+sel.length+' enregistrement'+(sel.length>1?'s':'')+' de démo ? Un snapshot est créé juste avant, par sécurité.'))return;
+  try{if(sb&&sessionEmail)await sb.from('workspace_backups').insert({workspace_id:'main',data:_stateObj(),note:'avant purge démo ('+sel.length+' éléments)'});}catch(e){}
+  let n=0;
+  sel.forEach(s=>{const arr=_demoArr(s.cat);if(!Array.isArray(arr))return;const key=_DEMO_KEY[s.cat]||'id';const i=arr.findIndex(x=>String(x[key])===s.id);if(i>=0){arr.splice(i,1);n++;}});
+  document.querySelectorAll('.overlay').forEach(o=>o.remove());
+  _logAction('ti-eraser','a purgé '+n+' donnée'+(n>1?'s':'')+' de démonstration');
+  if(typeof renderNav==='function')renderNav();render();
+  toast(n+' enregistrement'+(n>1?'s':'')+' de démo supprimé'+(n>1?'s':'')+' ✓','ok','ti-eraser');
 }
 function saveReglages(){const tv=parseFloat((document.getElementById('setTva')||{}).value);if(!isNaN(tv))tvaDefaut=tv;const mg=parseFloat(String(_v('setMarge')||'').replace(',','.'));if(!isNaN(mg)&&mg>0&&mg<95)margeObjectif=mg;_logAction('ti-settings','a modifié les réglages — TVA '+tvaDefaut+' % · objectif marge '+margeObjectif+' %');render();toast('Réglages enregistrés ✓ (TVA '+tvaDefaut+' % appliquée aux devis)','ok','ti-check');}
 function marquerPayee(num){const f=factures.find(x=>x.num===num);if(!f)return;f.statut='payee';f.datePaiement=new Date().toISOString();_logAction('ti-cash','a encaissé la facture '+num+' — '+(f.clientNom||'')+' ('+fmt(f.ttc||0)+')');render();toast('Facture '+num+' encaissée 💶','ok','ti-cash');}
