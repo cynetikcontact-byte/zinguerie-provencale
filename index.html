@@ -370,7 +370,7 @@ input.noarrow{-moz-appearance:textfield;appearance:textfield}
     <nav id="nav"></nav>
     <div class="side-foot">
       <span class="live" id="syncFoot"><span class="pulse"></span> Cloud Supabase</span><br>
-      <span style="opacity:.8">Zinguerie Provençale · v2.2</span>
+      <span style="opacity:.8">Zinguerie Provençale · v2.2.1</span>
     </div>
   </aside>
 
@@ -721,7 +721,7 @@ let _profilPhotoTmp=null;
 /* Identité = la personne réellement connectée (compte), pas le rôle générique */
 function _pretty(n){n=(n||'').trim();if(!n)return'';if(n.includes(' '))return n;if(/[._\d@]/.test(n)){const c=n.split('@')[0].replace(/[._]+/g,' ').replace(/\d+/g,'').trim();return c.split(' ').filter(Boolean).map(w=>w[0].toUpperCase()+w.slice(1)).join(' ')||n;}return n;}
 function _meName(){const c=currentCompte();return ((c&&c.nom)||(profilUser[role]&&profilUser[role].nom)||'');}
-function _mePhoto(){const c=currentCompte();return (c&&c.photo)||(profilUser[role]&&profilUser[role].photo)||'';}
+function _mePhoto(){const c=currentCompte();if(c)return c.photo||'';/* pas d'héritage croisé entre utilisateurs */return (profilUser[role]&&profilUser[role].photo)||'';}
 function _meInit(){const n=_meName();return n?initiales(n):roleAvatar[role];}
 function applyAvatar(){const av=document.getElementById('meAvatar');if(!av)return;const ph=_mePhoto();if(ph){av.textContent='';av.style.backgroundImage='url('+ph+')';av.style.backgroundSize='cover';av.style.backgroundPosition='center';}else{av.style.backgroundImage='';av.textContent=_meInit();av.style.background=ROLE_COL[role];}}
 function openProfil(){closeMenus();_profilPhotoTmp=null;const p=currentCompte()||profilUser[role];
@@ -2952,6 +2952,7 @@ async function _pullAndApply(){
     if(!d||!d.arr||d._src===_clientId)return;        /* rien, ou notre propre enregistrement */
     _applyState(d);
     if(typeof renderNav==='function')renderNav();
+    if(typeof applyAvatar==='function')applyAvatar(); /* rafraîchit l'avatar si la photo a changé ailleurs */
     _renderOrig();                                    /* re-render SANS re-pousser → pas de boucle */
     if(typeof _syncFoot==='function')_syncFoot();
     try{localStorage.setItem(ZP_STORE_KEY,JSON.stringify(_stateObj()));}catch(e){}
