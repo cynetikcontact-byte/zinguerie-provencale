@@ -370,7 +370,7 @@ input.noarrow{-moz-appearance:textfield;appearance:textfield}
     <nav id="nav"></nav>
     <div class="side-foot">
       <span class="live" id="syncFoot"><span class="pulse"></span> Cloud Supabase</span><br>
-      <span style="opacity:.8">Zinguerie Provençale · v2.3</span>
+      <span style="opacity:.8">Zinguerie Provençale · v2.4</span>
     </div>
   </aside>
 
@@ -497,9 +497,10 @@ const MOTIFS=['Congés payés','RTT','Maladie','Sans solde','Formation','Récup�
 function congeDays(from,to){const s=new Date(from),e=new Date(to);if(isNaN(s)||isNaN(e)||e<s)return 0;let n=0;for(let d=new Date(s);d<=e;d.setDate(d.getDate()+1)){const wd=(d.getDay()+6)%7;if(wd<5)n++;}return n;}
 function dateFr(x){const d=new Date(x);return isNaN(d)?'—':d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'});}
 function _todayFr(cap,short){const o=short?{weekday:'long',day:'numeric',month:'long'}:{weekday:'long',day:'numeric',month:'long',year:'numeric'};const s=new Date().toLocaleDateString('fr-FR',o);return cap?s.charAt(0).toUpperCase()+s.slice(1):s;}
+function _logAction(ic,txt){try{journal.unshift({t:Date.now(),par:(((typeof currentCompte==='function'&&currentCompte())||{}).nom)||sessionEmail||'—',txt:String(txt||'').replace(/</g,'&lt;'),ic:ic||'ti-activity'});if(journal.length>250)journal.length=250;}catch(e){}}
 function congeToPlanning(sal,from,to,clear){const base=new Date(2026,5,22);const s=new Date(from),e=new Date(to);for(let d=new Date(s);d<=e;d.setDate(d.getDate()+1)){const diff=Math.round((d-base)/86400000);if(diff<0)continue;const wk=26+Math.floor(diff/7),day=((diff%7)+7)%7;if(day<=5){const wd=planWeekData(wk);if(wd[sal]){if(clear){if(wd[sal][day]==='conge')wd[sal][day]=null;}else wd[sal][day]='conge';}}}}
-function validateConge(id){const c=congesList.find(x=>x.id===id);if(!c)return;c.statut='valide';congesBalance[c.sal]=Math.max(0,(congesBalance[c.sal]||0)-congeDays(c.from,c.to));congeToPlanning(c.sal,c.from,c.to,false);render();toast('Congé validé · ajouté au planning','ok','ti-calendar-check');}
-function refuseConge(id){const c=congesList.find(x=>x.id===id);if(c){if(c.statut==='valide'){congesBalance[c.sal]+=congeDays(c.from,c.to);congeToPlanning(c.sal,c.from,c.to,true);}congesList=congesList.filter(x=>x.id!==id);}render();toast('Congé refusé / supprimé','info','ti-x');}
+function validateConge(id){const c=congesList.find(x=>x.id===id);if(!c)return;c.statut='valide';congesBalance[c.sal]=Math.max(0,(congesBalance[c.sal]||0)-congeDays(c.from,c.to));congeToPlanning(c.sal,c.from,c.to,false);_logAction('ti-calendar-check','a validé le congé de '+(((typeof sal==='function'&&sal(c.sal))||{}).nom||c.sal));render();toast('Congé validé · ajouté au planning','ok','ti-calendar-check');}
+function refuseConge(id){const c=congesList.find(x=>x.id===id);if(c){if(c.statut==='valide'){congesBalance[c.sal]+=congeDays(c.from,c.to);congeToPlanning(c.sal,c.from,c.to,true);}congesList=congesList.filter(x=>x.id!==id);_logAction('ti-x','a refusé/supprimé le congé de '+(((typeof sal==='function'&&sal(c.sal))||{}).nom||c.sal));}render();toast('Congé refusé / supprimé','info','ti-x');}
 function poserConge(){
   modal(`<div class="modal-head"><h3>Poser un congé</h3><button class="icon-x" onclick="this.closest('.overlay').remove()"><i class="ti ti-x"></i></button></div>
   <div class="modal-body">
@@ -620,7 +621,7 @@ let ouvrages=[
   {id:'o4',cat:'Zinguerie',nom:'Habillage rive / solin',icon:'ti-border-style',unite:'ml',h:0.4,four:[{fid:'f-solin',qte:1}]},
 ];
 let devisClient='c1';
-let devisDossiers=[];let currentDevis=null;let _devisSeq=142;let _devisStatutFilter='all';let _devisParFilter='all';
+let devisDossiers=[];let currentDevis=null;let _devisSeq=142;let _devisStatutFilter='all';let _devisParFilter='all';let journal=[];
 const DEVIS_STATUTS={brouillon:['Brouillon','#6B6B6B','rgba(120,120,120,.14)','ti-pencil'],envoye:['Envoyé','#3D8AC6','rgba(61,138,198,.14)','ti-send'],accepte:['Accepté','#7A8B4F','rgba(122,139,79,.16)','ti-circle-check'],refuse:['Refusé','#B83A26','rgba(184,58,38,.13)','ti-circle-x']};
 const DEVIS_STATUT_ORDER=['brouillon','envoye','accepte','refuse'];
 function ouvrPU(o){const mo=o.h*tauxMO;const fo=o.four.reduce((a,f)=>a+((catF(f.fid)||{pu:0}).pu)*f.qte,0);return Math.round(mo+fo);}
@@ -657,6 +658,7 @@ const NAV=[
   {id:'chat',ic:'ti-message-circle',lab:'Messagerie',roles:['patron','chef','ouvrier','gestion']},
   {id:'fichiers',ic:'ti-folder',lab:'Documents',roles:['patron','chef','ouvrier','gestion','client']},
   {sect:'Configuration'},
+  {id:'journal',ic:'ti-history',lab:"Journal d'activité",roles:['patron']},
   {id:'comptes',ic:'ti-users-group',lab:'Utilisateurs & accès',roles:['patron']},
   {id:'reglages',ic:'ti-settings',lab:'Réglages & coûts',roles:['patron']},
 ];
@@ -782,13 +784,14 @@ function saveCompte(){const nom=_v('cpNom');if(!nom){toast('Indiquez le nom','in
   if(_compteEdit){const u=comptes.find(x=>x.id===_compteEdit);if(u){prevEmail=(u.email||'').toLowerCase();u.nom=nom;u.role=role;u.tel=tel;u.email=email;delete u.pass;if(_comptePhotoTmp)u.photo=_comptePhotoTmp;}}
   else{comptes.push({id:'u'+Date.now(),nom,role,tel,email,photo:_comptePhotoTmp||''});}
   if(role!=='Client'){_syncAppUser(email,nom,role,prevEmail);}else if(prevEmail){_revokeAppUser(prevEmail);}
+  _logAction('ti-user-cog',(_compteEdit?'a modifié le profil de ':'a créé l\'accès de ')+nom+' ('+role+')');
   document.querySelectorAll('.overlay').forEach(o=>o.remove());render();
   if(role==='Client'){toast('Profil client créé (sans accès de connexion)','ok','ti-user-check');}
   else{toast((_compteEdit?'Profil mis à jour':'Accès créé')+' — '+nom+' se connecte avec '+email+' et choisit son mot de passe à sa 1re connexion','ok','ti-user-check');}}
 function delCompte(id){const u=comptes.find(x=>x.id===id);if(!u)return;
   if(u.role==='Gérant'&&comptes.filter(x=>x.role==='Gérant'&&x.id!==id).length===0){toast('Impossible : il faut au moins un Gérant','info','ti-alert-circle');return;}
   if((u.email||'').toLowerCase()===(sessionEmail||'').toLowerCase()&&!confirm('Attention : c\'est TON propre accès. Vraiment le supprimer ?'))return;
-  if(confirm('Supprimer le profil de '+u.nom+' ? Son accès de connexion sera aussi révoqué.')){comptes=comptes.filter(x=>x.id!==id);_revokeAppUser((u.email||'').toLowerCase());render();toast('Profil supprimé et accès révoqué','info','ti-trash');}}
+  if(confirm('Supprimer le profil de '+u.nom+' ? Son accès de connexion sera aussi révoqué.')){comptes=comptes.filter(x=>x.id!==id);_revokeAppUser((u.email||'').toLowerCase());_logAction('ti-user-off','a supprimé le profil et l\'accès de '+u.nom);render();toast('Profil supprimé et accès révoqué','info','ti-trash');}}
 async function _syncAppUser(email,nom,role,prevEmail){if(!sb||!/@/.test(email||''))return;try{
   if(prevEmail&&/@/.test(prevEmail)&&prevEmail!==email){await sb.from('app_users').delete().eq('email',prevEmail);}
   const r=await sb.from('app_users').upsert({email,nom,role,actif:true});
@@ -1509,7 +1512,7 @@ function assistConfirm(){
     id='cmd-'+(chantiers.length+1);d.chantierId=id;
     const cid=d.clientId||findOrCreateClient(d.client);
     const pal=Object.values(PROV),col=pal[chantiers.length%pal.length];
-    chantiers.push({id,nom:d.client,clientId:cid,col,statut:'venir',prix:d.ht,hEst:d.h,hFaites:0,matiere:Math.round(d.ht*0.3),chef:ids[0],equipe:ids,fin:assist.date.split('-').reverse().join('/'),adresse:'À planifier',prep:false,av:0});
+    chantiers.push({id,nom:d.client,clientId:cid,col,statut:'venir',prix:d.ht,hEst:d.h,hFaites:0,matiere:Math.round(d.ht*0.3),chef:ids[0],equipe:ids,fin:assist.date.split('-').reverse().join('/'),adresse:'À planifier',prep:false,av:0,par:((currentCompte()||{}).nom)||''});_logAction('ti-building','a planifié le chantier '+d.client);
   } else {const c=chn(id);if(c){c.equipe=ids;c.chef=ids[0];}}
   ids.forEach(sid=>{let placed=0;for(let dd=0;dd<5&&placed<2;dd++){if(!planData[sid][dd]){planData[sid][dd]=id;placed++;}}});
   d.steps[3]=1;d.st='planifie';
@@ -1752,7 +1755,7 @@ function newRDV(day,hour,pref){
 }
 function saveRDV(){
   const whos=[...document.querySelectorAll('.rvWho:checked')].map(e=>e.value);
-  rdvs.push({id:'r'+(rdvSeq++),week:agendaWeek,day:+_v('rvDay'),start:+_v('rvHour'),dur:+_v('rvDur'),type:_v('rvType'),titre:_v('rvTitre')||RTYPE[_v('rvType')][0],client:_v('rvClient'),whos});
+  rdvs.push({id:'r'+(rdvSeq++),week:agendaWeek,day:+_v('rvDay'),start:+_v('rvHour'),dur:+_v('rvDur'),type:_v('rvType'),titre:_v('rvTitre')||RTYPE[_v('rvType')][0],client:_v('rvClient'),whos,par:((currentCompte()||{}).nom)||''});_logAction('ti-calendar-plus','a ajouté un RDV à l\'agenda');
   if(_v('rvType')==='decouverte'&&_v('rvClient'))autoVisiteFaite(_v('rvClient'));
   document.querySelectorAll('.overlay').forEach(o=>o.remove());render();toast(whos.length>1?'Réunion ajoutée · '+whos.length+' participants':"Rendez-vous ajouté à l'agenda",'ok','ti-calendar-plus');
 }
@@ -1834,7 +1837,7 @@ views.appels=()=>{
 function _v(id){const e=document.getElementById(id);return e?e.value.trim():'';}
 function creerClient(){
   const nom=_v('ncNom');if(!nom){toast('Indiquez le nom du client','info','ti-alert-circle');return;}
-  clients.unshift({id:'cli-'+Date.now(),nom,type:_v('ncType')||'Particulier',tel:_v('ncTel')||'—',mail:_v('ncMail'),ville:_v('ncVille'),adr:_v('ncAdr'),orig:_v('ncOrig'),demande:_v('ncDem'),urgence:_v('ncUrg'),visite:_v('ncVisite')||'à planifier',note:_v('ncNote'),nouveau:true});
+  clients.unshift({id:'cli-'+Date.now(),nom,type:_v('ncType')||'Particulier',tel:_v('ncTel')||'—',mail:_v('ncMail'),ville:_v('ncVille'),adr:_v('ncAdr'),orig:_v('ncOrig'),demande:_v('ncDem'),urgence:_v('ncUrg'),visite:_v('ncVisite')||'à planifier',note:_v('ncNote'),nouveau:true,par:((currentCompte()||{}).nom)||''});_logAction('ti-user-plus','a créé le client '+nom);
   autoVisiteCree(nom);
   render();setTimeout(()=>toast('Client « '+nom+' » créé · mission « planifier la visite » ajoutée','ok','ti-user-plus'),40);
 }
@@ -1894,7 +1897,7 @@ function openClient(id){
   </div>`);
 }
 function quickNewClient(){modal(`<div class="modal-head"><h3>Nouveau client</h3><button class="icon-x" onclick="this.closest('.overlay').remove()"><i class="ti ti-x"></i></button></div><div class="modal-body"><div class="field"><label>Nom / Raison sociale</label><input id="qcNom" class="cell" style="width:100%" placeholder="Ex. M. Dupont"></div><div style="display:flex;gap:12px"><div class="field" style="flex:1"><label>Type</label><select id="qcType" class="cell">${['Particulier','Pro','Collectivité','Syndic','Copropriété'].map(t=>`<option>${t}</option>`).join('')}</select></div><div class="field" style="flex:1"><label>Téléphone</label><input id="qcTel" class="cell" placeholder="06 …"></div></div><div class="field"><label>Ville / Code postal</label><input id="qcVille" class="cell" placeholder="Aubagne 13400"></div><button class="btn primary" style="width:100%;justify-content:center" onclick="_saveQuickClient()"><i class="ti ti-check"></i> Créer et sélectionner</button></div>`);setTimeout(()=>{const i=document.getElementById('qcNom');if(i)i.focus();},60);}
-function _saveQuickClient(){const nom=_v('qcNom');if(!nom){toast('Indiquez le nom du client','info','ti-alert-circle');return;}const id='cli-'+Date.now();clients.unshift({id,nom,type:document.getElementById('qcType').value,tel:_v('qcTel')||'—',ville:_v('qcVille'),visite:'à planifier',nouveau:true});document.querySelectorAll('.overlay').forEach(o=>o.remove());setDevisClient(id);toast('Client « '+nom+' » créé et sélectionné','ok','ti-user-plus');}
+function _saveQuickClient(){const nom=_v('qcNom');if(!nom){toast('Indiquez le nom du client','info','ti-alert-circle');return;}const id='cli-'+Date.now();clients.unshift({id,nom,type:document.getElementById('qcType').value,tel:_v('qcTel')||'—',ville:_v('qcVille'),visite:'à planifier',nouveau:true,par:((currentCompte()||{}).nom)||''});_logAction('ti-user-plus','a créé le client '+nom);document.querySelectorAll('.overlay').forEach(o=>o.remove());setDevisClient(id);toast('Client « '+nom+' » créé et sélectionné','ok','ti-user-plus');}
 function editClient(id){const c=cli(id);if(!c)return;
   const types=['Particulier','Pro','Collectivité','Syndic','Copropriété','Promoteur'];
   if(c.type&&!types.includes(c.type))types.unshift(c.type);
@@ -1918,14 +1921,14 @@ function _syncCurDevis(){if(!currentDevis||!Array.isArray(devisDossiers))return;
 function _migrateDevis(){if(!Array.isArray(devisDossiers)||devisDossiers.length)return;devisDossiers.push({id:'dv'+Date.now(),ref:'D-2026-0142',statut:'brouillon',clientId:devisClient||'',lignes:devisLignes.slice(),maj:Date.now()});_devisSeq=Math.max(_devisSeq,142);}
 function _dossierTotal(d){return ((d&&d.lignes)||[]).reduce((a,l)=>a+(+l.qte||0)*(+l.pu||0),0);}
 function openDevisDossier(id){const d=devisDossiers.find(x=>x.id===id);if(!d)return;_syncCurDevis();currentDevis=id;devisLignes.length=0;(d.lignes||[]).forEach(l=>devisLignes.push(l));devisClient=d.clientId||'';view='devis';renderNav();render();}
-function newDevis(){_syncCurDevis();const n=(++_devisSeq);const id='dv'+Date.now();devisDossiers.unshift({id,ref:'D-2026-0'+n,statut:'brouillon',clientId:'',lignes:[],maj:Date.now(),par:((currentCompte()||{}).nom)||''});currentDevis=id;devisLignes.length=0;devisClient='';view='devis';render();toast('Nouveau devis créé — ajoute tes ouvrages','ok','ti-file-plus');}
+function newDevis(){_syncCurDevis();const n=(++_devisSeq);const id='dv'+Date.now();devisDossiers.unshift({id,ref:'D-2026-0'+n,statut:'brouillon',clientId:'',lignes:[],maj:Date.now(),par:((currentCompte()||{}).nom)||''});_logAction('ti-file-plus','a créé le devis D-2026-0'+n);currentDevis=id;devisLignes.length=0;devisClient='';view='devis';render();toast('Nouveau devis créé — ajoute tes ouvrages','ok','ti-file-plus');}
 function backToDevisList(){_syncCurDevis();currentDevis=null;render();}
-function delDevisDossier(id){if(!confirm('Supprimer définitivement ce devis ?'))return;const i=devisDossiers.findIndex(x=>x.id===id);if(i<0)return;devisDossiers.splice(i,1);if(currentDevis===id){currentDevis=null;devisLignes.length=0;devisClient='';}render();toast('Devis supprimé','info','ti-trash');}
+function delDevisDossier(id){if(!confirm('Supprimer définitivement ce devis ?'))return;const i=devisDossiers.findIndex(x=>x.id===id);if(i<0)return;const _dd=devisDossiers[i];devisDossiers.splice(i,1);_logAction('ti-trash','a supprimé le devis '+((_dd.titre||_dd.ref)||''));if(currentDevis===id){currentDevis=null;devisLignes.length=0;devisClient='';}render();toast('Devis supprimé','info','ti-trash');}
 function _curDoss(){return devisDossiers.find(x=>x.id===currentDevis)||{};}
 function renameDevis(id){const d=devisDossiers.find(x=>x.id===id);if(!d)return;modal(`<div class="modal-head"><h3>Renommer le devis</h3><button class="icon-x" onclick="this.closest('.overlay').remove()"><i class="ti ti-x"></i></button></div><div class="modal-body"><div class="field"><label>Nom du devis</label><input id="rnDevis" class="cell" style="width:100%" value="${(d.titre||'').replace(/"/g,'&quot;')}" placeholder="Ex. Toiture Villa Dupont" onkeydown="if(event.key==='Enter')_saveRenameDevis('${id}')"></div><div class="tiny" style="color:var(--ink-3);margin-bottom:12px">Référence ${d.ref} conservée. Laisse vide pour revenir à la référence.</div><button class="btn primary" style="width:100%;justify-content:center" onclick="_saveRenameDevis('${id}')"><i class="ti ti-check"></i> Enregistrer</button></div>`);setTimeout(()=>{const i=document.getElementById('rnDevis');if(i){i.focus();i.select();}},50);}
 function _saveRenameDevis(id){const d=devisDossiers.find(x=>x.id===id);if(!d)return;d.titre=(_v('rnDevis')||'').trim();document.querySelectorAll('.overlay').forEach(o=>o.remove());render();toast('Devis renommé','ok','ti-check');}
-function dupDevis(id){const d=devisDossiers.find(x=>x.id===id);if(!d)return;_syncCurDevis();const n=(++_devisSeq);const nid='dv'+Date.now();let lignes=[];try{lignes=JSON.parse(JSON.stringify(d.lignes||[]));}catch(e){lignes=(d.lignes||[]).slice();}devisDossiers.unshift({id:nid,ref:'D-2026-0'+n,statut:'brouillon',titre:(d.titre?d.titre+' (copie)':''),clientId:d.clientId||'',lignes,maj:Date.now(),par:((currentCompte()||{}).nom)||''});render();toast('Devis dupliqué — copie créée','ok','ti-copy');}
-function setDevisStatut(id,s){const d=devisDossiers.find(x=>x.id===id);if(!d)return;d.statut=s;d.maj=Date.now();render();}
+function dupDevis(id){const d=devisDossiers.find(x=>x.id===id);if(!d)return;_syncCurDevis();const n=(++_devisSeq);const nid='dv'+Date.now();let lignes=[];try{lignes=JSON.parse(JSON.stringify(d.lignes||[]));}catch(e){lignes=(d.lignes||[]).slice();}devisDossiers.unshift({id:nid,ref:'D-2026-0'+n,statut:'brouillon',titre:(d.titre?d.titre+' (copie)':''),clientId:d.clientId||'',lignes,maj:Date.now(),par:((currentCompte()||{}).nom)||''});_logAction('ti-copy','a dupliqué le devis '+(d.titre||d.ref));render();toast('Devis dupliqué — copie créée','ok','ti-copy');}
+function setDevisStatut(id,s){const d=devisDossiers.find(x=>x.id===id);if(!d)return;d.statut=s;d.maj=Date.now();_logAction('ti-progress','a passé le devis '+(d.titre||d.ref)+' en « '+((DEVIS_STATUTS[s]||[s])[0])+' »');render();}
 function setDevisStatutFilter(s){_devisStatutFilter=s;document.querySelectorAll('.dstat-chip').forEach(c=>c.classList.toggle('on',c.dataset.s===s));_devisFilter();}
 function setDevisParFilter(v){_devisParFilter=v;_devisFilter();}
 function _devisFilter(){const qi=document.getElementById('devisSearch');const qq=((qi&&qi.value)||'').toLowerCase().trim();const grid=document.getElementById('devisListGrid');if(!grid)return;let visible=0;Array.prototype.forEach.call(grid.querySelectorAll('.devis-card'),c=>{const okQ=!qq||(c.dataset.search||'').indexOf(qq)>=0;const okS=(_devisStatutFilter==='all')||(c.dataset.statut===_devisStatutFilter);const okP=(_devisParFilter==='all')||((c.dataset.par||'')===_devisParFilter);const show=okQ&&okS&&okP;c.style.display=show?'':'none';if(show)visible++;});const nr=document.getElementById('devisNoResult');if(nr)nr.style.display=visible?'none':'block';}
@@ -2087,7 +2090,7 @@ function factureDocHTML(f){
     <div style="margin-top:18px;border-top:1px solid #ddd;padding-top:9px;font-size:10.5px;color:#6B6B6B">Règlement à réception. Pénalités de retard : 3× le taux légal. Pas d'escompte pour paiement anticipé. Assurance décennale AXA n° 2026-7741.</div>
   </div>`;}
 function exportFacturePDF(num){const f=factures.find(x=>x.num===num);if(f){printDoc(factureDocHTML(f));toast("Fenêtre d'impression — choisissez « Enregistrer en PDF »",'info','ti-file-download');}}
-function devisToFacture(){const t=devisTotals();if(t.ttc<=0){toast('Le devis est vide','info','ti-alert-circle');return;}const c=devisClient?cli(devisClient):null;const num='F-'+String(104+factures.length);factures.unshift({num,clientNom:c?c.nom:'—',type:'Acompte 30%',ttc:Math.round(t.ttc*0.3),statut:'attente',echeance:'à 30 j'});go('factures');toast("Facture d'acompte créée — "+fmt(t.ttc*0.3),'ok','ti-file-check');}
+function devisToFacture(){const t=devisTotals();if(t.ttc<=0){toast('Le devis est vide','info','ti-alert-circle');return;}const c=devisClient?cli(devisClient):null;const num='F-'+String(104+factures.length);factures.unshift({num,clientNom:c?c.nom:'—',type:'Acompte 30%',ttc:Math.round(t.ttc*0.3),statut:'attente',echeance:'à 30 j',par:((currentCompte()||{}).nom)||''});_logAction('ti-file-check','a créé la facture '+num+' — '+(c?c.nom:'sans client'));go('factures');toast("Facture d'acompte créée — "+fmt(t.ttc*0.3),'ok','ti-file-check');}
 function _devisBesoins(){const need={};devisLignes.forEach(l=>{const q=+l.qte||0;if(l.four&&l.four.length){l.four.forEach(f=>{if(f.fid)need[f.fid]=(need[f.fid]||0)+(+f.qte||0)*q;});}else if(l.ovId){const o=ouvr(l.ovId);if(o&&o.four)o.four.forEach(f=>{need[f.fid]=(need[f.fid]||0)+(+f.qte||0)*q;});}});return need;}
 function validerDevisStock(){const need=_devisBesoins();const ids=Object.keys(need);
   if(!ids.length){toast('Aucun produit à réserver — ce devis n\'utilise pas d\'ouvrage de la bibliothèque','info','ti-info-circle');return;}
@@ -2586,6 +2589,9 @@ function openMembre(id){
 let superTimer=null;
 function initSupervision(){ if(superTimer){clearInterval(superTimer);superTimer=null;} /* durées statiques réalistes, plus de chrono trompeur */ }
 
+views.journal=()=>{const fmtT=t=>{const d=new Date(t);return d.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})+' · '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});};
+  return `<div class="view"><div class="page-head"><div><h1>Journal d'activité</h1><p>Qui a fait quoi, quand — ${journal.length} action${journal.length>1?'s':''} enregistrée${journal.length>1?'s':''} (250 max conservées)</p></div></div>
+  <div class="card"><div class="card-pad">${journal.length?journal.map(j=>`<div style="display:flex;gap:11px;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--line)"><div style="width:30px;height:30px;border-radius:9px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--ink-2)"><i class="ti ${j.ic||'ti-activity'}"></i></div><div style="min-width:0;flex:1"><div style="font-size:13px"><b>${j.par||'—'}</b> ${j.txt}</div><div class="tiny" style="color:var(--ink-3);margin-top:2px">${fmtT(j.t)}</div></div></div>`).join(''):emptyState('ti-history','Aucune activité pour l\'instant','Les actions de l\'équipe apparaîtront ici : devis, factures, clients, congés, accès, restaurations…')}</div></div></div>`;};
 views.reglages=()=>`<div class="view">
   <div class="page-head"><div><h1>Réglages & coûts</h1><p>Coût horaire chargé par salarié · paramètres de l'entreprise</p></div>
     <button class="btn primary" onclick="toast('Réglages enregistrés','ok','ti-check')"><i class="ti ti-device-floppy"></i> Enregistrer</button></div>
@@ -2636,7 +2642,7 @@ function exportInventaireCSV(){const sep=';';const esc=v=>{v=String(v==null?'':v
 function _printReappo(){const a=document.getElementById('reappoArea');if(!a)return;const w=window.open('','_blank');if(!w){toast('Autorise les pop-ups pour imprimer','info','ti-alert-circle');return;}w.document.write('<html><head><title>Réappro — Zinguerie Provençale</title><meta charset="utf-8"></head><body style="font-family:sans-serif;padding:30px;color:#222">'+a.innerHTML+'</body></html>');w.document.close();w.focus();setTimeout(()=>{try{w.print();}catch(e){}},350);}
 /* ===== Sauvegarde : export / restauration ===== */
 function exportData(){try{const data=JSON.stringify(_stateObj());const blob=new Blob([data],{type:'application/json'});const url=URL.createObjectURL(blob);const d=new Date(),p=n=>String(n).padStart(2,'0');const a=document.createElement('a');a.href=url;a.download='zinguerie-sauvegarde-'+d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);toast('Sauvegarde téléchargée','ok','ti-download');}catch(e){toast("Erreur lors de l'export",'info','ti-alert-circle');}}
-function importData(input){const f=input.files&&input.files[0];if(!f){return;}input.value='';const r=new FileReader();r.onload=ev=>{let d;try{d=JSON.parse(ev.target.result);}catch(e){toast('Fichier illisible','info','ti-alert-circle');return;}if(!d||!d.arr){toast('Fichier de sauvegarde invalide','info','ti-alert-circle');return;}if(!confirm('Restaurer cette sauvegarde ? Les données actuelles seront remplacées par celles du fichier, sur tous les appareils.'))return;try{_applyState(d);if(typeof renderNav==='function')renderNav();render();toast('Sauvegarde restaurée','ok','ti-check');}catch(e){toast('Erreur lors de la restauration','info','ti-alert-circle');}};r.readAsText(f);}
+function importData(input){const f=input.files&&input.files[0];if(!f){return;}input.value='';const r=new FileReader();r.onload=ev=>{let d;try{d=JSON.parse(ev.target.result);}catch(e){toast('Fichier illisible','info','ti-alert-circle');return;}if(!d||!d.arr){toast('Fichier de sauvegarde invalide','info','ti-alert-circle');return;}if(!confirm('Restaurer cette sauvegarde ? Les données actuelles seront remplacées par celles du fichier, sur tous les appareils.'))return;try{_applyState(d);if(typeof renderNav==='function')renderNav();_logAction('ti-upload','a restauré une sauvegarde depuis un fichier');render();toast('Sauvegarde restaurée','ok','ti-check');}catch(e){toast('Erreur lors de la restauration','info','ti-alert-circle');}};r.readAsText(f);}
 /* ===== Sécurité : ne jamais conserver de mot de passe en clair ===== */
 function _scrubPasswords(){try{if(!sb||!Array.isArray(comptes))return false;let changed=false;comptes.forEach(c=>{if(c&&c.pass!==undefined){delete c.pass;changed=true;}});return changed;}catch(e){return false;}}
 /* ===== P0-1 : sauvegardes cloud (table `workspace_backups`, snapshot auto chaque nuit côté serveur) ===== */
@@ -2649,7 +2655,7 @@ async function restoreCloudBackup(id){if(!confirm('Restaurer cette sauvegarde ? 
   const r=await sb.from('workspace_backups').select('data').eq('id',id).maybeSingle();
   if(r.error||!r.data||!r.data.data||!r.data.data.arr){toast('Sauvegarde introuvable ou invalide','info','ti-alert-circle');return;}
   _applyState(r.data.data);document.querySelectorAll('.overlay').forEach(o=>o.remove());
-  if(typeof renderNav==='function')renderNav();render();_cloudPush(true);
+  if(typeof renderNav==='function')renderNav();_logAction('ti-cloud-download','a restauré une sauvegarde cloud');render();_cloudPush(true);
   toast('Sauvegarde restaurée ✓ — synchronisée sur tous les appareils','ok','ti-check');
 }catch(e){toast('Erreur lors de la restauration','info','ti-alert-circle');}}
 
@@ -2898,7 +2904,7 @@ function _doReset(){if(!_resetEmail){doLogin();return;}const c=comptes.find(x=>x
 async function logout(){closeMenus();try{if(sb)await sb.auth.signOut();}catch(e){}_cloudReady=false;sessionEmail=null;saveState();showLogin();}
 /* ===== Persistance locale (localStorage) + cloud (Supabase) ===== */
 const ZP_STORE_KEY='zp_erp_state_v3';
-const _persistArrays={salaries,equipes,clients,chantiers,stock,profils,bureau,taches,demandesList,congesList,carnet,rdvs,devisLignes,catFournitures,ouvrages,factures,comptes,prodCats,ouvrCats,devisDossiers,stockMoves,matConsos,_delCats};
+const _persistArrays={salaries,equipes,clients,chantiers,stock,profils,bureau,taches,demandesList,congesList,carnet,rdvs,devisLignes,catFournitures,ouvrages,factures,comptes,prodCats,ouvrCats,devisDossiers,stockMoves,matConsos,_delCats,journal};
 const _persistObjects={congesBalance,planStore,chatMsgs,chantierSteps,profilUser};
 function _stateObj(){if(typeof _syncCurDevis==='function')_syncCurDevis();const d={arr:{},obj:{},scal:{tauxMO,coutMO,devisClient,currentDevis,_devisSeq,rdvSeq,agendaWeek,planWeek,carnetChef,coefMargeDefaut,sessionEmail}};for(const k in _persistArrays)d.arr[k]=_persistArrays[k];for(const k in _persistObjects)d.obj[k]=_persistObjects[k];return d;}
 function _applyState(d){if(!d)return;if(d.arr)for(const k in _persistArrays){const v=d.arr[k];if(Array.isArray(v)){const a=_persistArrays[k];a.length=0;v.forEach(x=>a.push(x));}}if(d.obj)for(const k in _persistObjects){const v=d.obj[k];if(v&&typeof v==='object'){const o=_persistObjects[k];Object.keys(o).forEach(kk=>delete o[kk]);Object.assign(o,v);}}if(d.scal){const s=d.scal;if(typeof s.tauxMO==='number')tauxMO=s.tauxMO;if(s.devisClient!=null)devisClient=s.devisClient;if(s.currentDevis!==undefined)currentDevis=s.currentDevis;if(typeof s._devisSeq==='number')_devisSeq=s._devisSeq;if(typeof s.rdvSeq==='number')rdvSeq=s.rdvSeq;if(typeof s.agendaWeek==='number')agendaWeek=s.agendaWeek;if(typeof s.planWeek==='number')planWeek=s.planWeek;if(typeof s.carnetChef==='string')carnetChef=s.carnetChef;if(typeof s.coefMargeDefaut==='number')coefMargeDefaut=s.coefMargeDefaut;if(typeof s.coutMO==='number')coutMO=s.coutMO;}planData=planWeekData(planWeek);}
