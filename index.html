@@ -370,7 +370,7 @@ input.noarrow{-moz-appearance:textfield;appearance:textfield}
     <nav id="nav"></nav>
     <div class="side-foot">
       <span class="live" id="syncFoot"><span class="pulse"></span> Cloud Supabase</span><br>
-      <span style="opacity:.8">Zinguerie Provençale · v2.8</span>
+      <span style="opacity:.8">Zinguerie Provençale · v2.9</span>
     </div>
   </aside>
 
@@ -586,7 +586,7 @@ let coefMargeDefaut=1.6; /* coefficient de marge par défaut : prix de vente = p
 let coutMO=35; /* coût horaire main d'oeuvre (déboursé), distinct du taux facturé */
 let tvaDefaut=10; /* % TVA par défaut appliqué aux devis et factures */
 let margeObjectif=35; /* % objectif de marge affiché au tableau de bord */
-const PCATS=['Zinc & couverture','Cuivre & inox','Aluminium & acier','Tuiles & ardoises','Faîtières & accessoires','Évacuation des eaux','Étanchéité & sous-toiture','Isolation & sous-toiture','Bois & supports','Fixations & accessoires','Soudure & brasure','Outillage','Consommables','EPI & sécurité','Peinture & traitement','Quincaillerie','Divers'];
+const PCATS=['Zinc & couverture','Cuivre & inox','Aluminium & acier','Tuiles & ardoises','Faîtières & accessoires','Évacuation des eaux','Étanchéité & sous-toiture','Isolation & sous-toiture','Bois & supports','Fixations & accessoires','Soudure & brasure','Outillage','Consommables','EPI & sécurité','Peinture & traitement','Quincaillerie','Zinc quartz','Gouttières & descentes PVC','PVC','Moyens matériels','Divers'];
 let prodCats=[...PCATS];let _delCats=[];
 function _seedCats(){PCATS.forEach(c=>{if(!prodCats.includes(c)&&_delCats.indexOf(c)<0)prodCats.push(c);});}
 const OCATS=['Préparation','Couverture','Zinguerie','Étanchéité','Évacuation des eaux','Isolation','Finitions','Autres'];
@@ -1039,7 +1039,7 @@ function drawProdForm(){const e=editProd,esc=s=>(s||'').replace(/"/g,'&quot;');c
       <div class="field" style="flex:1"><label>Unité</label><select class="cell" onchange="editProd.u=this.value">${['m²','ml','u','forf.','kg','sac'].map(u=>`<option ${e.u===u?'selected':''}>${u}</option>`).join('')}</select></div>
     </div>
     <div style="display:flex;gap:8px;align-items:flex-end">
-      <div class="field" style="flex:1"><label>Prix d'achat (€)</label><input id="pdAchat" type="text" inputmode="decimal" value="${e.achat||''}" oninput="editProd.achat=_pf(this.value);_prodSyncPV()"></div>
+      <div class="field" style="flex:1"><label>Prix d'achat (€)</label><input id="pdAchat" type="text" inputmode="decimal" value="${e.achat||''}" ${_invMode?'':'disabled title="Coût d\'achat modifiable uniquement en mode inventaire (page Stock)"'} oninput="editProd.achat=_pf(this.value);_prodSyncPV()"></div>
       <div style="font-size:18px;color:var(--ink-3);padding-bottom:11px">×</div>
       <div class="field" style="flex:1"><label>Coef. marge</label><input id="pdCoef" type="text" inputmode="decimal" value="${e.coef||''}" oninput="editProd.coef=_pf(this.value);_prodSyncPV()"></div>
       <div style="font-size:18px;color:var(--ink-3);padding-bottom:11px">=</div>
@@ -1818,6 +1818,14 @@ views.appels=()=>{
         ${champ('Adresse du chantier','<input id="ncAdr" placeholder="N° et rue">')}
         ${champ('Ville / CP','<input id="ncVille" placeholder="Aubagne 13400">')}
       </div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;cursor:pointer;margin:2px 0 8px"><input type="checkbox" id="ncFactDiff" onchange="document.getElementById('ncFactBlock').style.display=this.checked?'':'none'" style="width:16px;height:16px"> Informations de facturation différentes</label>
+      <div id="ncFactBlock" style="display:none;border-left:3px solid var(--line);padding-left:10px;margin-bottom:8px">
+        ${champ('Nom / raison sociale de facturation','<input id="ncFactNom" placeholder="Ex. Syndic Azur Gestion">')}
+        <div style="display:flex;gap:12px">
+          ${champ('Email de facturation','<input id="ncFactMail" placeholder="compta@...">')}
+          ${champ('Adresse de facturation','<input id="ncFactAdr" placeholder="N°, rue, ville">')}
+        </div>
+      </div>
       <div style="display:flex;gap:12px">
         ${champ('Nature de la demande','<select id="ncDem"><option>Toiture / couverture</option><option>Gouttières / zinguerie</option><option>Bardage</option><option>Étanchéité</option><option>Dépannage / SAV</option><option>Autre</option></select>')}
         ${champ('Urgence','<select id="ncUrg"><option>Normale</option><option>Sous 2 semaines</option><option>Urgent</option></select>')}
@@ -1839,7 +1847,7 @@ views.appels=()=>{
 function _v(id){const e=document.getElementById(id);return e?e.value.trim():'';}
 function creerClient(){
   const nom=_v('ncNom');if(!nom){toast('Indiquez le nom du client','info','ti-alert-circle');return;}
-  clients.unshift({id:'cli-'+Date.now(),nom,type:_v('ncType')||'Particulier',tel:_v('ncTel')||'—',mail:_v('ncMail'),ville:_v('ncVille'),adr:_v('ncAdr'),orig:_v('ncOrig'),demande:_v('ncDem'),urgence:_v('ncUrg'),visite:_v('ncVisite')||'à planifier',note:_v('ncNote'),nouveau:true,par:((currentCompte()||{}).nom)||''});_logAction('ti-user-plus','a créé le client '+nom);
+  clients.unshift({id:'cli-'+Date.now(),nom,type:_v('ncType')||'Particulier',tel:_v('ncTel')||'—',mail:_v('ncMail'),ville:_v('ncVille'),adr:_v('ncAdr'),orig:_v('ncOrig'),demande:_v('ncDem'),urgence:_v('ncUrg'),visite:_v('ncVisite')||'à planifier',note:_v('ncNote'),nouveau:true,fact:((document.getElementById('ncFactDiff')||{}).checked)?{nom:_v('ncFactNom'),mail:_v('ncFactMail'),adr:_v('ncFactAdr')}:null,par:((currentCompte()||{}).nom)||''});_logAction('ti-user-plus','a créé le client '+nom);
   autoVisiteCree(nom);
   render();setTimeout(()=>toast('Client « '+nom+' » créé · mission « planifier la visite » ajoutée','ok','ti-user-plus'),40);
 }
@@ -1898,8 +1906,8 @@ function openClient(id){
     </div>
   </div>`);
 }
-function quickNewClient(){modal(`<div class="modal-head"><h3>Nouveau client</h3><button class="icon-x" onclick="this.closest('.overlay').remove()"><i class="ti ti-x"></i></button></div><div class="modal-body"><div class="field"><label>Nom / Raison sociale</label><input id="qcNom" class="cell" style="width:100%" placeholder="Ex. M. Dupont"></div><div style="display:flex;gap:12px"><div class="field" style="flex:1"><label>Type</label><select id="qcType" class="cell">${['Particulier','Pro','Collectivité','Syndic','Copropriété'].map(t=>`<option>${t}</option>`).join('')}</select></div><div class="field" style="flex:1"><label>Téléphone</label><input id="qcTel" class="cell" placeholder="06 …"></div></div><div class="field"><label>Ville / Code postal</label><input id="qcVille" class="cell" placeholder="Aubagne 13400"></div><button class="btn primary" style="width:100%;justify-content:center" onclick="_saveQuickClient()"><i class="ti ti-check"></i> Créer et sélectionner</button></div>`);setTimeout(()=>{const i=document.getElementById('qcNom');if(i)i.focus();},60);}
-function _saveQuickClient(){const nom=_v('qcNom');if(!nom){toast('Indiquez le nom du client','info','ti-alert-circle');return;}const id='cli-'+Date.now();clients.unshift({id,nom,type:document.getElementById('qcType').value,tel:_v('qcTel')||'—',ville:_v('qcVille'),visite:'à planifier',nouveau:true,par:((currentCompte()||{}).nom)||''});_logAction('ti-user-plus','a créé le client '+nom);document.querySelectorAll('.overlay').forEach(o=>o.remove());setDevisClient(id);toast('Client « '+nom+' » créé et sélectionné','ok','ti-user-plus');}
+function quickNewClient(){modal(`<div class="modal-head"><h3>Nouveau client</h3><button class="icon-x" onclick="this.closest('.overlay').remove()"><i class="ti ti-x"></i></button></div><div class="modal-body"><div class="field"><label>Nom / Raison sociale</label><input id="qcNom" class="cell" style="width:100%" placeholder="Ex. M. Dupont"></div><div style="display:flex;gap:12px"><div class="field" style="flex:1"><label>Type</label><select id="qcType" class="cell">${['Particulier','Pro','Collectivité','Syndic','Copropriété'].map(t=>`<option>${t}</option>`).join('')}</select></div><div class="field" style="flex:1"><label>Téléphone</label><input id="qcTel" class="cell" placeholder="06 …"></div></div><div class="field"><label>Email</label><input id="qcMail" class="cell" style="width:100%" placeholder="client@email.fr"></div><div class="field"><label>Ville / Code postal</label><input id="qcVille" class="cell" placeholder="Aubagne 13400"></div><button class="btn primary" style="width:100%;justify-content:center" onclick="_saveQuickClient()"><i class="ti ti-check"></i> Créer et sélectionner</button></div>`);setTimeout(()=>{const i=document.getElementById('qcNom');if(i)i.focus();},60);}
+function _saveQuickClient(){const nom=_v('qcNom');if(!nom){toast('Indiquez le nom du client','info','ti-alert-circle');return;}const id='cli-'+Date.now();clients.unshift({id,nom,type:document.getElementById('qcType').value,tel:_v('qcTel')||'—',mail:_v('qcMail'),ville:_v('qcVille'),visite:'à planifier',nouveau:true,par:((currentCompte()||{}).nom)||''});_logAction('ti-user-plus','a créé le client '+nom);document.querySelectorAll('.overlay').forEach(o=>o.remove());setDevisClient(id);toast('Client « '+nom+' » créé et sélectionné','ok','ti-user-plus');}
 function editClient(id){const c=cli(id);if(!c)return;
   const types=['Particulier','Pro','Collectivité','Syndic','Copropriété','Promoteur'];
   if(c.type&&!types.includes(c.type))types.unshift(c.type);
@@ -1911,12 +1919,17 @@ function editClient(id){const c=cli(id);if(!c)return;
     <div class="field"><label>Adresse</label><input id="ecAdr" value="${(c.adr||'').replace(/"/g,'&quot;')}" placeholder="N° et rue"></div>
     <div class="field"><label>Ville / Code postal</label><input id="ecVille" value="${(c.ville||'').replace(/"/g,'&quot;')}" placeholder="Aubagne 13400"></div>
     <div style="display:flex;gap:12px"><div class="field" style="flex:1"><label>SIRET</label><input id="ecSiret" value="${(c.siret||'').replace(/"/g,'&quot;')}" placeholder="—"></div><div class="field" style="flex:1"><label>2ᵉ contact</label><input id="ecContact2" value="${(c.contact2||'').replace(/"/g,'&quot;')}" placeholder="Nom · téléphone"></div></div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;cursor:pointer;margin:2px 0 8px"><input type="checkbox" id="ecFactDiff" ${c.fact?'checked':''} onchange="document.getElementById('ecFactBlock').style.display=this.checked?'':'none'" style="width:16px;height:16px"> Informations de facturation différentes</label>
+    <div id="ecFactBlock" style="display:${c.fact?'':'none'};border-left:3px solid var(--line);padding-left:10px;margin-bottom:8px">
+      <div class="field"><label>Nom / raison sociale de facturation</label><input id="ecFactNom" value="${((c.fact||{}).nom||'').replace(/"/g,'&quot;')}" placeholder="Ex. Syndic Azur Gestion"></div>
+      <div style="display:flex;gap:12px"><div class="field" style="flex:1"><label>Email de facturation</label><input id="ecFactMail" value="${((c.fact||{}).mail||'').replace(/"/g,'&quot;')}" placeholder="compta@..."></div><div class="field" style="flex:1"><label>Adresse de facturation</label><input id="ecFactAdr" value="${((c.fact||{}).adr||'').replace(/"/g,'&quot;')}" placeholder="N°, rue, ville"></div></div>
+    </div>
     <div class="field"><label>Demande / Besoin</label><input id="ecDem" value="${(c.demande||'').replace(/"/g,'&quot;')}" placeholder="Ex. Réfection gouttières"></div>
     <div class="field"><label>Note interne</label><textarea id="ecNote" rows="2" style="width:100%;resize:vertical;font-family:inherit" placeholder="Accès, contraintes, remarques…">${(c.note||'').replace(/</g,'&lt;')}</textarea></div>
     <button class="btn primary" style="width:100%;justify-content:center;margin-top:4px" onclick="saveClientEdit('${id}')"><i class="ti ti-check"></i> Enregistrer</button>
   </div>`);
 }
-function saveClientEdit(id){const c=cli(id);if(!c)return;const nom=_v('ecNom');if(!nom){toast('Le nom du client est requis','info','ti-alert-circle');return;}c.nom=nom;c.type=_v('ecType')||c.type;c.tel=_v('ecTel')||'—';c.mail=_v('ecMail');c.adr=_v('ecAdr');c.ville=_v('ecVille');c.siret=_v('ecSiret');c.contact2=_v('ecContact2');c.demande=_v('ecDem');c.note=_v('ecNote');document.querySelectorAll('.overlay').forEach(o=>o.remove());render();saveState();toast('Coordonnées mises à jour','ok','ti-user-check');openClient(id);}
+function saveClientEdit(id){const c=cli(id);if(!c)return;const nom=_v('ecNom');if(!nom){toast('Le nom du client est requis','info','ti-alert-circle');return;}c.nom=nom;c.type=_v('ecType')||c.type;c.tel=_v('ecTel')||'—';c.mail=_v('ecMail');c.adr=_v('ecAdr');c.ville=_v('ecVille');c.siret=_v('ecSiret');c.contact2=_v('ecContact2');c.demande=_v('ecDem');c.note=_v('ecNote');const _fd=document.getElementById('ecFactDiff');c.fact=(_fd&&_fd.checked)?{nom:_v('ecFactNom'),mail:_v('ecFactMail'),adr:_v('ecFactAdr')}:null;document.querySelectorAll('.overlay').forEach(o=>o.remove());render();saveState();toast('Coordonnées mises à jour','ok','ti-user-check');openClient(id);}
 
 /* ===== Multi-dossiers de devis ===== */
 function _syncCurDevis(){if(!currentDevis||!Array.isArray(devisDossiers))return;const d=devisDossiers.find(x=>x.id===currentDevis);if(d){d.lignes=devisLignes.slice();d.clientId=devisClient;d.maj=Date.now();}}
@@ -2206,18 +2219,22 @@ views.profils=()=>`<div class="view"><div class="page-head"><div><h1>Profils zin
 
 function _stockSorted(){const arr=catFournitures.slice();if(_stockSort==='valeur')arr.sort((a,b)=>prodValeur(b)-prodValeur(a));else if(_stockSort==='dispo')arr.sort((a,b)=>stockDispo(a)-stockDispo(b));else if(_stockSort==='cat')arr.sort((a,b)=>(a.cat||'').localeCompare(b.cat||'')||(a.nom||'').localeCompare(b.nom||''));else arr.sort((a,b)=>(a.nom||'').localeCompare(b.nom||''));return arr;}
 function _stockFilter(){const si=document.getElementById('stockSearch');const q=((si&&si.value)||'').toLowerCase().trim();const lo=document.getElementById('stockLow');const low=lo?lo.checked:_stockLowOnly;_stockLowOnly=low;let vis=0;document.querySelectorAll('.stock-item').forEach(el=>{const okQ=!q||(el.dataset.search||'').indexOf(q)>=0;const okL=!low||el.dataset.low==='1';const show=okQ&&okL;el.style.display=show?'':'none';if(show)vis++;});const nr=document.getElementById('stockNoRes');if(nr)nr.style.display=vis?'none':'block';}
+let _stockShowEur=false,_invMode=false;
+function toggleInvMode(){_invMode=!_invMode;_logAction(_invMode?'ti-lock-open':'ti-lock','a '+(_invMode?'activé':'terminé')+' le mode inventaire');render();toast(_invMode?'Mode inventaire activé — seuils, coûts d\'achat et quantités modifiables':'Inventaire terminé — stock verrouillé','ok',_invMode?'ti-lock-open':'ti-lock');}
 views.stock=()=>{const bas=produitsBas();const valTot=stockTotalValeur();const arr=_stockSorted();
-  const num=(id,f,v,w)=>`<input class="cell noarrow" type="number" min="0" step="any" value="${v||0}" onchange="stockSet('${id}','${f}',this.value)" style="width:${w}px;text-align:center;font-weight:700;font-size:15px">`;
-  const numM=(id,f,v)=>`<input class="cell noarrow" type="number" min="0" step="any" value="${v||0}" onchange="stockSet('${id}','${f}',this.value)" style="width:100%;text-align:center;font-weight:700;font-size:16px;box-sizing:border-box">`;
+  const num=(id,f,v,w)=>_invMode?`<input class="cell noarrow" type="number" min="0" step="any" value="${v||0}" onchange="stockSet('${id}','${f}',this.value)" style="width:${w}px;text-align:center;font-weight:700;font-size:15px">`:`<span style="font-weight:700">${v||0}</span>`;
+  const numM=(id,f,v)=>_invMode?`<input class="cell noarrow" type="number" min="0" step="any" value="${v||0}" onchange="stockSet('${id}','${f}',this.value)" style="width:100%;text-align:center;font-weight:700;font-size:16px;box-sizing:border-box">`:`<span style="font-weight:800;font-size:16px">${v||0}</span>`;
   const srch=p=>((p.nom||'')+' '+(p.cat||'')+' '+(p.fourn||'')+' '+(p.empl||'')+' '+(p.refF||'')).toLowerCase().replace(/"/g,'');
-  return `<div class="view"><div class="page-head"><div><h1>Stock & inventaire</h1><p>${catFournitures.length} produits · <span style="color:var(--alerte);font-weight:600">${bas.length} sous le seuil</span> · valeur ${fmt(valTot)}</p></div><div style="display:flex;gap:8px;flex-wrap:wrap">
+  return `<div class="view"><div class="page-head"><div><h1>Stock & inventaire</h1><p>${catFournitures.length} produits · <span style="color:var(--alerte);font-weight:600">${bas.length} sous le seuil</span>${_stockShowEur?' · valeur '+fmt(valTot):''}${_invMode?' · <b style="color:var(--orange-dark)"><i class="ti ti-lock-open"></i> MODE INVENTAIRE</b>':''}</p></div><div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn primary" onclick="openScanner()"><i class="ti ti-qrcode"></i> Scanner</button>
       <button class="btn" onclick="openInventaire()"><i class="ti ti-clipboard-check"></i> Inventaire</button>
       <button class="btn" onclick="reappoList()"><i class="ti ti-shopping-cart"></i> Réappro${bas.length?` <span class="tag" style="background:rgba(184,58,38,.13);color:var(--alerte);margin-left:4px">${bas.length}</span>`:''}</button>
       <button class="btn" onclick="stockMovesModal()"><i class="ti ti-history"></i> Mouvements</button>
+      <button class="btn" onclick="_stockShowEur=!_stockShowEur;render()"><i class="ti ${_stockShowEur?'ti-eye-off':'ti-currency-euro'}"></i> ${_stockShowEur?'Masquer les €':'Afficher les €'}</button>
+      ${(role==='patron'||role==='gestion')?`<button class="btn ${_invMode?'primary':''}" onclick="toggleInvMode()"><i class="ti ${_invMode?'ti-lock-open':'ti-lock'}"></i> ${_invMode?'Terminer l\'inventaire':'Mode inventaire'}</button>`:''}
       <button class="btn" onclick="exportInventaireCSV()"><i class="ti ti-file-spreadsheet"></i> Export</button></div></div>
   <div class="grid cols-3" style="margin-bottom:14px">
-    ${kpiS('Valeur du stock',fmt(valTot),catFournitures.length+' références','ti-coin','var(--orange)','rgba(243,146,0,.14)')}
+    ${_stockShowEur?kpiS('Valeur du stock',fmt(valTot),catFournitures.length+' références','ti-coin','var(--orange)','rgba(243,146,0,.14)'):kpiS('Valeur du stock','•••','masquée — « Afficher les € »','ti-coin','var(--ink-3)','var(--surface-2)')}
     ${kpiS('Sous le seuil',bas.length,bas.length?'à réapprovisionner':'tout est OK','ti-alert-triangle',bas.length?'var(--alerte)':'var(--olive)',bas.length?'rgba(184,58,38,.13)':'rgba(122,139,79,.16)')}
     ${kpiS('Mouvements',stockMoves.length,'entrées / sorties tracées','ti-arrows-exchange','var(--bleu-mer)','rgba(61,138,198,.14)')}
   </div>
@@ -2226,13 +2243,13 @@ views.stock=()=>{const bas=produitsBas();const valTot=stockTotalValeur();const a
     <label style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap"><input type="checkbox" id="stockLow" ${_stockLowOnly?'checked':''} onchange="_stockFilter()" style="width:16px;height:16px"> Sous le seuil</label>
     <select class="cell" style="width:auto" onchange="_stockSort=this.value;render()"><option value="nom" ${_stockSort==='nom'?'selected':''}>Trier : nom</option><option value="cat" ${_stockSort==='cat'?'selected':''}>Trier : catégorie</option><option value="valeur" ${_stockSort==='valeur'?'selected':''}>Trier : valeur</option><option value="dispo" ${_stockSort==='dispo'?'selected':''}>Trier : dispo ↑</option></select>
   </div>
-  <div class="card only-desktop"><table><thead><tr><th>Produit</th><th style="text-align:center">Stock total</th><th style="text-align:center">Réservé chantier</th><th>Disponible</th><th style="text-align:center">Seuil</th><th style="text-align:right">Valeur</th><th>Statut</th><th>QR</th></tr></thead><tbody>
+  <div class="card only-desktop"><table><thead><tr><th>Produit</th><th style="text-align:center">Stock total</th><th style="text-align:center">Réservé chantier</th><th>Disponible</th><th style="text-align:center">Seuil</th>${_stockShowEur?'<th style="text-align:right">Valeur</th>':''}<th>Statut</th><th>QR</th></tr></thead><tbody>
     ${arr.map(p=>{const d=stockDispo(p),low=stockBas(p);return `<tr class="stock-item" data-search="${srch(p)}" data-low="${low?1:0}"><td style="font-weight:600">${p.nom}<div class="tiny" style="color:var(--ink-3)">${p.cat||'Divers'} · ${p.u}${p.empl?` · <i class="ti ti-map-pin" style="font-size:11px"></i> ${p.empl}`:''}${p.fourn?` · ${p.fourn}`:''}</div></td>
       <td style="text-align:center">${num(p.id,'stock',p.stock,72)} <span class="tiny" style="color:var(--ink-3)">${p.u}</span></td>
       <td style="text-align:center">${num(p.id,'reserve',p.reserve,64)} <span class="tiny" style="color:var(--ink-3)">${p.u}</span></td>
       <td style="font-weight:800;color:${low?'var(--alerte)':'var(--ink)'}">${d} ${p.u}</td>
       <td style="text-align:center">${num(p.id,'seuil',p.seuil,56)}</td>
-      <td style="text-align:right;font-weight:700">${fmt(prodValeur(p))}</td>
+      ${_stockShowEur?`<td style="text-align:right;font-weight:700">${fmt(prodValeur(p))}</td>`:''}
       <td>${low?'<span class="tag" style="background:rgba(184,58,38,.13);color:var(--alerte)"><i class="ti ti-alert-triangle" style="font-size:12px"></i> réappro</span>':'<span class="tag" style="background:rgba(122,139,79,.16);color:var(--olive)"><span class="tdot"></span>OK</span>'}</td>
       <td><button class="btn sm ghost" title="QR de rayonnage" onclick="showProdQR('${p.id}')"><i class="ti ti-qrcode"></i></button></td></tr>`}).join('')}
   </tbody></table></div>
@@ -2250,7 +2267,7 @@ views.stock=()=>{const bas=produitsBas();const valTot=stockTotalValeur();const a
       <div><div class="tiny" style="color:var(--ink-3);margin-bottom:3px">Réservé</div>${numM(p.id,'reserve',p.reserve)}</div>
       <div><div class="tiny" style="color:var(--ink-3);margin-bottom:3px">Seuil</div>${numM(p.id,'seuil',p.seuil)}</div>
     </div>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;gap:8px"><span class="tiny" style="color:var(--ink-3)">Valeur : <b style="color:var(--ink)">${fmt(prodValeur(p))}</b></span><button class="btn sm ghost" onclick="showProdQR('${p.id}')"><i class="ti ti-qrcode"></i> QR</button></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;gap:8px">${_stockShowEur?`<span class="tiny" style="color:var(--ink-3)">Valeur : <b style="color:var(--ink)">${fmt(prodValeur(p))}</b></span>`:'<span class="tiny" style="color:var(--ink-3)"><i class="ti ti-eye-off"></i> € masqués</span>'}<button class="btn sm ghost" onclick="showProdQR('${p.id}')"><i class="ti ti-qrcode"></i> QR</button></div>
   </div>`;}).join('')}</div>
   <div id="stockNoRes" style="display:none;text-align:center;color:var(--ink-3);padding:22px"><i class="ti ti-search-off" style="font-size:24px"></i><div style="margin-top:6px">Aucun produit ne correspond.</div></div>
   <div class="tiny" style="color:var(--ink-3);margin-top:10px"><i class="ti ti-info-circle"></i> Tape la quantité réelle dans les cases (chaque changement est tracé dans « Mouvements »). Disponible = stock − réservé chantier. « Inventaire » pour un comptage complet avec écarts.</div></div>`;};
