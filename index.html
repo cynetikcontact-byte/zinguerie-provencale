@@ -370,7 +370,7 @@ input.noarrow{-moz-appearance:textfield;appearance:textfield}
     <nav id="nav"></nav>
     <div class="side-foot">
       <span class="live" id="syncFoot"><span class="pulse"></span> Cloud Supabase</span><br>
-      <span style="opacity:.8">Zinguerie Provençale · v3.3</span>
+      <span style="opacity:.8">Zinguerie Provençale · v3.3.1</span>
     </div>
   </aside>
 
@@ -2578,7 +2578,7 @@ views.supervision=()=>{
   const colGrid='48px minmax(140px,1.3fr) 138px minmax(160px,1.7fr) 160px';
   const tabs=[['direct','En direct','ti-broadcast'],['heures','Heures & paie','ti-clock-hour-4'],['presence','Présence semaine','ti-calendar-check']];
   let kpis;
-  if(superTab==='heures')kpis=`${kpiS("Heures aujourd'hui",hJ.toFixed(1).replace('.',',')+' h',"toute l'équipe",'ti-clock','var(--terracotta)','rgba(198,107,61,.14)')}${kpiS('Heures semaine',hS+' h',"toute l'équipe",'ti-calendar-week','var(--orange)','rgba(243,146,0,.14)')}${kpiS('Heures mois',hM+' h',"toute l'équipe",'ti-calendar','var(--bleu-mer)','rgba(61,138,198,.14)')}${kpiS("Coût main d'œuvre",fmt(coutM),'ce mois','ti-cash','var(--olive)','rgba(122,139,79,.16)')}`;
+  if(superTab==='heures')kpis=`${kpiS("Heures aujourd'hui",hJ.toFixed(1).replace('.',',')+' h',"toute l'équipe",'ti-clock','var(--terracotta)','rgba(198,107,61,.14)')}${kpiS('Heures semaine',hS+' h',"toute l'équipe",'ti-calendar-week','var(--orange)','rgba(243,146,0,.14)')}${kpiS('Heures mois',hM+' h',"toute l'équipe",'ti-calendar','var(--bleu-mer)','rgba(61,138,198,.14)')}${kpiS("Coût main d'œuvre",_showCoutsRH?fmt(coutM):'•••',_showCoutsRH?'ce mois':'masqué — « Afficher les coûts »','ti-cash',_showCoutsRH?'var(--olive)':'var(--ink-3)',_showCoutsRH?'rgba(122,139,79,.16)':'var(--surface-2)')}`;
   else kpis=`${kpiS('Sur le terrain',terrain+' / '+salaries.length,'en train de travailler','ti-user-check','var(--olive)','rgba(122,139,79,.16)')}${kpiS('En pause',cnt('pause'),'arrêt momentané','ti-coffee','var(--soleil)','rgba(232,181,71,.18)')}${kpiS('Journée terminée',cnt('fini'),'ont fini','ti-circle-check','var(--bleu-mer)','rgba(61,138,198,.14)')}${kpiS('Oublis de pointage','2','à régulariser','ti-alert-triangle','var(--alerte)','rgba(184,58,38,.13)')}`;
 
   /* --- vue EN DIRECT --- */
@@ -2599,10 +2599,10 @@ views.supervision=()=>{
   </div>`;
 
   /* --- vue HEURES & PAIE --- */
-  const heures=`<div class="card"><div class="card-head"><h3><i class="ti ti-clock-hour-4"></i> Heures par salarié</h3><button class="btn sm" onclick="toast('Export paie CSV généré','ok','ti-download')"><i class="ti ti-download"></i> Export paie</button></div>
+  const heures=`<div class="card"><div class="card-head"><h3><i class="ti ti-clock-hour-4"></i> Heures par salarié</h3><div style="display:flex;gap:8px;margin-left:auto"><button class="btn sm" onclick="_showCoutsRH=!_showCoutsRH;render()"><i class="ti ${_showCoutsRH?'ti-eye-off':'ti-eye'}"></i> ${_showCoutsRH?'Masquer les coûts':'Afficher les coûts'}</button><button class="btn sm" onclick="toast('Export paie CSV généré','ok','ti-download')"><i class="ti ti-download"></i> Export paie</button></div></div>
     <table><thead><tr><th>Salarié</th><th>Aujourd'hui</th><th>Semaine</th><th>Mois</th><th>H. sup</th><th>Coût/h</th><th>Coût mois</th></tr></thead><tbody>
-      ${salaries.map(s=>{const t=th(s.id);return `<tr class="rowlink" onclick="openMembre('${s.id}')"><td style="font-weight:600"><span class="avatar-sm" style="background:${s.col}">${s.init}</span> ${s.nom}</td><td>${t.jour.toFixed(1).replace('.',',')} h</td><td>${t.sem} h</td><td style="font-weight:600">${t.mois} h</td><td>${t.sup?`<span class="tag" style="background:rgba(243,146,0,.14);color:var(--orange-dark)">+${t.sup} h</span>`:'—'}</td><td>${s.cout} €/h</td><td style="font-weight:700">${fmt(t.mois*s.cout)}</td></tr>`}).join('')}
-    </tbody><tfoot><tr style="background:var(--surface-2)"><td style="font-weight:700;font-family:'Baloo 2'">Total équipe</td><td style="font-weight:700">${hJ.toFixed(1).replace('.',',')} h</td><td style="font-weight:700">${hS} h</td><td style="font-weight:700">${hM} h</td><td style="font-weight:700">+${sum(s=>th(s.id).sup)} h</td><td></td><td style="font-weight:800;color:var(--orange-dark);font-family:'Baloo 2'">${fmt(coutM)}</td></tr></tfoot></table>
+      ${salaries.map(s=>{const t=th(s.id);return `<tr class="rowlink" onclick="openMembre('${s.id}')"><td style="font-weight:600"><span class="avatar-sm" style="background:${s.col}">${s.init}</span> ${s.nom}</td><td>${t.jour.toFixed(1).replace('.',',')} h</td><td>${t.sem} h</td><td style="font-weight:600">${t.mois} h</td><td>${t.sup?`<span class="tag" style="background:rgba(243,146,0,.14);color:var(--orange-dark)">+${t.sup} h</span>`:'—'}</td><td><span style="${_showCoutsRH?'':'filter:blur(5px)'}">${s.cout} €/h</span></td><td style="font-weight:700"><span style="${_showCoutsRH?'':'filter:blur(5px)'}">${fmt(t.mois*s.cout)}</span></td></tr>`}).join('')}
+    </tbody><tfoot><tr style="background:var(--surface-2)"><td style="font-weight:700;font-family:'Baloo 2'">Total équipe</td><td style="font-weight:700">${hJ.toFixed(1).replace('.',',')} h</td><td style="font-weight:700">${hS} h</td><td style="font-weight:700">${hM} h</td><td style="font-weight:700">+${sum(s=>th(s.id).sup)} h</td><td></td><td style="font-weight:800;color:var(--orange-dark);font-family:'Baloo 2'"><span style="${_showCoutsRH?'':'filter:blur(6px)'}">${fmt(coutM)}</span></td></tr></tfoot></table>
   </div>
   <p class="tiny" style="margin-top:10px"><i class="ti ti-info-circle"></i> Coût = heures × coût horaire chargé de chaque salarié (réglable dans Réglages & coûts). Heures sup. majorées à 25 %.</p>`;
 
@@ -2650,7 +2650,8 @@ function openMembre(id){
       ${[["Aujourd'hui",t.jour.toFixed(1).replace('.',',')+' h'],['Semaine',t.sem+' h'],['Mois',t.mois+' h']].map(x=>`<div style="background:var(--surface-2);border-radius:12px;padding:13px;text-align:center"><div class="tiny">${x[0]}</div><div class="rnd" style="font-size:21px;font-weight:800">${x[1]}</div></div>`).join('')}
     </div>
     <div class="kv"><span class="k">Heures supplémentaires (mois)</span><span class="v">+${t.sup} h · majorées 25 %</span></div>
-    <div class="kv"><span class="k">Coût main d'œuvre (mois)</span><span class="v">${fmt(t.mois*s.cout)}</span></div>
+    <div class="kv"><span class="k">Taux horaire chargé</span><span class="v"><span style="${_showCoutsRH?'':'filter:blur(5px)'}">${s.cout} €/h</span></span></div>
+    <div class="kv"><span class="k">Coût employeur (mois) <button class="icon-x" style="width:22px;height:18px;vertical-align:middle" onclick="_showCoutsRH=!_showCoutsRH;render()" title="${_showCoutsRH?'Masquer':'Afficher'} les coûts"><i class="ti ${_showCoutsRH?'ti-eye-off':'ti-eye'}" style="font-size:12px"></i></button></span><span class="v"><span style="${_showCoutsRH?'':'filter:blur(5px)'}">${fmt(t.mois*s.cout)}</span></span></div>
     <div class="kv"><span class="k">Arrivée aujourd'hui</span><span class="v">${L.since}${L.end?' → '+L.end:' (en cours)'}</span></div>
     <div style="margin-top:12px"><div class="tiny" style="font-weight:700;margin-bottom:7px">HABILITATIONS</div><div style="display:flex;flex-wrap:wrap;gap:6px">${s.habil.map(h=>`<span class="tag" style="background:${h.includes('⚠')?'rgba(232,181,71,.18);color:#a9760d':'rgba(61,138,198,.13);color:var(--bleu-mer)'}">${h}</span>`).join('')}</div></div>
     <div style="display:flex;gap:10px;margin-top:18px">
