@@ -370,7 +370,7 @@ input.noarrow{-moz-appearance:textfield;appearance:textfield}
     <nav id="nav"></nav>
     <div class="side-foot">
       <span class="live" id="syncFoot"><span class="pulse"></span> Cloud Supabase</span><br>
-      <span style="opacity:.8">Zinguerie Provençale · v3.4</span>
+      <span style="opacity:.8">Zinguerie Provençale · v3.5</span>
     </div>
   </aside>
 
@@ -489,8 +489,27 @@ let demandesList=[
   {id:'dm1',titre:'Commander 4 bobines zinc 0,65 pour Cuges',who:'as',due:"Aujourd'hui",type:'mat'},
   {id:'dm2',titre:'Soudure étain — réappro urgent',who:'km',due:'Hier',type:'mat'},
 ];
-function validateDemande(id){demandesList=demandesList.filter(d=>d.id!==id);render();toast('Demande validée','ok','ti-check');}
-function refuseDemande(id){demandesList=demandesList.filter(d=>d.id!==id);render();toast('Demande refusée','info','ti-x');}
+function validateDemande(id){const d=demandesList.find(x=>x.id===id);if(d&&(d.lignes||d.chantierNom!=null)){traiterDemande(id);return;}demandesList=demandesList.filter(d=>d.id!==id);render();toast('Demande validée','ok','ti-check');}
+function refuseDemande(id){const d=demandesList.find(x=>x.id===id);if(d&&d.statut){d.statut='refuse';d.traiteLe=new Date().toISOString();d.traitePar=((currentCompte()||{}).nom)||'';_logAction('ti-x','a refusé la demande d\'appro '+(d.chantierNom||''));render();toast('Demande refusée','info','ti-x');return;}demandesList=demandesList.filter(d=>d.id!==id);render();toast('Demande refusée','info','ti-x');}
+/* ===== Demandes d'approvisionnement (chef/patron → magasinier) ===== */
+let _apLignes=[];
+function _chOptions(sel){return chantiers.map(c=>`<option value="${c.id}" ${sel===c.id?'selected':''}>${(c.nom||'').replace(/</g,'&lt;')}</option>`).join('');}
+function openDemandeAppro(){_apLignes=[{prod:'',qte:1,u:'u'}];modal(_apModalHTML());}
+function _apModalHTML(){return `<div class="modal-head"><h3><i class="ti ti-truck-delivery"></i> Nouvelle demande d'approvisionnement</h3><button class="icon-x" onclick="this.closest('.overlay').remove()"><i class="ti ti-x"></i></button></div><div class="modal-body">
+  <div style="display:flex;gap:12px;flex-wrap:wrap"><div class="field" style="flex:2;min-width:180px"><label>Chantier concerné</label><select id="apCh" class="cell" style="width:100%"><option value="">— chantier / dépôt —</option>${_chOptions()}</select></div><div class="field" style="flex:1;min-width:120px"><label>Pour le</label><input id="apDue" class="cell" type="date" style="width:100%"></div></div>
+  <div style="font-weight:700;font-size:13px;margin:6px 0">Fournitures demandées</div>
+  <div id="apLignes">${_apLignesHTML()}</div>
+  <button class="btn sm" onclick="_apAddLigne()" style="margin-top:4px"><i class="ti ti-plus"></i> Ajouter une fourniture</button>
+  <div class="field" style="margin-top:12px"><label>Note pour le magasinier (optionnel)</label><textarea id="apNote" class="cell" style="width:100%;min-height:56px" placeholder="Précisions : dimension, teinte, urgence, accès chantier…"></textarea></div>
+  <button class="btn primary" style="width:100%;justify-content:center;margin-top:12px" onclick="saveDemandeAppro()"><i class="ti ti-send"></i> Envoyer la demande au magasinier</button></div>`;}
+function _apLignesHTML(){const opts=catFournitures.slice().sort((a,b)=>(a.nom||'').localeCompare(b.nom||''));return _apLignes.map((l,i)=>`<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px"><input list="apProds" class="cell" style="flex:2;min-width:0" value="${(l.prod||'').replace(/"/g,'&quot;')}" placeholder="Fourniture (ex. Bobine zinc 0,65)" onchange="_apLignes[${i}].prod=this.value"><input class="cell noarrow" type="text" inputmode="decimal" style="width:60px;text-align:center" value="${l.qte}" onchange="_apLignes[${i}].qte=parseFloat(String(this.value).replace(',','.'))||0"><input class="cell" style="width:60px;text-align:center" value="${l.u||'u'}" onchange="_apLignes[${i}].u=this.value">${_apLignes.length>1?`<button class="icon-x" onclick="_apLignes.splice(${i},1);document.getElementById('apLignes').innerHTML=_apLignesHTML()"><i class="ti ti-x"></i></button>`:'<span style="width:22px"></span>'}</div>`).join('')+`<datalist id="apProds">${opts.map(p=>`<option value="${(p.nom||'').replace(/"/g,'&quot;')}">`).join('')}</datalist>`;}
+function _apAddLigne(){_apLignes.push({prod:'',qte:1,u:'u'});document.getElementById('apLignes').innerHTML=_apLignesHTML();}
+function saveDemandeAppro(){const lignes=_apLignes.filter(l=>(l.prod||'').trim()&&(+l.qte>0));if(!lignes.length){toast('Ajoute au moins une fourniture','info','ti-alert-circle');return;}const chId=_v('apCh');const ch=chId?cli&&chn(chId):null;const d={id:'ap'+Date.now(),date:new Date().toISOString(),chantierId:chId,chantierNom:chId?((chn(chId)||{}).nom||''):'',demandeur:((currentCompte()||{}).nom)||sessionEmail||'—',lignes:lignes.map(l=>({prod:l.prod.trim(),qte:+l.qte||0,u:l.u||'u'})),note:_v('apNote'),due:_v('apDue'),statut:'attente',consoIds:[]};demandesList.unshift(d);_logAction('ti-truck-delivery','a demandé un appro'+(d.chantierNom?' pour '+d.chantierNom:'')+' ('+d.lignes.length+' article'+(d.lignes.length>1?'s':'')+')');document.querySelectorAll('.overlay').forEach(o=>o.remove());render();toast('Demande envoyée au magasinier ✓','ok','ti-send');}
+function _apDemandes(){return demandesList.filter(d=>d.lignes||d.chantierNom!=null);}
+function traiterDemande(id){const d=demandesList.find(x=>x.id===id);if(!d)return;
+  modal(`<div class="modal-head"><h3><i class="ti ti-package-export"></i> Traiter la demande</h3><button class="icon-x" onclick="this.closest('.overlay').remove()"><i class="ti ti-x"></i></button></div><div class="modal-body"><div class="tiny" style="color:var(--ink-3);margin-bottom:10px">Coche les fournitures sorties du stock pour ${d.chantierNom||'ce chantier'}. Chaque sortie cochée est déduite du stock et rattachée à cette demande.</div>${(d.lignes||[]).map((l,i)=>{const p=catFournitures.find(x=>(x.nom||'').toLowerCase()===(l.prod||'').toLowerCase());return `<label style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line);font-size:13px"><input type="checkbox" class="trLigne" data-i="${i}" data-fid="${p?p.id:''}" ${p?'checked':''}> <span style="flex:1">${l.qte} ${l.u} · ${String(l.prod).replace(/</g,'&lt;')}</span>${p?`<span class="tag" style="background:rgba(122,139,79,.16);color:var(--olive)">en stock : ${stockDispo(p)}</span>`:'<span class="tag" style="background:rgba(232,181,71,.18);color:#a9760d">hors stock</span>'}</label>`;}).join('')}<button class="btn primary" style="width:100%;justify-content:center;margin-top:12px" onclick="_doTraiterDemande('${id}')"><i class="ti ti-check"></i> Valider les sorties + clôturer</button></div>`);}
+function _doTraiterDemande(id){const d=demandesList.find(x=>x.id===id);if(!d)return;const who=d.chantierNom||'demande d\'appro';let n=0;document.querySelectorAll('.trLigne:checked').forEach(cb=>{const fid=cb.dataset.fid;const li=+cb.dataset.i;const l=(d.lignes||[])[li];if(!fid||!l)return;const p=catF(fid);if(!p)return;const q=Math.abs(+l.qte||0);if(!q)return;const old=p.stock||0;p.stock=Math.max(0,old-q);if(p.stock-old)_logMove(fid,p.stock-old,'sortie appro'+(d.chantierNom?' · '+d.chantierNom:''));const mc={id:'mc'+Date.now()+Math.floor(Math.random()*99),chId:d.chantierId||'',pid:fid,qte:q,date:new Date().toISOString(),who:((currentCompte()||{}).nom)||'—',demandeId:id};matConsos.unshift(mc);d.consoIds.push(mc.id);n++;});d.statut='traite';d.traiteLe=new Date().toISOString();d.traitePar=((currentCompte()||{}).nom)||'';_logAction('ti-package-export','a traité la demande d\'appro '+(d.chantierNom||'')+' ('+n+' sortie'+(n>1?'s':'')+')');document.querySelectorAll('.overlay').forEach(o=>o.remove());render();toast('Demande traitée · '+n+' sortie'+(n>1?'s':'')+' de stock','ok','ti-check');}
+const APSTAT={attente:['En attente','#a9760d','rgba(232,181,71,.18)','ti-clock'],traite:['Traité','#7A8B4F','rgba(122,139,79,.16)','ti-check'],refuse:['Refusé','#B83A26','rgba(184,58,38,.13)','ti-x']};
 /* ===== Congés ===== */
 let congesBalance={km:18,lb:12,as:22,jp:9};
 let congesList=[
@@ -640,32 +659,33 @@ const ouvr=id=>ouvrages.find(o=>o.id===id);
 const NAV=[
   {sect:'Pilotage'},
   {id:'espaceClient',ic:'ti-home-heart',lab:'Mon chantier',roles:['client']},
-  {id:'aujourdhui',ic:'ti-sun-high',lab:"Aujourd'hui",roles:['ouvrier','chef']},
-  {id:'dash',ic:'ti-layout-dashboard',lab:'Tableau de bord',roles:['patron','chef']},
+  {id:'aujourdhui',ic:'ti-sun-high',lab:"Aujourd'hui",roles:[]},
+  {id:'dash',ic:'ti-layout-dashboard',lab:'Tableau de bord',roles:['patron']},
   {id:'stats',ic:'ti-chart-bar',lab:'Statistiques',roles:['patron']},
-  {id:'chantiers',ic:'ti-home-bolt',lab:'Chantiers',roles:['patron','chef','ouvrier']},
-  {id:'planning',ic:'ti-calendar-week',lab:'Planning chantiers',roles:['patron','chef','ouvrier']},
-  {id:'agenda',ic:'ti-calendar-event',lab:'Agenda (visites & RDV)',roles:['patron','chef']},
+  {id:'chantiers',ic:'ti-home-bolt',lab:'Chantiers',roles:['patron']},
+  {id:'planning',ic:'ti-calendar-week',lab:'Planning chantiers',roles:['patron','chef']},
+  {id:'agenda',ic:'ti-calendar-event',lab:'Agenda (visites & RDV)',roles:['patron']},
   {sect:'Terrain'},
-  {id:'supervision',ic:'ti-users-group',lab:'Équipe — supervision',roles:['patron','chef']},
+  {id:'supervision',ic:'ti-users-group',lab:'Équipe — supervision',roles:['patron']},
   {id:'pointage',ic:'ti-clock-play',lab:'Pointage',roles:['ouvrier','chef']},
+  {id:'appro',ic:'ti-truck-delivery',lab:"Demandes d'appro",roles:['patron','chef','gestion']},
   {sect:'Commercial'},
-  {id:'appels',ic:'ti-phone-plus',lab:'Appels & nouveaux clients',roles:['patron','chef']},
-  {id:'carnet',ic:'ti-notebook',lab:'Carnet de commande',roles:['patron','chef']},
-  {id:'clients',ic:'ti-users',lab:'Clients',roles:['patron','chef']},
+  {id:'appels',ic:'ti-phone-plus',lab:'Appels & nouveaux clients',roles:['patron']},
+  {id:'carnet',ic:'ti-notebook',lab:'Carnet de commande',roles:['patron']},
+  {id:'clients',ic:'ti-users',lab:'Clients',roles:['patron']},
   {id:'devis',ic:'ti-file-invoice',lab:'Devis',roles:['patron']},
   {id:'factures',ic:'ti-receipt',lab:'Factures',roles:['patron']},
-  {id:'biblio',ic:'ti-books',lab:'Bibliothèque',roles:['patron','chef']},
-  {id:'archives',ic:'ti-archive',lab:'Archives & SAV',roles:['patron','chef']},
+  {id:'biblio',ic:'ti-books',lab:'Bibliothèque',roles:['patron']},
+  {id:'archives',ic:'ti-archive',lab:'Archives & SAV',roles:['patron']},
   {sect:'Métier zinguerie'},
-  {id:'plieur',ic:'ti-fold',lab:'Plieur (développé)',roles:['patron','chef','ouvrier']},
-  {id:'profils',ic:'ti-ruler-2',lab:'Profils zinc/cuivre',roles:['patron','chef','ouvrier','gestion']},
-  {id:'stock',ic:'ti-package',lab:'Stock & inventaire',roles:['patron','gestion','chef'],badge:'2'},
+  {id:'plieur',ic:'ti-fold',lab:'Plieur (développé)',roles:['patron']},
+  {id:'profils',ic:'ti-ruler-2',lab:'Profils zinc/cuivre',roles:['patron','gestion']},
+  {id:'stock',ic:'ti-package',lab:'Stock & inventaire',roles:['patron','gestion'],badge:'2'},
   {sect:'Équipe'},
   {id:'rh',ic:'ti-id-badge-2',lab:'Équipe & compétences',roles:['patron']},
-  {id:'conges',ic:'ti-beach',lab:'Congés',roles:['patron','chef']},
-  {id:'chat',ic:'ti-message-circle',lab:'Messagerie',roles:['patron','chef','ouvrier','gestion']},
-  {id:'fichiers',ic:'ti-folder',lab:'Documents',roles:['patron','chef','ouvrier','gestion','client']},
+  {id:'conges',ic:'ti-beach',lab:'Congés',roles:['patron']},
+  {id:'chat',ic:'ti-message-circle',lab:'Messagerie',roles:['patron','gestion']},
+  {id:'fichiers',ic:'ti-folder',lab:'Documents',roles:['patron','gestion','client']},
   {sect:'Configuration'},
   {id:'journal',ic:'ti-history',lab:"Journal d'activité",roles:['patron']},
   {id:'comptes',ic:'ti-users-group',lab:'Utilisateurs & accès',roles:['patron']},
@@ -676,7 +696,7 @@ let sessionEmail=null;
 const roleLabel={patron:'Patron',chef:"Chef d'équipe",gestion:'Gestionnaire',ouvrier:'Ouvrier',client:'Client'};
 const ROLEMAP={"Gérant":"patron","Bureau":"gestion","Chef d'équipe":"chef","Gestionnaire Stock":"gestion","Salarié":"ouvrier","Client":"client"};
 const roleAvatar={patron:'DG',chef:'KM',gestion:'GS',ouvrier:'LB',client:'SM'};
-const roleHome={patron:'dash',chef:'aujourdhui',gestion:'stock',ouvrier:'aujourdhui',client:'espaceClient'};
+const roleHome={patron:'dash',chef:'pointage',gestion:'stock',ouvrier:'pointage',client:'espaceClient'};
 
 const SUBVIEW={chantierDetail:'chantiers',affaire:'carnet'}; /* sous-vue -> item de nav parent */
 function navBadge(id){
@@ -876,12 +896,12 @@ views.dash=()=>{
         <div class="banner" style="margin-top:12px;background:rgba(184,58,38,.1);color:var(--alerte);font-size:12px"><i class="ti ti-wind"></i> Vent vendredi — reporter Cuges ?</div></div></div>
     </div>
   </div>
-  <div class="card" style="margin-bottom:18px"><div class="card-head"><h3><i class="ti ti-message-report"></i> Demandes à valider</h3><span class="tag t-amber">${demandesList.length}</span></div>
-    <div class="card-pad">${demandesList.length?`<div class="grid cols-2">${demandesList.map(d=>`<div class="card card-pad" style="border:1px solid var(--line);border-left:4px solid ${d.type==='mat'?'var(--orange)':'var(--lavande)'};box-shadow:none">
-      <div style="font-weight:600;font-size:13.5px">${d.titre}</div>
-      <div style="display:flex;align-items:center;gap:8px;margin-top:8px"><span class="avatar-sm" style="width:22px;height:22px;font-size:9px;background:${sal(d.who).col}">${sal(d.who).init}</span><span class="tiny">${sal(d.who).nom.split(' ')[0]} · ${d.due}</span><span class="tag" style="margin-left:auto;background:${d.type==='mat'?'rgba(243,146,0,.14);color:var(--orange-dark)':'rgba(155,143,184,.18);color:var(--lavande)'}">${d.type==='mat'?'Matériel':'Congé'}</span></div>
-      <div style="display:flex;gap:8px;margin-top:11px"><button class="btn sm" style="flex:1;justify-content:center;color:var(--alerte);border-color:rgba(184,58,38,.3)" onclick="refuseDemande('${d.id}')"><i class="ti ti-x"></i> Refuser</button><button class="btn sm primary" style="flex:1;justify-content:center" onclick="validateDemande('${d.id}')"><i class="ti ti-check"></i> Valider</button></div>
-    </div>`).join('')}</div>`:emptyState('ti-checks','Aucune demande en attente','Tout est traité 🎉')}</div>
+  ${(()=>{const _dl=demandesList.filter(d=>(d.statut||'attente')==='attente');return `<div class="card" style="margin-bottom:18px"><div class="card-head"><h3><i class="ti ti-message-report"></i> Demandes à valider</h3><span class="tag t-amber">${_dl.length}</span></div>
+    <div class="card-pad">${_dl.length?`<div class="grid cols-2">${_dl.map(d=>{const isAppro=!!(d.lignes||d.chantierNom!=null);const s=isAppro?null:sal(d.who);const titre=isAppro?((d.chantierNom||'Appro dépôt')+' — '+((d.lignes||[]).length)+' article'+(((d.lignes||[]).length)>1?'s':'')):(d.titre||'');const qui=isAppro?(d.demandeur||'—'):(s?s.nom.split(' ')[0]:'—');const col=isAppro?'var(--orange)':(d.type==='mat'?'var(--orange)':'var(--lavande)');return `<div class="card card-pad" style="border:1px solid var(--line);border-left:4px solid ${col};box-shadow:none">
+      <div style="font-weight:600;font-size:13.5px">${String(titre).replace(/</g,'&lt;')}</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:8px"><span class="tiny"><i class="ti ti-user"></i> ${String(qui).replace(/</g,'&lt;')}${d.due?' · '+(isAppro?('pour le '+new Date(d.due).toLocaleDateString('fr-FR')):d.due):''}</span><span class="tag" style="margin-left:auto;background:${isAppro?'rgba(243,146,0,.14);color:var(--orange-dark)':(d.type==='mat'?'rgba(243,146,0,.14);color:var(--orange-dark)':'rgba(155,143,184,.18);color:var(--lavande)')}">${isAppro?'Appro':(d.type==='mat'?'Matériel':'Congé')}</span></div>
+      <div style="display:flex;gap:8px;margin-top:11px">${isAppro?`<button class="btn sm primary" style="flex:1;justify-content:center" onclick="go('appro')"><i class="ti ti-truck-delivery"></i> Voir la demande</button>`:`<button class="btn sm" style="flex:1;justify-content:center;color:var(--alerte);border-color:rgba(184,58,38,.3)" onclick="refuseDemande('${d.id}')"><i class="ti ti-x"></i> Refuser</button><button class="btn sm primary" style="flex:1;justify-content:center" onclick="validateDemande('${d.id}')"><i class="ti ti-check"></i> Valider</button>`}</div>
+    </div>`;}).join('')}</div>`:emptyState('ti-checks','Aucune demande en attente','Tout est traité 🎉')}</div>`;})()}
   </div>
   <div class="grid cols-2" style="margin-bottom:18px">
     <div class="card"><div class="card-head"><h3><i class="ti ti-chart-area-line"></i> CA & marge</h3><span class="sub">6 mois</span></div><div class="card-pad"><canvas id="caChart" height="124"></canvas></div></div>
@@ -2696,6 +2716,20 @@ views.stats=()=>{
     <div class="card"><div class="card-head"><h3><i class="ti ti-file-analytics"></i> Devis — conversion</h3>${txConv!=null?`<span class="sub">${txConv} % acceptés</span>`:''}</div><div class="card-pad" style="display:flex;flex-wrap:wrap;gap:8px">${conv}</div></div>
     <div class="card"><div class="card-head"><h3><i class="ti ti-category"></i> CA & marge par nature d'ouvrage</h3><span class="sub">devis acceptés</span></div><div class="card-pad">${(function(){const agg={};devisDossiers.forEach(dd=>{if((dd.statut||'')!=='accepte'||!(dd.natOuvrages||[]).length)return;const ca=_dossierTotal(dd);const cout=(dd.lignes||[]).reduce((a,l)=>a+(+l.qte||0)*_lineCout(l),0);dd.natOuvrages.forEach(nn=>{agg[nn]=agg[nn]||{ca:0,marge:0};agg[nn].ca+=ca;agg[nn].marge+=ca-cout;});});const rows=Object.entries(agg).sort((a,b)=>b[1].ca-a[1].ca);if(!rows.length)return '<div class="tiny" style="color:var(--ink-3)">Renseigne la nomenclature (Adresse & conditions du devis) et passe tes devis en « Accepté » pour alimenter ce tableau.</div>';const mx=Math.max(1,...rows.map(r=>r[1].ca));return rows.map(r=>{const pct=r[1].ca>0?Math.round(r[1].marge/r[1].ca*100):0;const col=pct>=margeObjectif?'var(--olive)':'#a9760d';return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0"><div style="width:120px;font-size:12.5px;font-weight:600">${r[0]}</div><div style="flex:1;height:10px;border-radius:5px;background:var(--surface-2)"><div style="height:10px;border-radius:5px;background:var(--orange);width:${Math.round(r[1].ca/mx*100)}%"></div></div><div style="width:150px;text-align:right;font-size:12px"><b>${fmt(r[1].ca)}</b> · <span style="color:${col};font-weight:700">${pct}%</span></div></div>`;}).join('');})()}</div></div>
   </div></div>`;
+};
+views.appro=()=>{
+  const list=_apDemandes();const magOuPatron=(role==='patron'||role==='gestion');
+  const fmtD=t=>{const d=new Date(t);return isNaN(d)?'—':d.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})+' · '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});};
+  const attente=list.filter(d=>(d.statut||'attente')==='attente');
+  const card=d=>{const st=APSTAT[d.statut||'attente']||APSTAT.attente;return `<div class="card card-pad" style="border-left:4px solid ${st[1]}">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><div style="min-width:0"><div style="font-weight:700;font-size:14px">${d.chantierNom?String(d.chantierNom).replace(/</g,'&lt;'):'<span style="color:var(--ink-3)">Dépôt / sans chantier</span>'}</div><div class="tiny" style="color:var(--ink-3);margin-top:2px"><i class="ti ti-user"></i> ${String(d.demandeur||'—').replace(/</g,'&lt;')} · ${fmtD(d.date)}${d.due?' · pour le '+new Date(d.due).toLocaleDateString('fr-FR'):''}</div></div><span class="tag" style="background:${st[2]};color:${st[1]};flex-shrink:0"><i class="ti ${st[3]}"></i> ${st[0]}</span></div>
+    <div style="margin-top:9px;display:flex;flex-direction:column;gap:3px">${(d.lignes||[]).map(l=>{const p=catFournitures.find(x=>(x.nom||'').toLowerCase()===(l.prod||'').toLowerCase());return `<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0;border-bottom:1px solid var(--line)"><span><b>${l.qte} ${l.u}</b> · ${String(l.prod).replace(/</g,'&lt;')}</span>${p?`<span class="tiny" style="color:var(--ink-3)">stock ${stockDispo(p)}</span>`:'<span class="tiny" style="color:#a9760d">hors catalogue</span>'}</div>`;}).join('')}</div>
+    ${d.note?`<div class="tiny" style="margin-top:7px;color:var(--ink-2);background:var(--surface-2);border-radius:8px;padding:7px 9px"><i class="ti ti-note"></i> ${String(d.note).replace(/</g,'&lt;')}</div>`:''}
+    ${d.statut==='traite'?`<div class="tiny" style="margin-top:7px;color:var(--olive)"><i class="ti ti-check"></i> Traité par ${d.traitePar||'—'} le ${d.traiteLe?new Date(d.traiteLe).toLocaleDateString('fr-FR'):''} · ${(d.consoIds||[]).length} sortie(s) rattachée(s)</div>`:''}
+    ${(magOuPatron&&(d.statut||'attente')==='attente')?`<div style="display:flex;gap:8px;margin-top:11px"><button class="btn sm" style="flex:1;justify-content:center;color:var(--alerte);border-color:rgba(184,58,38,.3)" onclick="refuseDemande('${d.id}')"><i class="ti ti-x"></i> Refuser</button><button class="btn sm primary" style="flex:1.4;justify-content:center" onclick="traiterDemande('${d.id}')"><i class="ti ti-package-export"></i> Traiter (sortie stock)</button></div>`:''}
+  </div>`;};
+  return `<div class="view"><div class="page-head"><div><h1>Demandes d'approvisionnement</h1><p>${attente.length} en attente · ${list.length} au total${magOuPatron?' — traite-les pour générer les sorties de stock':' — envoie tes besoins au magasinier'}</p></div><button class="btn primary" onclick="openDemandeAppro()"><i class="ti ti-plus"></i> Nouvelle demande</button></div>
+  ${list.length?`<div class="grid cols-2" style="gap:14px">${list.map(card).join('')}</div>`:emptyState('ti-truck-delivery','Aucune demande pour l\'instant','Clique « Nouvelle demande » pour demander des fournitures au magasinier.')}</div>`;
 };
 views.journal=()=>{const fmtT=t=>{const d=new Date(t);return d.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})+' · '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});};
   return `<div class="view"><div class="page-head"><div><h1>Journal d'activité</h1><p>Qui a fait quoi, quand — ${journal.length} action${journal.length>1?'s':''} enregistrée${journal.length>1?'s':''} (250 max conservées)</p></div></div>
