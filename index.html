@@ -370,7 +370,7 @@ input.noarrow{-moz-appearance:textfield;appearance:textfield}
     <nav id="nav"></nav>
     <div class="side-foot">
       <span class="live" id="syncFoot"><span class="pulse"></span> Cloud Supabase</span><br>
-      <span style="opacity:.8">Zinguerie Provençale · v4.4</span>
+      <span style="opacity:.8">Zinguerie Provençale · v4.5</span>
     </div>
   </aside>
 
@@ -867,7 +867,7 @@ const facturesPayees=()=>factures.filter(f=>f.statut==='payee');
 const facturesImpayees=()=>factures.filter(f=>f.statut==='retard');
 const caEncaisse=()=>facturesPayees().reduce((a,f)=>a+f.ttc,0);
 const totalImpayes=()=>facturesImpayees().reduce((a,f)=>a+f.ttc,0);
-const heuresSemaine=()=>salaries.reduce((a,s)=>{const row=(planStore[planWeek]||{})[s.id]||[];return a+row.filter(isCh).length;},0)*HJ;
+const heuresSemaine=()=>rnd1(salaries.reduce((a,s)=>a+[0,1,2,3,4,5].reduce((b,d)=>b+cellH(s.id,d),0),0));
 const plur=(n,s)=>n>1?s:'';
 
 const views={};
@@ -1214,8 +1214,18 @@ function gotoWeek(w){planWeek=w;planMode='semaine';planData=planWeekData(w);rend
 function dlabel(d){const dt=new Date(2026,5,22);dt.setDate(22+(planWeek-26)*7+d);return ['Lun','Mar','Mer','Jeu','Ven','Sam'][d]+' '+dt.getDate();}
 let planWeek=26, planFilter='', planMode='semaine', planDay=3, planBrush=null;
 function setBrush(v){planBrush=planBrush===v?null:v;render();}
-function paintCell(sid,day){if(planBrush){planData[sid][day]=planBrush==='erase'?null:(planData[sid][day]===planBrush?null:planBrush);render();}else assignCell(sid,day);}
-const HJ=7; /* heures par jour travaillé */
+function paintCell(sid,day){if(planBrush){/* peinture gérée par pointer (initPlanPaint) : clic simple + glisser */return;}assignCell(sid,day);}
+const HJ=7; /* heures par jour travaillé (héritage vue mois) */
+const HJD=8; /* heures planifiées par défaut par jour (grille semaine/jour) */
+let planHrs={}; /* heures ajustées/réelles : planHrs[week][sid][day]=nb */
+const rnd1=n=>Math.round((n||0)*10)/10;
+function _weekDate(day){const dt=new Date(2026,5,22);dt.setDate(22+(planWeek-26)*7+day);return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');}
+function _realH(sid,day){const s=(typeof sal==='function')?sal(sid):null;if(!s||!s.email)return null;const pt=pointages[s.email+'|'+_weekDate(day)];if(!pt||!pt.interventions||!pt.interventions.length)return null;let sc=0;pt.interventions.forEach(iv=>sc+=(iv.secs||0));return sc>0?rnd1(sc/3600):null;}
+function _hrOverride(sid,day){const w=planHrs[planWeek];return (w&&w[sid]&&w[sid][day]!=null)?w[sid][day]:null;}
+function cellH(sid,day){const k=(planData[sid]||[])[day];if(!isCh(k))return 0;const ov=_hrOverride(sid,day);if(ov!=null)return ov;const r=_realH(sid,day);if(r!=null)return r;return HJD;}
+function cellHSrc(sid,day){if(_hrOverride(sid,day)!=null)return 'saisie';if(_realH(sid,day)!=null)return 'reel';return 'plan';}
+function setCellHours(sid,day){const k=(planData[sid]||[])[day];if(!isCh(k)){toast('Affecte d\'abord un chantier sur cette case','info','ti-info-circle');return;}const who=(typeof sal==='function'&&sal(sid))?sal(sid).nom.split(' ')[0]:(PLAN_RESOURCES.find(r=>r.id===sid)||{}).nom||sid;const v=prompt('Heures pour '+who+' — '+planLab(k)+' ('+_weekDate(day)+') :\n(laisse vide pour revenir au défaut '+HJD+' h)',cellH(sid,day));if(v===null)return;const t=String(v).trim().replace(',','.');if(!planHrs[planWeek])planHrs[planWeek]={};if(!planHrs[planWeek][sid])planHrs[planWeek][sid]={};if(t===''){delete planHrs[planWeek][sid][day];}else{const n=parseFloat(t);if(isNaN(n)||n<0||n>24){toast('Nombre d\'heures invalide','error','ti-alert-circle');return;}planHrs[planWeek][sid][day]=rnd1(n);}render();toast('Heures mises à jour','ok','ti-clock-check');}
+function moveSal(sid,dir){const i=salaries.findIndex(s=>s.id===sid);if(i<0)return;const j=i+dir;if(j<0||j>=salaries.length)return;const t=salaries[i];salaries[i]=salaries[j];salaries[j]=t;render();toast('Ordre mis à jour','ok','ti-arrows-sort');}
 const isCh=k=>!!chn(k);
 const badDay=i=>weather[i][1].includes('rain')||weather[i][1].includes('wind');
 const planLab=k=>k==='conge'?'Congé':k==='form'?'Formation':k==='prereserve'?'Pré-réservé':chn(k)?chn(k).nom:k;
@@ -1224,7 +1234,7 @@ function setMode(m){planMode=m;render();}
 function planNav(dir){if(planMode==='jour'){planDay=Math.max(0,Math.min(5,planDay+dir));}else{planWeek+=dir;planData=planWeekData(planWeek);}render();toast(planMode==='jour'?JOURS[planDay]:planMode==='mois'?'Mois suivant':'Semaine '+planWeek);}
 function planDayNext(){if(planDay<5)planDay++;else{planWeek++;planData=planWeekData(planWeek);planDay=0;}render();}
 function planDayPrev(){if(planDay>0)planDay--;else if(planWeek>26){planWeek--;planData=planWeekData(planWeek);planDay=5;}render();}
-function planMobileDay(){const d=planDay;const lab=k=>k==='conge'?'Congé':k==='form'?'Formation':(chn(k)?chn(k).nom:k);const colOf=k=>(k==='conge'||k==='form')?'#9c958a':(chn(k)?chn(k).col:'#9c958a');const dayTot=salaries.filter(s=>isCh(planData[s.id][d])).length*HJ;
+function planMobileDay(){const d=planDay;const lab=k=>k==='conge'?'Congé':k==='form'?'Formation':(chn(k)?chn(k).nom:k);const colOf=k=>(k==='conge'||k==='form')?'#9c958a':(chn(k)?chn(k).col:'#9c958a');const dayTot=rnd1(salaries.reduce((a,s)=>a+cellH(s.id,d),0));
   return `<div class="only-mobile" style="flex-direction:column;gap:10px">
     <div class="card card-pad" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
       <button class="icon-btn" onclick="planDayPrev()" title="Jour précédent"><i class="ti ti-chevron-left"></i></button>
@@ -1234,7 +1244,7 @@ function planMobileDay(){const d=planDay;const lab=k=>k==='conge'?'Congé':k==='
     ${salaries.map(s=>{const k=planData[s.id][d];const on=isCh(k);return `<div class="card" style="padding:11px 12px;display:flex;align-items:center;gap:11px">
       <span class="avatar-sm" style="background:${s.col};flex-shrink:0">${s.init}</span>
       <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px">${s.nom}</div>
-        ${k?`<span style="display:inline-flex;align-items:center;gap:6px;margin-top:4px;background:${on?colOf(k):'var(--surface-3)'};color:${on?'#fff':'var(--ink-2)'};padding:4px 10px;border-radius:14px;font-size:12px;font-weight:700"><i class="ti ti-${on?'home-bolt':(k==='conge'?'beach':'school')}" style="font-size:12px"></i> ${lab(k)}${on?' · '+HJ+'h':''}${on&&badDay(d)?' ⚠️':''}</span>`:`<div class="tiny" style="color:var(--ink-3);margin-top:2px">Libre</div>`}
+        ${k?`<span style="display:inline-flex;align-items:center;gap:6px;margin-top:4px;background:${on?colOf(k):'var(--surface-3)'};color:${on?'#fff':'var(--ink-2)'};padding:4px 10px;border-radius:14px;font-size:12px;font-weight:700"><i class="ti ti-${on?'home-bolt':(k==='conge'?'beach':'school')}" style="font-size:12px"></i> ${lab(k)}${on?' · '+cellH(s.id,d)+'h':''}${on&&badDay(d)?' ⚠️':''}</span>`:`<div class="tiny" style="color:var(--ink-3);margin-top:2px">Libre</div>`}
       </div>
       <div style="display:flex;gap:5px;flex-shrink:0"><button class="btn sm" onclick="assignCell('${s.id}',${d})"><i class="ti ti-${k?'pencil':'plus'}"></i></button>${k?`<button class="icon-x" onclick="removeCell('${s.id}',${d})" title="Retirer"><i class="ti ti-x"></i></button>`:''}</div>
     </div>`;}).join('')}
@@ -1243,20 +1253,20 @@ function planMobileDay(){const d=planDay;const lab=k=>k==='conge'?'Congé':k==='
 /* grille jour / semaine / perso pour une liste de jours */
 function planGridHTML(days){
   const cols=days.length;
-  const weekLoad=s=>planData[s.id].filter(isCh).length*HJ;
-  const persH=s=>days.filter(d=>isCh(planData[s.id][d])).length*HJ;
-  const dayTot=d=>salaries.filter(s=>isCh(planData[s.id][d])).length*HJ;
-  const total=salaries.reduce((a,s)=>a+persH(s),0);
+  const weekLoad=s=>[0,1,2,3,4,5].reduce((a,d)=>a+cellH(s.id,d),0);
+  const persH=s=>rnd1(days.reduce((a,d)=>a+cellH(s.id,d),0));
+  const dayTot=d=>rnd1(salaries.reduce((a,s)=>a+cellH(s.id,d),0));
+  const total=rnd1(salaries.reduce((a,s)=>a+days.reduce((b,d)=>b+cellH(s.id,d),0),0));
   return `<div class="pl-grid" id="planGrid" style="grid-template-columns:172px repeat(${cols},1fr) 76px;min-width:${172+cols*132+76}px">
     <div class="pl-h" style="text-align:left;padding-left:14px">Équipe</div>
     ${days.map(d=>`<div class="pl-h ${planWeek===26&&d===TODAY_IDX?'today':''} ${badDay(d)?'bad':''}"><div class="dt">${dlabel(d)}</div><i class="ti ${weather[d][1]}" style="color:${badDay(d)?'var(--alerte)':'var(--ink-3)'};font-size:16px"></i> <span style="font-weight:600">${weather[d][2]}</span>${badDay(d)?'<div style="font-size:9px;color:var(--alerte);font-weight:700"><i class="ti ti-alert-triangle" style="font-size:10px"></i> '+weather[d][3]+'</div>':''}</div>`).join('')}
     <div class="pl-h">Total</div>
-    ${salaries.map(s=>{const wl=weekLoad(s),pc=Math.round(wl/(5*HJ)*100);
-      return `<div class="pl-name"><span class="avatar-sm" style="background:${s.col}">${s.init}</span><div style="flex:1;min-width:0"><div style="font-weight:600;font-size:12.5px">${s.nom.split(' ')[0]} ${s.nom.split(' ')[1][0]}.</div><div style="height:4px;background:var(--surface-3);border-radius:4px;margin-top:4px;overflow:hidden"><div style="width:${Math.min(100,pc)}%;height:100%;background:${pc>100?'var(--alerte)':s.col}"></div></div></div></div>
+    ${salaries.map((s,si)=>{const wl=weekLoad(s),pc=Math.round(wl/(5*HJD)*100);const nmParts=(s.nom||'').split(' ');const nmShort=nmParts[0]+(nmParts[1]?' '+nmParts[1][0]+'.':'');
+      return `<div class="pl-name"><span class="avatar-sm" style="background:${s.col}">${s.init}</span><div style="flex:1;min-width:0"><div style="font-weight:600;font-size:12.5px">${nmShort}</div><div style="height:4px;background:var(--surface-3);border-radius:4px;margin-top:4px;overflow:hidden"><div style="width:${Math.min(100,pc)}%;height:100%;background:${pc>100?'var(--alerte)':s.col}"></div></div></div><div class="pl-ord"><button onclick="event.stopPropagation();moveSal('${s.id}',-1)" title="Monter" ${si===0?'disabled':''}>▲</button><button onclick="event.stopPropagation();moveSal('${s.id}',1)" title="Descendre" ${si===salaries.length-1?'disabled':''}>▼</button></div></div>
       ${days.map(d=>{const k=planData[s.id][d],dim=planFilter&&k!==planFilter;
         return `<div class="pl-cell ${planWeek===26&&d===TODAY_IDX?'today':''} ${planBrush?'painting':''}" data-sal="${s.id}" data-day="${d}" onclick="paintCell('${s.id}',${d})">
           ${k?`<div class="pl-chip ${isCh(k)?'':'off'} ${dim?'pl-dim':''}" draggable="true" data-cell="${k}" style="${isCh(k)?'background:'+planCol(k):''}">
-              <span class="nm">${planLab(k)}</span>${isCh(k)?`<span class="hb"><i class="ti ti-clock" style="font-size:10px"></i>${HJ}h</span>`:''}
+              <span class="nm">${planLab(k)}</span>${isCh(k)?`<span class="hb" onclick="event.stopPropagation();setCellHours('${s.id}',${d})" title="Cliquer pour saisir les heures réelles"><i class="ti ti-${cellHSrc(s.id,d)==='reel'?'clock-check':'clock'}" style="font-size:10px"></i>${cellH(s.id,d)}h${cellHSrc(s.id,d)==='saisie'?'*':''}</span>`:''}
               ${isCh(k)&&badDay(d)?'<span class="rx" title="météo défavorable">⚠️</span>':''}
               <button class="px" onclick="event.stopPropagation();removeCell('${s.id}',${d})" title="Retirer">✕</button>
             </div>`:`<div class="add"><i class="ti ti-plus"></i></div>`}
@@ -1332,10 +1342,10 @@ views.planning=()=>{
   const _aPlan=_devisAPlanifier();
   const lab=k=>k==='conge'?'Congé':k==='form'?'Formation':chn(k)?chn(k).nom:k;
   const colOf=k=>chn(k)?chn(k).col:'#9c958a';
-  const persH=s=>planData[s.id].filter(isCh).length*HJ;
-  const dayTot=d=>salaries.filter(s=>isCh(planData[s.id][d])).length*HJ;
-  const totalWeek=salaries.reduce((a,s)=>a+persH(s),0);
-  const cap=salaries.length*5*HJ, occ=Math.round(totalWeek/cap*100);
+  const persH=s=>rnd1([0,1,2,3,4,5].reduce((a,d)=>a+cellH(s.id,d),0));
+  const dayTot=d=>rnd1(salaries.reduce((a,s)=>a+cellH(s.id,d),0));
+  const totalWeek=rnd1(salaries.reduce((a,s)=>a+persH(s),0));
+  const cap=salaries.length*5*HJD, occ=Math.round(totalWeek/cap*100);
   let risques=0;salaries.forEach(s=>planData[s.id].forEach((k,d)=>{if(isCh(k)&&badDay(d))risques++;}));
   const chList=chantiers.filter(c=>c.statut!=='fini');
   const bchip=(val,label,col)=>`<button onclick="setBrush('${val}')" style="border:2px solid ${planBrush===val?col:'transparent'};background:${planBrush===val?col+'22':'var(--surface-2)'};color:${col};border-radius:20px;padding:7px 13px;font-size:12.5px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:7px;font-family:inherit"><span style="width:10px;height:10px;border-radius:50%;background:${col}"></span>${label}</button>`;
@@ -1367,6 +1377,14 @@ views.planning=()=>{
     .pl-tot{padding:11px 6px;text-align:center;border-bottom:1px solid var(--line);border-left:1px solid var(--line);font-family:'Baloo 2';font-weight:800}
     .pl-foot{padding:11px 6px;text-align:center;font-family:'Baloo 2';font-weight:800;background:var(--surface-2);border-top:2px solid var(--line)}
     .pl-dim{opacity:.22}
+    .pl-ord{display:flex;flex-direction:column;gap:0;flex-shrink:0;opacity:0;transition:.12s}
+    .pl-name:hover .pl-ord{opacity:1}
+    .pl-ord button{border:none;background:transparent;color:var(--ink-3);cursor:pointer;font-size:9px;line-height:1;padding:1px 3px;border-radius:3px}
+    .pl-ord button:hover{color:var(--orange);background:rgba(243,146,0,.12)}
+    .pl-ord button:disabled{opacity:.25;cursor:default}
+    .pl-chip .hb{cursor:pointer}
+    .pl-chip .hb:hover{background:rgba(255,255,255,.28);border-radius:6px}
+    .pl-cell.paint-hit{box-shadow:inset 0 0 0 2px var(--orange)}
   </style>
   ${_aPlan.length?`<div class="card" style="margin-bottom:14px;border-left:4px solid var(--orange)"><div class="card-pad"><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><i class="ti ti-clipboard-list" style="color:var(--orange-dark);font-size:18px"></i><b style="font-family:'Baloo 2';font-size:15px">À planifier</b><span class="tag t-amber">${_aPlan.length}</span><span class="tiny" style="color:var(--ink-3)">devis acceptés en attente de chantier</span></div><div class="grid cols-3" style="gap:10px">${_aPlan.map(d=>{const c=d.clientId?cli(d.clientId):null;return `<div style="border:1px solid var(--line);border-radius:10px;padding:10px"><div style="font-weight:700;font-size:13px">${(d.titre||d.ref).replace(/</g,'&lt;')}</div><div class="tiny" style="color:var(--ink-3);margin:3px 0 8px">${c?c.nom.replace(/</g,'&lt;'):'—'}${d.adrChantier?' · '+String(d.adrChantier).replace(/</g,'&lt;'):''}</div><button class="btn sm primary" style="width:100%;justify-content:center" onclick="creerChantierDepuisDevis('${d.id}')"><i class="ti ti-building-plus"></i> Créer le chantier</button></div>`;}).join('')}</div></div></div>`:''}
   <div class="page-head"><div><h1>Planning</h1><p>Vue ${planMode==='jour'?'journée':planMode==='mois'?'mensuelle':planMode==='perso'?'personnalisée':'hebdomadaire'} · glisser-déposer ou cliquer une case</p></div>
@@ -1399,7 +1417,7 @@ views.planning=()=>{
 
   ${planChantierSummary()}
   <div class="card only-desktop" style="overflow:auto">${planMode==='mois'?planMonthGrid():planGridHTML(planMode==='jour'?[planDay]:[0,1,2,3,4,5])}</div>${planMobileDay()}
-  <p class="tiny" style="margin-top:12px"><i class="ti ti-info-circle"></i> Choisissez un chantier en haut puis cliquez les jours pour l'affecter. Gomme pour retirer. (Vous pouvez aussi glisser une case vers une autre.) Les jours de pluie/vent sont en rouge.</p>
+  <p class="tiny" style="margin-top:12px"><i class="ti ti-info-circle"></i> Choisissez un chantier en haut, puis <b>cliquez ou glissez sur plusieurs jours</b> pour l'affecter d'un coup. Gomme pour retirer. Chaque case vaut ${HJD} h par défaut — cliquez le badge « ${HJD}h » d'une affectation pour saisir les heures réelles. Les flèches ▲▼ (au survol d'un nom) réordonnent les lignes. Jours de pluie/vent en rouge.</p>
   </div>`;
 };
 function assignCell(sid,day){
@@ -2979,7 +2997,7 @@ function render(){
   bind();
   if(view==='dash')initDash();
   initSparks();
-  if(view==='planning')initDnD();
+  if(view==='planning'){initDnD();initPlanPaint();}
   if(view==='chantierDetail')initSim();
   if(view==='pointage')initClock();
   if(view==='plieur')initPlieur();
@@ -3063,6 +3081,14 @@ function initDash(){
 function initSim(){const c=chn(currentCh),rH=document.getElementById('rngH'),rP=document.getElementById('rngP');if(!rH)return;const upd=()=>{const r=renta(c,+rH.value,+rP.value);document.getElementById('simH').textContent=rH.value+' h';document.getElementById('simP').textContent=fmt(+rP.value);const m=document.getElementById('simMarge');m.textContent=fmt(r.marge);m.style.color=r.marge>=0?'var(--olive)':'var(--alerte)';const p=document.getElementById('simPct');p.textContent=r.pct+'%';p.style.color=r.pct>=30?'var(--olive)':r.pct>=15?'var(--soleil)':'var(--alerte)';};rH.oninput=upd;rP.oninput=upd;}
 function initClock(){if(clockTimer){clearInterval(clockTimer);clockTimer=null;}const pt=(typeof _ptGet==='function')?_ptGet():null;if(!pt||!pt.active)return;const d=document.getElementById('timerDisp');if(!d)return;clockTimer=setInterval(()=>{const el=document.getElementById('timerDisp');if(!el||!_ptGet().active){clearInterval(clockTimer);clockTimer=null;return;}el.textContent=_hms((Date.now()-(_ptGet().curStart||Date.now()))/1000);},1000);}
 
+/* peinture par étirement (glisser pour remplir plusieurs jours) */
+let _painting=false,_justPainted=false;
+function _applyBrush(cell,toggle){const sid=cell.dataset.sal,day=+cell.dataset.day;if(sid==null||isNaN(day)||!planData[sid])return;if(planBrush==='erase'){planData[sid][day]=null;}else if(toggle){planData[sid][day]=(planData[sid][day]===planBrush?null:planBrush);}else{planData[sid][day]=planBrush;}cell.classList.add('paint-hit');}
+function initPlanPaint(){const grid=document.getElementById('planGrid');if(!grid||!planBrush)return;grid.querySelectorAll('.pl-cell').forEach(cell=>{
+    cell.addEventListener('pointerdown',e=>{if(!planBrush||e.button!==0)return;if(e.target.closest('.px'))return;e.preventDefault();_painting=true;_applyBrush(cell,true);});
+    cell.addEventListener('pointerenter',()=>{if(!_painting||!planBrush)return;_applyBrush(cell,false);});
+  });}
+document.addEventListener('pointerup',()=>{if(_painting){_painting=false;_justPainted=true;render();}});
 /* drag&drop planning */
 let dragEl=null;
 function initDnD(){
@@ -3267,7 +3293,7 @@ async function logout(){closeMenus();try{if(sb)await sb.auth.signOut();}catch(e)
 /* ===== Persistance locale (localStorage) + cloud (Supabase) ===== */
 const ZP_STORE_KEY='zp_erp_state_v3';
 const _persistArrays={salaries,equipes,clients,chantiers,stock,profils,bureau,taches,demandesList,congesList,carnet,rdvs,devisLignes,catFournitures,ouvrages,factures,comptes,prodCats,ouvrCats,devisDossiers,stockMoves,matConsos,_delCats,journal};
-const _persistObjects={congesBalance,planStore,chatMsgs,chantierSteps,profilUser,txtModeles,pointages};
+const _persistObjects={congesBalance,planStore,planHrs,chatMsgs,chantierSteps,profilUser,txtModeles,pointages};
 function _stateObj(){if(typeof _syncCurDevis==='function')_syncCurDevis();const d={arr:{},obj:{},scal:{tauxMO,coutMO,devisClient,currentDevis,_devisSeq,rdvSeq,agendaWeek,planWeek,carnetChef,coefMargeDefaut,sessionEmail,tvaDefaut,margeObjectif,arrondiPU}};for(const k in _persistArrays)d.arr[k]=_persistArrays[k];for(const k in _persistObjects)d.obj[k]=_persistObjects[k];return d;}
 function _applyState(d){if(!d)return;if(d.arr)for(const k in _persistArrays){const v=d.arr[k];if(Array.isArray(v)){const a=_persistArrays[k];a.length=0;v.forEach(x=>a.push(x));}}if(d.obj)for(const k in _persistObjects){const v=d.obj[k];if(v&&typeof v==='object'){const o=_persistObjects[k];Object.keys(o).forEach(kk=>delete o[kk]);Object.assign(o,v);}}if(d.scal){const s=d.scal;if(typeof s.tauxMO==='number')tauxMO=s.tauxMO;if(s.devisClient!=null)devisClient=s.devisClient;if(s.currentDevis!==undefined)currentDevis=s.currentDevis;if(typeof s._devisSeq==='number')_devisSeq=s._devisSeq;if(typeof s.rdvSeq==='number')rdvSeq=s.rdvSeq;if(typeof s.agendaWeek==='number')agendaWeek=s.agendaWeek;if(typeof s.planWeek==='number')planWeek=s.planWeek;if(typeof s.carnetChef==='string')carnetChef=s.carnetChef;if(typeof s.coefMargeDefaut==='number')coefMargeDefaut=s.coefMargeDefaut;if(typeof s.coutMO==='number')coutMO=s.coutMO;if(typeof s.tvaDefaut==='number')tvaDefaut=s.tvaDefaut;if(typeof s.margeObjectif==='number')margeObjectif=s.margeObjectif;if(typeof s.arrondiPU==='string')arrondiPU=s.arrondiPU;}planData=planWeekData(planWeek);}
 function saveState(){try{localStorage.setItem(ZP_STORE_KEY,JSON.stringify(_stateObj()));}catch(e){}_cloudPush();}
