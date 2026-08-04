@@ -370,7 +370,7 @@ input.noarrow{-moz-appearance:textfield;appearance:textfield}
     <nav id="nav"></nav>
     <div class="side-foot">
       <span class="live" id="syncFoot"><span class="pulse"></span> Cloud Supabase</span><br>
-      <span style="opacity:.8">Zinguerie Provençale · v4.5</span>
+      <span style="opacity:.8">Zinguerie Provençale · v4.6</span>
     </div>
   </aside>
 
@@ -1201,14 +1201,18 @@ function _printBilan(){const a=document.getElementById('bilanArea');if(!a)return
 function exportBilanCSV(){const sep=';';const esc=v=>{v=String(v==null?'':v);return /[";\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};const caCh=chantiers.reduce((a,c)=>a+(c.prix||0),0);let mo=0,mat=0;chantiers.forEach(c=>{const rr=rentaReel(c);mo+=rr.mo;mat+=rr.mat;});const rows=[['Indicateur','Valeur'],['CA chantiers',caCh],['Cout MO',mo],['Cout matieres',mat],['Marge',caCh-mo-mat],['Heures pointees',chantiers.reduce((a,c)=>a+(c.hFaites||0),0)],['Facture',factures.reduce((a,f)=>a+(f.ttc||0),0)],['Encaisse',factures.filter(f=>f.statut==='payee').reduce((a,f)=>a+(f.ttc||0),0)],[],['Chantier','Client','Prix','Cout reel','Marge','%']];chantiers.forEach(c=>{const rr=rentaReel(c);rows.push([c.nom,(cli(c.clientId)||{nom:''}).nom,c.prix||0,rr.tot,rr.marge,rr.pct]);});const csv='﻿'+rows.map(r=>r.map(v=>esc(typeof v==='number'?String(v).replace('.',','):v)).join(sep)).join('\r\n');const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob);const dt=new Date(),p=n=>String(n).padStart(2,'0');const a=document.createElement('a');a.href=url;a.download='bilan-zinguerie-'+dt.getFullYear()+'-'+p(dt.getMonth()+1)+'-'+p(dt.getDate())+'.csv';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);toast('Bilan exporté (CSV)','ok','ti-file-spreadsheet');}
 /* planning stocké par semaine */
 let planStore={26:{km:['ch1','ch1','ch2','ch2','ch2',null],lb:['ch1','ch1','ch4','ch4','conge',null],as:['ch3','ch3','ch2','ch2','ch2','ch2'],jp:['ch1','ch3','ch3','form','form',null]}};
-const PLAN_RESOURCES=[
-  {id:'r-chariot',nom:'CHARIOT',init:'🚜',col:'#B83A26',sep:true,groupe:'Moyens'},
-  {id:'r-st1',nom:'Sous-traitant 1',init:'ST1',col:'#8A5A2B',groupe:'Sous-traitants'},
-  {id:'r-st2',nom:'Sous-traitant 2',init:'ST2',col:'#8A5A2B'},
-  {id:'r-int1',nom:'Intérimaire 1',init:'IN1',col:'#6B6B6B',groupe:'Intérimaires'},
-  {id:'r-int2',nom:'Intérimaire 2',init:'IN2',col:'#6B6B6B'},
+const planResList=[
+  {id:'r-chariot',nom:'CHARIOT',init:'🚜',col:'#B83A26',type:'moyen',fixed:true},
+  {id:'r-st1',nom:'Sous-traitant 1',col:'#8A5A2B',type:'st'},
+  {id:'r-st2',nom:'Sous-traitant 2',col:'#8A5A2B',type:'st'},
+  {id:'r-int1',nom:'Intérimaire 1',col:'#6B6B6B',type:'int'},
+  {id:'r-int2',nom:'Intérimaire 2',col:'#6B6B6B',type:'int'},
 ];
-function planWeekData(w){if(!planStore[w])planStore[w]={};salaries.forEach(s=>{if(!planStore[w][s.id])planStore[w][s.id]=[null,null,null,null,null,null];});PLAN_RESOURCES.forEach(r=>{if(!planStore[w][r.id])planStore[w][r.id]=[null,null,null,null,null,null];});return planStore[w];}
+function resInit(r){if(r.init)return r.init;const w=(r.nom||'').split(/\s+/).filter(Boolean);if(w.length>=2)return (w[0][0]+w[1][0]).toUpperCase();return (r.nom||'?').slice(0,3).toUpperCase();}
+function renameRes(id){const r=planResList.find(x=>x.id===id);if(!r)return;const v=prompt('Nom de la ligne (sous-traitant, intérimaire, ou nom du chantier) :',r.nom);if(v===null)return;r.nom=(v.trim()||r.nom);render();toast('Ligne renommée','ok','ti-check');}
+function addRes(type){const cols={st:'#8A5A2B',int:'#6B6B6B'};const id='r-'+type+Date.now();const n=planResList.filter(r=>r.type===type).length+1;planResList.push({id,nom:(type==='st'?'Sous-traitant ':'Intérimaire ')+n,col:cols[type]||'#6B6B6B',type});if(typeof planData!=='undefined'&&planData)planData[id]=[null,null,null,null,null,null];render();toast('Ligne ajoutée — clique ✎ pour la nommer','ok','ti-plus');}
+function delRes(id){const r=planResList.find(x=>x.id===id);if(!r||r.fixed)return;if(!confirm('Supprimer la ligne « '+r.nom+' » ? Les affectations de cette ligne seront perdues.'))return;const i=planResList.findIndex(x=>x.id===id);if(i>=0)planResList.splice(i,1);Object.keys(planStore).forEach(w=>{if(planStore[w])delete planStore[w][id];});render();toast('Ligne supprimée','ok','ti-trash');}
+function planWeekData(w){if(!planStore[w])planStore[w]={};salaries.forEach(s=>{if(!planStore[w][s.id])planStore[w][s.id]=[null,null,null,null,null,null];});planResList.forEach(r=>{if(!planStore[w][r.id])planStore[w][r.id]=[null,null,null,null,null,null];});return planStore[w];}
 let planData=planWeekData(26);
 function gotoWeek(w){planWeek=w;planMode='semaine';planData=planWeekData(w);render();}
 function dlabel(d){const dt=new Date(2026,5,22);dt.setDate(22+(planWeek-26)*7+d);return ['Lun','Mar','Mer','Jeu','Ven','Sam'][d]+' '+dt.getDate();}
@@ -1224,7 +1228,7 @@ function _realH(sid,day){const s=(typeof sal==='function')?sal(sid):null;if(!s||
 function _hrOverride(sid,day){const w=planHrs[planWeek];return (w&&w[sid]&&w[sid][day]!=null)?w[sid][day]:null;}
 function cellH(sid,day){const k=(planData[sid]||[])[day];if(!isCh(k))return 0;const ov=_hrOverride(sid,day);if(ov!=null)return ov;const r=_realH(sid,day);if(r!=null)return r;return HJD;}
 function cellHSrc(sid,day){if(_hrOverride(sid,day)!=null)return 'saisie';if(_realH(sid,day)!=null)return 'reel';return 'plan';}
-function setCellHours(sid,day){const k=(planData[sid]||[])[day];if(!isCh(k)){toast('Affecte d\'abord un chantier sur cette case','info','ti-info-circle');return;}const who=(typeof sal==='function'&&sal(sid))?sal(sid).nom.split(' ')[0]:(PLAN_RESOURCES.find(r=>r.id===sid)||{}).nom||sid;const v=prompt('Heures pour '+who+' — '+planLab(k)+' ('+_weekDate(day)+') :\n(laisse vide pour revenir au défaut '+HJD+' h)',cellH(sid,day));if(v===null)return;const t=String(v).trim().replace(',','.');if(!planHrs[planWeek])planHrs[planWeek]={};if(!planHrs[planWeek][sid])planHrs[planWeek][sid]={};if(t===''){delete planHrs[planWeek][sid][day];}else{const n=parseFloat(t);if(isNaN(n)||n<0||n>24){toast('Nombre d\'heures invalide','error','ti-alert-circle');return;}planHrs[planWeek][sid][day]=rnd1(n);}render();toast('Heures mises à jour','ok','ti-clock-check');}
+function setCellHours(sid,day){const k=(planData[sid]||[])[day];if(!isCh(k)){toast('Affecte d\'abord un chantier sur cette case','info','ti-info-circle');return;}const who=(typeof sal==='function'&&sal(sid))?sal(sid).nom.split(' ')[0]:(planResList.find(r=>r.id===sid)||{}).nom||sid;const v=prompt('Heures pour '+who+' — '+planLab(k)+' ('+_weekDate(day)+') :\n(laisse vide pour revenir au défaut '+HJD+' h)',cellH(sid,day));if(v===null)return;const t=String(v).trim().replace(',','.');if(!planHrs[planWeek])planHrs[planWeek]={};if(!planHrs[planWeek][sid])planHrs[planWeek][sid]={};if(t===''){delete planHrs[planWeek][sid][day];}else{const n=parseFloat(t);if(isNaN(n)||n<0||n>24){toast('Nombre d\'heures invalide','error','ti-alert-circle');return;}planHrs[planWeek][sid][day]=rnd1(n);}render();toast('Heures mises à jour','ok','ti-clock-check');}
 function moveSal(sid,dir){const i=salaries.findIndex(s=>s.id===sid);if(i<0)return;const j=i+dir;if(j<0||j>=salaries.length)return;const t=salaries[i];salaries[i]=salaries[j];salaries[j]=t;render();toast('Ordre mis à jour','ok','ti-arrows-sort');}
 const isCh=k=>!!chn(k);
 const badDay=i=>weather[i][1].includes('rain')||weather[i][1].includes('wind');
@@ -1272,14 +1276,14 @@ function planGridHTML(days){
             </div>`:`<div class="add"><i class="ti ti-plus"></i></div>`}
         </div>`;}).join('')}
       <div class="pl-tot">${persH(s)} h</div>`;}).join('')}
-    ${PLAN_RESOURCES.map(r=>{const nb=days.filter(d=>isCh(planData[r.id][d])).length;
-      return `${r.sep?`<div style="grid-column:1/-1;height:3px;background:var(--alerte);margin:0"></div>`:''}${r.groupe?`<div style="grid-column:1/-1;padding:5px 14px;background:var(--surface-3);font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3)">${r.groupe}</div>`:''}
-      <div class="pl-name" style="background:${r.col}12"><span class="avatar-sm" style="background:${r.col};font-size:10px">${r.init}</span><div style="flex:1;min-width:0"><div style="font-weight:700;font-size:12px;color:${r.col}">${r.nom}</div></div></div>
-      ${days.map(d=>{const k=planData[r.id][d],dim=planFilter&&k!==planFilter;
-        return `<div class="pl-cell ${planWeek===26&&d===TODAY_IDX?'today':''} ${planBrush?'painting':''}" data-sal="${r.id}" data-day="${d}" onclick="paintCell('${r.id}',${d})">
-          ${k?`<div class="pl-chip ${isCh(k)?'':'off'} ${dim?'pl-dim':''}" draggable="true" data-cell="${k}" style="${isCh(k)?'background:'+planCol(k):''}"><span class="nm">${planLab(k)}</span><button class="px" onclick="event.stopPropagation();removeCell('${r.id}',${d})" title="Retirer">✕</button></div>`:`<div class="add"><i class="ti ti-plus"></i></div>`}
-        </div>`;}).join('')}
-      <div class="pl-tot" style="font-size:11px;color:var(--ink-3)">${nb?nb+' j':'—'}</div>`;}).join('')}
+    ${(function(){let prev=null,out='';const grpLab={moyen:'Moyens',st:'Sous-traitants',int:'Intérimaires'};
+      planResList.forEach((r,ri)=>{const row=planData[r.id]||(planData[r.id]=[null,null,null,null,null,null]);const nb=days.filter(d=>isCh(row[d])).length;const next=planResList[ri+1];
+        if(r.type!==prev){if(r.type==='moyen')out+=`<div style="grid-column:1/-1;height:3px;background:var(--alerte)"></div>`;out+=`<div style="grid-column:1/-1;padding:5px 14px;background:var(--surface-3);font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3)">${grpLab[r.type]||''}</div>`;prev=r.type;}
+        out+=`<div class="pl-name" style="background:${r.col}12"><span class="avatar-sm" style="background:${r.col};font-size:10px">${resInit(r)}</span><div style="flex:1;min-width:0"><div style="font-weight:700;font-size:12px;color:${r.col}">${(r.nom||'').replace(/</g,'&lt;')}</div></div>${r.fixed?'':`<div class="pl-ord"><button onclick="event.stopPropagation();renameRes('${r.id}')" title="Renommer">✎</button><button onclick="event.stopPropagation();delRes('${r.id}')" title="Supprimer">✕</button></div>`}</div>`;
+        days.forEach(d=>{const k=row[d],dim=planFilter&&k!==planFilter;out+=`<div class="pl-cell ${planWeek===26&&d===TODAY_IDX?'today':''} ${planBrush?'painting':''}" data-sal="${r.id}" data-day="${d}" onclick="paintCell('${r.id}',${d})">${k?`<div class="pl-chip ${isCh(k)?'':'off'} ${dim?'pl-dim':''}" draggable="true" data-cell="${k}" style="${isCh(k)?'background:'+planCol(k):''}"><span class="nm">${planLab(k)}</span><button class="px" onclick="event.stopPropagation();removeCell('${r.id}',${d})" title="Retirer">✕</button></div>`:`<div class="add"><i class="ti ti-plus"></i></div>`}</div>`;});
+        out+=`<div class="pl-tot" style="font-size:11px;color:var(--ink-3)">${nb?nb+' j':'—'}</div>`;
+        if((r.type==='st'||r.type==='int')&&(!next||next.type!==r.type))out+=`<div style="grid-column:1/-1;padding:5px 14px;border-bottom:1px solid var(--line)"><button onclick="addRes('${r.type}')" style="border:1px dashed var(--line-2);background:transparent;color:var(--ink-3);border-radius:8px;padding:4px 11px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:5px"><i class="ti ti-plus" style="font-size:12px"></i> Ajouter ${r.type==='st'?'un sous-traitant':'un intérimaire'}</button></div>`;
+      });return out;})()}
     <div class="pl-foot" style="text-align:left;padding-left:14px;font-size:11px;color:var(--ink-2)">Total / jour</div>
     ${days.map(d=>`<div class="pl-foot" style="color:${dayTot(d)===0?'var(--ink-3)':'var(--ink)'}">${dayTot(d)} h</div>`).join('')}
     <div class="pl-foot" style="color:var(--orange-dark)">${total} h</div>
@@ -3292,7 +3296,7 @@ function _doReset(){if(!_resetEmail){doLogin();return;}const c=comptes.find(x=>x
 async function logout(){closeMenus();try{if(sb)await sb.auth.signOut();}catch(e){}_cloudReady=false;sessionEmail=null;saveState();showLogin();}
 /* ===== Persistance locale (localStorage) + cloud (Supabase) ===== */
 const ZP_STORE_KEY='zp_erp_state_v3';
-const _persistArrays={salaries,equipes,clients,chantiers,stock,profils,bureau,taches,demandesList,congesList,carnet,rdvs,devisLignes,catFournitures,ouvrages,factures,comptes,prodCats,ouvrCats,devisDossiers,stockMoves,matConsos,_delCats,journal};
+const _persistArrays={salaries,equipes,clients,chantiers,stock,profils,bureau,taches,demandesList,congesList,carnet,rdvs,devisLignes,catFournitures,ouvrages,factures,comptes,prodCats,ouvrCats,devisDossiers,stockMoves,matConsos,_delCats,journal,planResList};
 const _persistObjects={congesBalance,planStore,planHrs,chatMsgs,chantierSteps,profilUser,txtModeles,pointages};
 function _stateObj(){if(typeof _syncCurDevis==='function')_syncCurDevis();const d={arr:{},obj:{},scal:{tauxMO,coutMO,devisClient,currentDevis,_devisSeq,rdvSeq,agendaWeek,planWeek,carnetChef,coefMargeDefaut,sessionEmail,tvaDefaut,margeObjectif,arrondiPU}};for(const k in _persistArrays)d.arr[k]=_persistArrays[k];for(const k in _persistObjects)d.obj[k]=_persistObjects[k];return d;}
 function _applyState(d){if(!d)return;if(d.arr)for(const k in _persistArrays){const v=d.arr[k];if(Array.isArray(v)){const a=_persistArrays[k];a.length=0;v.forEach(x=>a.push(x));}}if(d.obj)for(const k in _persistObjects){const v=d.obj[k];if(v&&typeof v==='object'){const o=_persistObjects[k];Object.keys(o).forEach(kk=>delete o[kk]);Object.assign(o,v);}}if(d.scal){const s=d.scal;if(typeof s.tauxMO==='number')tauxMO=s.tauxMO;if(s.devisClient!=null)devisClient=s.devisClient;if(s.currentDevis!==undefined)currentDevis=s.currentDevis;if(typeof s._devisSeq==='number')_devisSeq=s._devisSeq;if(typeof s.rdvSeq==='number')rdvSeq=s.rdvSeq;if(typeof s.agendaWeek==='number')agendaWeek=s.agendaWeek;if(typeof s.planWeek==='number')planWeek=s.planWeek;if(typeof s.carnetChef==='string')carnetChef=s.carnetChef;if(typeof s.coefMargeDefaut==='number')coefMargeDefaut=s.coefMargeDefaut;if(typeof s.coutMO==='number')coutMO=s.coutMO;if(typeof s.tvaDefaut==='number')tvaDefaut=s.tvaDefaut;if(typeof s.margeObjectif==='number')margeObjectif=s.margeObjectif;if(typeof s.arrondiPU==='string')arrondiPU=s.arrondiPU;}planData=planWeekData(planWeek);}
