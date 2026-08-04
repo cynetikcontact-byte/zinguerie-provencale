@@ -370,7 +370,7 @@ input.noarrow{-moz-appearance:textfield;appearance:textfield}
     <nav id="nav"></nav>
     <div class="side-foot">
       <span class="live" id="syncFoot"><span class="pulse"></span> Cloud Supabase</span><br>
-      <span style="opacity:.8">Zinguerie Provençale · v4.7</span>
+      <span style="opacity:.8">Zinguerie Provençale · v4.8</span>
     </div>
   </aside>
 
@@ -420,6 +420,7 @@ const salaries=[
   {id:'jp',nom:'Jordan Pons',init:'JP',role:'Apprenti',col:'#9B8FB8',cout:18,habil:['Hauteur — formation','Harnais ⚠ 08/26'],visite:'11/2026',ok:true},
 ];
 const sal=id=>salaries.find(s=>s.id===id);
+const nomCourt=n=>{const p=(n||'').trim().split(/\s+/);return p[0]+(p[1]?' '+p[1][0]+'.':'');};
 /* compétences métier (badges) — servent à composer les équipes & préparer les chantiers */
 const COMP={"Chef d'équipe":'#F39200','Couvreur-zingueur':'#3D8AC6','Étanchéité':'#7A8B4F','Bardage':'#C66B3D','Pose gouttières':'#1B4F8A','Soudure zinc':'#9B8FB8','Métré':'#E0991A','Apprenti':'#9c958a','Aide-couvreur':'#9c958a'};
 const COMPMAP={km:["Chef d'équipe",'Couvreur-zingueur','Soudure zinc'],lb:['Couvreur-zingueur','Pose gouttières','Bardage'],as:['Couvreur-zingueur','Étanchéité','Métré'],jp:['Apprenti','Aide-couvreur']};
@@ -444,9 +445,10 @@ const chantiers=[
 ];
 const chn=id=>chantiers.find(c=>c.id===id);
 function renta(c,hO,pO){
-  const h=hO!=null?hO:c.hFaites,prix=pO!=null?pO:c.prix;
-  const cm=c.equipe.reduce((a,s)=>a+sal(s).cout,0)/c.equipe.length;
-  const mo=round(h*cm),tot=mo+c.matiere,marge=prix-tot,pct=prix?Math.round(marge/prix*100):0;
+  const h=hO!=null?hO:(c.hFaites||0),prix=pO!=null?pO:(c.prix||0);
+  const eq=(c.equipe&&c.equipe.length)?c.equipe:[];
+  const cm=eq.length?eq.reduce((a,s)=>a+((sal(s)||{cout:coutMO}).cout||coutMO),0)/eq.length:coutMO;
+  const mo=round(h*cm),tot=mo+(c.matiere||0),marge=prix-tot,pct=prix?Math.round(marge/prix*100):0;
   return {h,mo,tot,marge,pct,cm:Math.round(cm),prix};
 }
 const stock=[
@@ -941,7 +943,7 @@ views.aujourdhui=()=>{
   return `<div class="view">
   <div class="page-head"><div><h1>Aujourd'hui</h1><p>Bonjour ${(_pretty(_meName()).split(' ')[0])||'à vous'} ☀️ · ${_todayFr(false,true)}</p></div></div>
   <div class="hero" style="background:linear-gradient(135deg,${c.col}d9,${c.col}8c)"><div class="roof"></div><div class="veil"></div>
-    <div class="hero-top"><div class="chip-w"><i class="ti ti-sun"></i> 24°</div><div class="people">${c.equipe.map(s=>`<span class="avatar-sm" style="background:${sal(s).col}">${sal(s).init}</span>`).join('')}</div></div>
+    <div class="hero-top"><div class="chip-w"><i class="ti ti-sun"></i> 24°</div><div class="people">${c.equipe.map(s=>sal(s)).filter(Boolean).map(p=>`<span class="avatar-sm" style="background:${p.col}">${p.init}</span>`).join('')}</div></div>
     <div><div class="eyebrow">AUJOURD'HUI SUR</div><h2>${c.nom}</h2>
       <div style="display:flex;align-items:center;gap:6px;margin-top:4px;opacity:.92;font-size:13px"><i class="ti ti-map-pin"></i> ${c.adresse}</div>
       <div style="display:flex;align-items:center;gap:6px;margin-top:6px;font-weight:600"><i class="ti ti-clock"></i> 8h00 — 17h00</div></div>
@@ -1150,16 +1152,18 @@ views.chantiers=()=>`<div class="view">
       <div><div style="font-family:'Baloo 2';font-size:20px;font-weight:800">${c.nom}</div>
         <div style="display:flex;align-items:center;gap:5px;font-size:12px;opacity:.9;margin-top:2px"><i class="ti ti-map-pin"></i>${cli(c.clientId).ville}</div>
         ${c.hEst?`<div style="margin-top:8px;font-size:12px;font-weight:600"><i class="ti ti-hourglass"></i> ${(c.hFaites/1).toFixed(0)} h / ${c.hEst} h prévues</div><div style="height:4px;background:rgba(255,255,255,.3);border-radius:4px;margin-top:5px;overflow:hidden"><div style="width:${Math.min(100,c.hFaites/c.hEst*100)}%;height:100%;background:#fff"></div></div>`:''}
-        <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:10px"><div class="people">${c.equipe.map(s=>`<span class="avatar-sm" style="background:${sal(s).col}">${sal(s).init}</span>`).join('')}</div><span style="font-size:12px;font-weight:700"><i class="ti ti-calendar"></i> ${c.fin}</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:10px"><div class="people">${c.equipe.map(s=>sal(s)).filter(Boolean).map(p=>`<span class="avatar-sm" style="background:${p.col}">${p.init}</span>`).join('')}</div><span style="font-size:12px;font-weight:700"><i class="ti ti-calendar"></i> ${c.fin}</span></div>
       </div></div>`).join('')}
   </div></div>`;
 
 views.chantierDetail=()=>{
-  const c=chn(currentCh),r=renta(c),rr=rentaReel(c),consos=chantierConsos(currentCh),cl=cli(c.clientId),fin=role!=='ouvrier'&&role!=='client';
+  const c=chn(currentCh);
+  if(!c)return `<div class="view"><div class="breadcrumb"><a data-nav="chantiers">Chantiers</a><i class="ti ti-chevron-right"></i><span>Introuvable</span></div><div class="card card-pad" style="text-align:center;padding:40px"><i class="ti ti-help-circle" style="font-size:40px;color:var(--ink-3)"></i><h3 style="margin:12px 0 6px">Chantier introuvable</h3><p class="muted">Ce chantier a peut-être été supprimé ou déplacé.</p><button class="btn primary" style="margin-top:14px" data-nav="chantiers"><i class="ti ti-arrow-left"></i> Retour aux chantiers</button></div></div>`;
+  const r=renta(c),rr=rentaReel(c),consos=chantierConsos(currentCh),cl=cli(c.clientId)||{nom:'—',id:''},fin=role!=='ouvrier'&&role!=='client';
   return `<div class="view">
   <div class="breadcrumb"><a data-nav="chantiers">Chantiers</a><i class="ti ti-chevron-right"></i><span>${c.nom}</span></div>
   <div class="hero" style="background:linear-gradient(135deg,${c.col}d9,${c.col}8c);min-height:180px;margin-bottom:18px"><div class="roof"></div><div class="veil"></div>
-    <div class="hero-top"><span class="chip-w" style="background:rgba(255,255,255,.95);color:${STAT[c.statut][1]}">${STAT[c.statut][0]}</span><div class="people">${c.equipe.map(s=>`<span class="avatar-sm" style="background:${sal(s).col}">${sal(s).init}</span>`).join('')}</div></div>
+    <div class="hero-top"><span class="chip-w" style="background:rgba(255,255,255,.95);color:${STAT[c.statut][1]}">${STAT[c.statut][0]}</span><div class="people">${c.equipe.map(s=>sal(s)).filter(Boolean).map(p=>`<span class="avatar-sm" style="background:${p.col}">${p.init}</span>`).join('')}</div></div>
     <div><h2>${c.nom}</h2><div style="display:flex;align-items:center;gap:6px;margin-top:3px;opacity:.92;font-size:13px"><i class="ti ti-map-pin"></i> ${c.adresse} · ${cl.nom}</div></div>
   </div>
   ${fin?`<div class="grid cols-4" style="margin-bottom:18px">
@@ -1426,7 +1430,8 @@ views.planning=()=>{
 };
 function assignCell(sid,day){
   const opts=chantiers.filter(c=>c.statut!=='fini').map(c=>`<button class="btn" style="width:100%;justify-content:flex-start;margin-bottom:8px" onclick="setCell('${sid}',${day},'${c.id}')"><span style="width:11px;height:11px;border-radius:50%;background:${c.col};margin-right:8px"></span>${c.nom}</button>`).join('');
-  modal(`<div class="modal-head"><h3>Affecter — ${sal(sid).nom.split(' ')[0]}, ${JOURS[day]}</h3><button class="icon-x" onclick="this.closest('.overlay').remove()"><i class="ti ti-x"></i></button></div><div class="modal-body">${opts}<div class="divider"></div><div style="display:flex;gap:8px"><button class="btn" style="flex:1;justify-content:center" onclick="setCell('${sid}',${day},'conge')"><i class="ti ti-beach"></i> Congé</button><button class="btn" style="flex:1;justify-content:center" onclick="setCell('${sid}',${day},'form')"><i class="ti ti-school"></i> Formation</button></div></div>`);
+  const _who=sal(sid)||planResList.find(r=>r.id===sid)||{nom:sid};
+  modal(`<div class="modal-head"><h3>Affecter — ${(_who.nom||sid).split(' ')[0]}, ${JOURS[day]}</h3><button class="icon-x" onclick="this.closest('.overlay').remove()"><i class="ti ti-x"></i></button></div><div class="modal-body">${opts}<div class="divider"></div><div style="display:flex;gap:8px"><button class="btn" style="flex:1;justify-content:center" onclick="setCell('${sid}',${day},'conge')"><i class="ti ti-beach"></i> Congé</button><button class="btn" style="flex:1;justify-content:center" onclick="setCell('${sid}',${day},'form')"><i class="ti ti-school"></i> Formation</button></div></div>`);
 }
 function setCell(sid,day,val){planData[sid][day]=val;document.querySelectorAll('.overlay').forEach(o=>o.remove());render();toast('Affectation ajoutée','ok','ti-calendar-check');}
 function removeCell(sid,day){planData[sid][day]=null;render();toast('Affectation retirée');}
@@ -1473,7 +1478,7 @@ views.heures=()=>`<div class="view">
   </tbody></table></div></div>`;
 
 views.demandes=()=>{
-  const card=(t,who,due,type)=>`<div class="card card-pad" style="border-left:4px solid ${type==='mat'?'var(--orange)':'var(--lavande)'}"><div style="font-weight:600">${t}</div><div style="display:flex;align-items:center;gap:8px;margin-top:8px"><span class="avatar-sm" style="background:${sal(who).col}">${sal(who).init}</span><span class="tiny">${sal(who).nom.split(' ')[0]} · ${due}</span><span class="tag" style="margin-left:auto;background:${type==='mat'?'rgba(243,146,0,.14);color:var(--orange-dark)':'rgba(155,143,184,.18);color:var(--lavande)'}">${type==='mat'?'Matériel':'Congé'}</span></div></div>`;
+  const card=(t,who,due,type)=>{const p=sal(who)||{col:'#999',init:'?',nom:'—'};return `<div class="card card-pad" style="border-left:4px solid ${type==='mat'?'var(--orange)':'var(--lavande)'}"><div style="font-weight:600">${t}</div><div style="display:flex;align-items:center;gap:8px;margin-top:8px"><span class="avatar-sm" style="background:${p.col}">${p.init}</span><span class="tiny">${(p.nom||'').split(' ')[0]} · ${due}</span><span class="tag" style="margin-left:auto;background:${type==='mat'?'rgba(243,146,0,.14);color:var(--orange-dark)':'rgba(155,143,184,.18);color:var(--lavande)'}">${type==='mat'?'Matériel':'Congé'}</span></div></div>`;};
   return `<div class="view"><div class="page-head"><div><h1>Demandes</h1><p>Matériel & congés à valider</p></div><button class="btn primary" onclick="toast('Nouvelle demande (démo)')"><i class="ti ti-plus"></i> Demander</button></div>
   <div class="grid cols-2">${card('Commander 4 bobines zinc 0,65 pour Cuges','as','Aujourd\'hui','mat')}${card('Congé du 14 au 18 juillet','lb','En attente','conge')}${card('Soudure étain — réappro urgent','km','Hier','mat')}${card('RTT vendredi 11 juillet','jp','En attente','conge')}</div></div>`;
 };
@@ -1711,7 +1716,7 @@ views.affaire=()=>{
      </div>
      <div style="display:flex;flex-direction:column;gap:18px">
        ${c?`<div class="card card-pad"><h3 style="font-size:16px;margin-bottom:10px"><i class="ti ti-tools" style="color:var(--orange)"></i> Chantier</h3>
-         <div class="kv"><span class="k">Équipe</span><span class="v"><div class="people">${c.equipe.map(s=>`<span class="avatar-sm" style="background:${sal(s).col}">${sal(s).init}</span>`).join('')}</div></span></div>
+         <div class="kv"><span class="k">Équipe</span><span class="v"><div class="people">${c.equipe.map(s=>sal(s)).filter(Boolean).map(p=>`<span class="avatar-sm" style="background:${p.col}">${p.init}</span>`).join('')}</div></span></div>
          <div class="kv"><span class="k">Heures</span><span class="v">${c.hFaites} / ${c.hEst} h</span></div>
          <div class="kv"><span class="k">Avancement</span><span class="v">${c.av}%</span></div>
          ${c.stockAlloc&&c.stockAlloc.length?`<div style="margin-top:8px"><div class="tiny" style="font-weight:700;margin-bottom:5px"><i class="ti ti-box"></i> MATÉRIAUX RÉSERVÉS</div>${c.stockAlloc.map(a=>`<div class="tiny" style="display:flex;justify-content:space-between;padding:2px 0"><span>${a.nom}</span><b>${a.qte} ${a.u}</b></div>`).join('')}</div>`:''}
@@ -2581,7 +2586,7 @@ function _consumeQR(){try{const id=new URLSearchParams(location.search).get('p')
 views.rh=()=>{
   const teamCard=(t,ti)=>`<div class="card card-pad">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><div><div style="font-family:'Baloo 2';font-weight:700;font-size:16px">${t.nom}</div><div class="tiny">${t.zone||''}</div></div><span class="tag" style="background:rgba(243,146,0,.14);color:var(--orange-dark)">${1+t.membres.length} pers.</span></div>
-    <div style="display:flex;align-items:center;gap:11px;padding:10px;background:rgba(243,146,0,.08);border-radius:11px;margin-bottom:8px">${av(sal(t.chef),34)}<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13.5px">${sal(t.chef).nom}</div><div class="tiny">${sal(t.chef).role}</div></div><i class="ti ti-crown" style="color:var(--orange)" title="Chef d'équipe"></i></div>
+    <div style="display:flex;align-items:center;gap:11px;padding:10px;background:rgba(243,146,0,.08);border-radius:11px;margin-bottom:8px">${av(sal(t.chef),34)}<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13.5px">${(sal(t.chef)||{}).nom||'—'}</div><div class="tiny">${(sal(t.chef)||{}).role||''}</div></div><i class="ti ti-crown" style="color:var(--orange)" title="Chef d'équipe"></i></div>
     ${t.membres.map(m=>`<div style="display:flex;align-items:center;gap:11px;padding:8px 10px;border-bottom:1px solid var(--line)">${av(sal(m),30)}<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:13px">${sal(m).nom}</div><div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">${(COMPMAP[m]||[]).slice(0,2).map(c=>`<span style="font-size:9.5px;font-weight:700;color:${COMP[c]||'#888'};background:${(COMP[c]||'#888')}1a;padding:1px 6px;border-radius:10px">${c}</span>`).join('')}</div></div><button class="icon-x" onclick="removeMembre(${ti},'${m}')" title="Retirer"><i class="ti ti-x"></i></button></div>`).join('')}
     <button class="btn sm ghost" style="width:100%;justify-content:center;margin-top:10px" onclick="ajouterMembre(${ti})"><i class="ti ti-user-plus"></i> Ajouter un membre</button>
   </div>`;
@@ -2667,7 +2672,9 @@ function confirmDel(id,type){
 }
 function delPersonne(id,type){
   if(type==='bureau'){const i=bureau.findIndex(b=>b.id===id);if(i>-1)bureau.splice(i,1);}
-  else{const i=salaries.findIndex(s=>s.id===id);if(i>-1)salaries.splice(i,1);delete COMPMAP[id];delete planData[id];
+  else{const i=salaries.findIndex(s=>s.id===id);if(i>-1)salaries.splice(i,1);delete COMPMAP[id];
+    Object.keys(planStore).forEach(w=>{if(planStore[w])delete planStore[w][id];});
+    chantiers.forEach(c=>{if(Array.isArray(c.equipe))c.equipe=c.equipe.filter(m=>m!==id);if(c.chef===id)c.chef='';});
     equipes.forEach(t=>{t.membres=t.membres.filter(m=>m!==id);});equipes=equipes.filter(t=>sal(t.chef));}
   document.querySelectorAll('.overlay').forEach(o=>o.remove());render();toast('Personne supprimée','info','ti-trash');
 }
@@ -2818,7 +2825,7 @@ views.supervision=()=>{
       ${JOURS.map((j,i)=>`<div style="padding:11px;text-align:center;font-weight:700;color:${i===TODAY_IDX?'var(--orange-dark)':'var(--ink-2)'};background:${i===TODAY_IDX?'rgba(243,146,0,.08)':'var(--surface-2)'};border-bottom:1px solid var(--line)">${j}</div>`).join('')}
       <div style="padding:11px;text-align:center;font-weight:700;color:var(--ink-2);background:var(--surface-2);border-bottom:1px solid var(--line)">Total</div>
       ${salaries.map(s=>{const w=weekAtt[s.id]||['','','','','',''];const tot=w.reduce((a,v)=>a+(typeof v==='number'?v:0),0);
-        return `<div style="padding:11px 14px;font-weight:600;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:9px"><span class="avatar-sm" style="background:${s.col}">${s.init}</span>${s.nom.split(' ')[0]} ${s.nom.split(' ')[1][0]}.</div>
+        return `<div style="padding:11px 14px;font-weight:600;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:9px"><span class="avatar-sm" style="background:${s.col}">${s.init}</span>${nomCourt(s.nom)}</div>
         ${w.map((v,i)=>{let inner,bg='transparent';
           if(v==='today'){inner='<span class="tag" style="background:rgba(61,138,198,.14);color:#3D8AC6;font-size:10px"><span class="tdot"></span>en cours</span>';bg='rgba(243,146,0,.05)';}
           else if(v===''){inner='<span style="color:var(--ink-3)">—</span>';}
