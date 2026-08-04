@@ -370,7 +370,7 @@ input.noarrow{-moz-appearance:textfield;appearance:textfield}
     <nav id="nav"></nav>
     <div class="side-foot">
       <span class="live" id="syncFoot"><span class="pulse"></span> Cloud Supabase</span><br>
-      <span style="opacity:.8">Zinguerie Provençale · v4.1</span>
+      <span style="opacity:.8">Zinguerie Provençale · v4.2</span>
     </div>
   </aside>
 
@@ -624,6 +624,7 @@ let coefMargeDefaut=1.6; /* coefficient de marge par défaut : prix de vente = p
 let coutMO=35; /* coût horaire main d'oeuvre (déboursé), distinct du taux facturé */
 let tvaDefaut=10; /* % TVA par défaut appliqué aux devis et factures */
 let txtModeles={intro:[],outro:[]}; /* modèles de textes début/fin de devis (3 max chacun) */
+let pointages={}; /* pointages par utilisateur+jour : {email|YYYY-MM-DD:{interventions:[{chId,chNom,start,end,secs}],active,curStart,curChId,curChNom}} */
 let margeObjectif=35; /* % objectif de marge affiché au tableau de bord */
 const PCATS=['Zinc & couverture','Cuivre & inox','Aluminium & acier','Tuiles & ardoises','Faîtières & accessoires','Évacuation des eaux','Étanchéité & sous-toiture','Isolation & sous-toiture','Bois & supports','Fixations & accessoires','Soudure & brasure','Outillage','Consommables','EPI & sécurité','Peinture & traitement','Quincaillerie','Tuiles','Zinc naturel','Zinc quartz','Quartz','Cuivre','Bois','Gouttières et descentes PVC','Gouttières & descentes PVC','PVC','Moyens lourds','Moyens matériels','Divers'];
 let prodCats=[...PCATS];let _delCats=[];
@@ -1388,23 +1389,37 @@ function setCell(sid,day,val){planData[sid][day]=val;document.querySelectorAll('
 function removeCell(sid,day){planData[sid][day]=null;render();toast('Affectation retirée');}
 function autoPlan(){const open=chantiers.filter(c=>['cours','prep'].includes(c.statut));salaries.forEach(s=>{planData[s.id]=planData[s.id].map((k,d)=>{if(k||d>4)return k;if(badDay(d))return k;return s.equipe?null:(open.find(c=>c.equipe.includes(s.id))||open[0]).id;});});salaries.forEach(s=>{for(let d=0;d<5;d++){if(!planData[s.id][d]&&!badDay(d)){const c=open.find(x=>x.equipe.includes(s.id));if(c)planData[s.id][d]=c.id;}}});render();toast('Planning pré-rempli selon les équipes','ok','ti-wand');}
 
-let clockOn=false,clockStart=null,clockTimer=null;
-views.pointage=()=>`<div class="view">
-  <div class="page-head"><div><h1>Pointage</h1><p>Boutons larges « mode gants » · géolocalisé · synchro hors-ligne</p></div></div>
-  <div class="card" style="background:linear-gradient(135deg,${chn('ch1').col},${chn('ch1').col}bb);color:#fff;border:none;margin-bottom:18px"><div class="card-pad" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:18px">
-    <div><div style="opacity:.85;font-size:11px;font-weight:800;letter-spacing:2px;font-family:'Baloo 2'">CHANTIER</div><div style="font-family:'Baloo 2';font-size:22px;font-weight:800;margin-top:2px">Villa Aubagne</div><div style="opacity:.9;font-size:12.5px;margin-top:3px"><i class="ti ti-map-pin-check"></i> Position vérifiée · sur zone</div></div>
-    <div class="timer-big" id="timerDisp">00:00:00</div>
+let clockTimer=null;
+function _ptTodayKey(){const d=new Date();return (sessionEmail||'moi')+'|'+d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function _ptGet(){const k=_ptTodayKey();if(!pointages[k])pointages[k]={interventions:[],active:false};return pointages[k];}
+function _fmtDur(secs){secs=Math.max(0,Math.round(secs));const h=Math.floor(secs/3600),m=Math.floor(secs/60)%60;return h+'h'+String(m).padStart(2,'0');}
+function _hms(secs){secs=Math.max(0,Math.round(secs));return [Math.floor(secs/3600),Math.floor(secs/60)%60,secs%60].map(x=>String(x).padStart(2,'0')).join(':');}
+function _ptChantierParDefaut(){const c=currentCompte();const nom=(c&&c.nom)||'';const s=salaries.find(x=>(x.nom||'').toLowerCase()===nom.toLowerCase());if(s&&Array.isArray(planData&&planData[s.id])){const today=(new Date().getDay()+6)%7;const chId=planData[s.id][today];if(chId)return chId;}const open=chantiers.filter(c=>['cours','prep'].includes(c.statut));return (open[0]||chantiers[0]||{}).id||'';}
+function openStartPointage(mode){const def=_ptChantierParDefaut();const opts=chantiers.slice().sort((a,b)=>(a.nom||'').localeCompare(b.nom||'')).map(c=>`<option value="${c.id}" ${c.id===def?'selected':''}>${(c.nom||'').replace(/</g,'&lt;')}</option>`).join('');
+  modal(`<div class="modal-head"><h3><i class="ti ti-player-play"></i> ${mode==='changer'?'Changer de chantier':'Commencer ma journée'}</h3><button class="icon-x" onclick="this.closest('.overlay').remove()"><i class="ti ti-x"></i></button></div><div class="modal-body">
+  ${mode==='changer'?'<div class="tiny" style="color:var(--ink-3);margin-bottom:10px">L\'intervention en cours est clôturée. La nouvelle démarre maintenant (le temps de route compte sur ce nouveau chantier).</div>':'<div style="font-weight:700;font-size:15px;margin-bottom:6px">Êtes-vous prêt à travailler ?</div>'}
+  <div class="field"><label>Sur quel chantier ?</label><select id="ptCh" class="cell" style="width:100%;font-size:15px">${opts}</select><div class="tiny" style="color:var(--ink-3);margin-top:3px">Pré-rempli d\'après ton planning du jour — modifiable.</div></div>
+  <div style="display:flex;gap:10px;margin-top:14px">${mode==='changer'?'':'<button class="btn" style="flex:1;justify-content:center" onclick="this.closest(\'.overlay\').remove()"><i class="ti ti-x"></i> Non, pas encore</button>'}<button class="btn primary" style="flex:1.4;justify-content:center" onclick="_doStartIntervention()"><i class="ti ti-check"></i> ${mode==='changer'?'Démarrer ce chantier':'Oui, je démarre'}</button></div></div>`);}
+function _doStartIntervention(){const sel=document.getElementById('ptCh');const chId=sel?sel.value:'';const ch=chn(chId)||{};const pt=_ptGet();pt.active=true;pt.curStart=Date.now();pt.curChId=chId;pt.curChNom=ch.nom||'—';document.querySelectorAll('.overlay').forEach(o=>o.remove());_logAction('ti-player-play','a démarré une intervention sur '+(ch.nom||'—'));render();toast('Intervention démarrée · '+(ch.nom||''),'ok','ti-player-play');}
+function _closeCurrentIntervention(){const pt=_ptGet();if(!pt.active)return null;const secs=(Date.now()-(pt.curStart||Date.now()))/1000;const iv={chId:pt.curChId,chNom:pt.curChNom,start:pt.curStart,end:Date.now(),secs};pt.interventions.push(iv);pt.active=false;pt.curStart=null;pt.curChId=null;pt.curChNom=null;return iv;}
+function changerChantier(){const iv=_closeCurrentIntervention();if(iv)_logAction('ti-arrows-exchange','a terminé une intervention ('+_fmtDur(iv.secs)+') sur '+(iv.chNom||''));openStartPointage('changer');}
+function terminerJournee(){const iv=_closeCurrentIntervention();if(clockTimer){clearInterval(clockTimer);clockTimer=null;}const pt=_ptGet();const tot=pt.interventions.reduce((a,x)=>a+x.secs,0);
+  const note=(prompt('Journée terminée ✓\nTemps total pointé : '+_fmtDur(tot)+'\n\nUne remarque à signaler ? (matériel, difficulté, avancement…)\nLaisse vide si rien.')||'').trim();
+  if(note)_logAction('ti-note','a terminé sa journée ('+_fmtDur(tot)+') — « '+note.slice(0,200)+' »');else _logAction('ti-clock-check','a terminé sa journée ('+_fmtDur(tot)+')');
+  saveState();render();toast('Journée enregistrée · '+_fmtDur(tot)+(note?' + note transmise':''),'ok','ti-check');}
+views.pointage=()=>{const pt=_ptGet();const totSecs=pt.interventions.reduce((a,x)=>a+x.secs,0)+(pt.active?(Date.now()-(pt.curStart||Date.now()))/1000:0);
+  return `<div class="view">
+  <div class="page-head"><div><h1>Pointage</h1><p>${_todayFr(true)} · boutons « mode gants »</p></div></div>
+  <div class="card" style="background:linear-gradient(135deg,${pt.active?(chn(pt.curChId)||{col:'#7A8B4F'}).col:'#7A8B4F'},${pt.active?(chn(pt.curChId)||{col:'#7A8B4F'}).col:'#5f6b3d'}bb);color:#fff;border:none;margin-bottom:18px"><div class="card-pad" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:18px">
+    <div><div style="opacity:.85;font-size:11px;font-weight:800;letter-spacing:2px;font-family:'Baloo 2'">${pt.active?'INTERVENTION EN COURS':'PRÊT À POINTER'}</div><div style="font-family:'Baloo 2';font-size:22px;font-weight:800;margin-top:2px">${pt.active?String(pt.curChNom||'—').replace(/</g,'&lt;'):'Aucune intervention'}</div>${pt.active?'<div style="opacity:.9;font-size:12.5px;margin-top:3px"><i class="ti ti-map-pin-check"></i> Intervention '+(pt.interventions.length+1)+'</div>':''}</div>
+    <div class="timer-big" id="timerDisp">${_hms((Date.now()-(pt.curStart||Date.now()))/1000*(pt.active?1:0))}</div>
   </div></div>
-  <div class="tactile" style="grid-template-columns:repeat(3,1fr);max-width:560px">
-    <button class="tbtn" id="clockBtn" style="background:rgba(122,139,79,.16);color:var(--olive);min-height:96px"><i class="ti ti-player-play"></i>Commencer ma journée</button>
-    <button class="tbtn" style="background:rgba(243,146,0,.15);color:var(--orange-dark);min-height:96px" onclick="toast('Pause enregistrée','ok','ti-player-pause')"><i class="ti ti-coffee"></i>Pause</button>
-    <button class="tbtn" style="background:rgba(198,107,61,.15);color:var(--terracotta);min-height:96px" onclick="toast('Pointage manuel (démo)')"><i class="ti ti-pencil"></i>Saisie manuelle</button>
+  <div class="tactile" style="grid-template-columns:repeat(${pt.active?2:1},1fr);max-width:560px">
+    ${pt.active?`<button class="tbtn" style="background:rgba(61,138,198,.15);color:var(--bleu-mer);min-height:96px" onclick="changerChantier()"><i class="ti ti-arrows-exchange"></i>Changer de chantier</button><button class="tbtn" style="background:rgba(184,58,38,.14);color:var(--alerte);min-height:96px" onclick="terminerJournee()"><i class="ti ti-player-stop"></i>Terminer ma journée</button>`:`<button class="tbtn" style="background:rgba(122,139,79,.16);color:var(--olive);min-height:96px" onclick="openStartPointage()"><i class="ti ti-player-play"></i>Commencer ma journée</button>`}
   </div>
-  <div id="clockState" style="margin-top:18px"></div>
-  <div class="card" style="margin-top:18px"><div class="card-head"><h3><i class="ti ti-clock-check"></i> Pointages du jour</h3><span class="sub">${_todayFr(false,true)}</span></div>
-    <table><thead><tr><th>Salarié</th><th>Chantier</th><th>Arrivée</th><th>Départ</th><th>Durée</th><th>GPS</th></tr></thead><tbody>
-      ${[['lb','ch1','07:42','en cours','—',1],['as','ch3','07:30','12:00','4h30',1],['km','ch2','08:00','en cours','—',1],['jp','ch1','08:05','12:00','3h55',0]].map(p=>`<tr><td style="font-weight:600"><span class="avatar-sm" style="background:${sal(p[0]).col}">${sal(p[0]).init}</span> ${sal(p[0]).nom}</td><td>${chn(p[1]).nom}</td><td>${p[2]}</td><td>${p[3]==='en cours'?'<span class="tag" style="background:rgba(122,139,79,.16);color:var(--olive)"><span class="tdot"></span>en cours</span>':p[3]}</td><td>${p[4]}</td><td>${p[5]?'<i class="ti ti-map-pin" style="color:var(--olive)"></i>':'<i class="ti ti-map-pin-off" style="color:var(--ink-3)"></i>'}</td></tr>`).join('')}
-    </tbody></table></div></div>`;
+  <div class="card" style="margin-top:18px"><div class="card-head"><h3><i class="ti ti-clock-check"></i> Mes interventions du jour</h3><span class="sub">Total ${_fmtDur(totSecs)}</span></div><div class="card-pad">
+    ${pt.interventions.length||pt.active?`<div style="display:flex;flex-direction:column;gap:8px">${pt.interventions.map((iv,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 11px;background:var(--surface-2);border-radius:10px"><div><b>Intervention ${i+1}</b> · ${String(iv.chNom||'—').replace(/</g,'&lt;')}<div class="tiny" style="color:var(--ink-3)">${new Date(iv.start).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})} → ${new Date(iv.end).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</div></div><div style="font-weight:800;font-size:16px;color:var(--olive)">${_fmtDur(iv.secs)}</div></div>`).join('')}${pt.active?`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 11px;background:rgba(122,139,79,.1);border:1px dashed var(--olive);border-radius:10px"><div><b>Intervention ${pt.interventions.length+1}</b> · ${String(pt.curChNom||'—').replace(/</g,'&lt;')} <span class="tag" style="background:rgba(122,139,79,.16);color:var(--olive)"><span class="tdot"></span>en cours</span><div class="tiny" style="color:var(--ink-3)">depuis ${new Date(pt.curStart).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</div></div><div style="font-weight:800;font-size:16px;color:var(--olive)">${_fmtDur((Date.now()-pt.curStart)/1000)}</div></div>`:''}</div>`:'<div class="tiny" style="color:var(--ink-3)">Aucune intervention aujourd\'hui. Clique « Commencer ma journée ».</div>'}
+  </div></div></div>`;};
 
 views.heures=()=>`<div class="view">
   <div class="page-head"><div><h1>Heures & paie</h1><p>Suivi des heures · export paie (Silae / PayFit)</p></div><button class="btn"><i class="ti ti-download"></i> Export CSV paie</button></div>
@@ -3025,10 +3040,7 @@ function initDash(){
   }));
 }
 function initSim(){const c=chn(currentCh),rH=document.getElementById('rngH'),rP=document.getElementById('rngP');if(!rH)return;const upd=()=>{const r=renta(c,+rH.value,+rP.value);document.getElementById('simH').textContent=rH.value+' h';document.getElementById('simP').textContent=fmt(+rP.value);const m=document.getElementById('simMarge');m.textContent=fmt(r.marge);m.style.color=r.marge>=0?'var(--olive)':'var(--alerte)';const p=document.getElementById('simPct');p.textContent=r.pct+'%';p.style.color=r.pct>=30?'var(--olive)':r.pct>=15?'var(--soleil)':'var(--alerte)';};rH.oninput=upd;rP.oninput=upd;}
-function initClock(){const b=document.getElementById('clockBtn'),d=document.getElementById('timerDisp');if(!b)return;b.onclick=()=>{if(!clockOn){clockOn=true;clockStart=Date.now();b.innerHTML='<i class="ti ti-player-stop"></i>Terminer ma journée';b.style.background='rgba(184,58,38,.14)';b.style.color='var(--alerte)';document.getElementById('clockState').innerHTML='<div class="banner" style="background:rgba(122,139,79,.14);color:var(--olive)"><i class="ti ti-map-pin"></i> Pointage démarré sur Villa Aubagne · position vérifiée.</div>';toast('Journée démarrée','ok','ti-player-play');clockTimer=setInterval(()=>{const s=Math.floor((Date.now()-clockStart)/1000);d.textContent=[Math.floor(s/3600),Math.floor(s/60)%60,s%60].map(x=>String(x).padStart(2,'0')).join(':');},1000);}else{clockOn=false;clearInterval(clockTimer);b.innerHTML='<i class="ti ti-player-play"></i>Commencer ma journée';b.style.background='rgba(122,139,79,.16)';b.style.color='var(--olive)';document.getElementById('clockState').innerHTML='';d.textContent='00:00:00';
-const _note=(prompt('Journée terminée ✓\n\nUne remarque à signaler ? (optionnel — matériel, difficulté, avancement…)\nLaisse vide si rien à signaler.')||'').trim();
-if(_note){_logAction('ti-note','a terminé son pointage — « '+_note.slice(0,200)+' »');}else{_logAction('ti-clock-check','a terminé son pointage');}
-saveState();toast(_note?'Heures enregistrées + note transmise au bureau':'Heures enregistrées et imputées','ok','ti-check');}};}
+function initClock(){if(clockTimer){clearInterval(clockTimer);clockTimer=null;}const pt=(typeof _ptGet==='function')?_ptGet():null;if(!pt||!pt.active)return;const d=document.getElementById('timerDisp');if(!d)return;clockTimer=setInterval(()=>{const el=document.getElementById('timerDisp');if(!el||!_ptGet().active){clearInterval(clockTimer);clockTimer=null;return;}el.textContent=_hms((Date.now()-(_ptGet().curStart||Date.now()))/1000);},1000);}
 
 /* drag&drop planning */
 let dragEl=null;
@@ -3234,7 +3246,7 @@ async function logout(){closeMenus();try{if(sb)await sb.auth.signOut();}catch(e)
 /* ===== Persistance locale (localStorage) + cloud (Supabase) ===== */
 const ZP_STORE_KEY='zp_erp_state_v3';
 const _persistArrays={salaries,equipes,clients,chantiers,stock,profils,bureau,taches,demandesList,congesList,carnet,rdvs,devisLignes,catFournitures,ouvrages,factures,comptes,prodCats,ouvrCats,devisDossiers,stockMoves,matConsos,_delCats,journal};
-const _persistObjects={congesBalance,planStore,chatMsgs,chantierSteps,profilUser,txtModeles};
+const _persistObjects={congesBalance,planStore,chatMsgs,chantierSteps,profilUser,txtModeles,pointages};
 function _stateObj(){if(typeof _syncCurDevis==='function')_syncCurDevis();const d={arr:{},obj:{},scal:{tauxMO,coutMO,devisClient,currentDevis,_devisSeq,rdvSeq,agendaWeek,planWeek,carnetChef,coefMargeDefaut,sessionEmail,tvaDefaut,margeObjectif,arrondiPU}};for(const k in _persistArrays)d.arr[k]=_persistArrays[k];for(const k in _persistObjects)d.obj[k]=_persistObjects[k];return d;}
 function _applyState(d){if(!d)return;if(d.arr)for(const k in _persistArrays){const v=d.arr[k];if(Array.isArray(v)){const a=_persistArrays[k];a.length=0;v.forEach(x=>a.push(x));}}if(d.obj)for(const k in _persistObjects){const v=d.obj[k];if(v&&typeof v==='object'){const o=_persistObjects[k];Object.keys(o).forEach(kk=>delete o[kk]);Object.assign(o,v);}}if(d.scal){const s=d.scal;if(typeof s.tauxMO==='number')tauxMO=s.tauxMO;if(s.devisClient!=null)devisClient=s.devisClient;if(s.currentDevis!==undefined)currentDevis=s.currentDevis;if(typeof s._devisSeq==='number')_devisSeq=s._devisSeq;if(typeof s.rdvSeq==='number')rdvSeq=s.rdvSeq;if(typeof s.agendaWeek==='number')agendaWeek=s.agendaWeek;if(typeof s.planWeek==='number')planWeek=s.planWeek;if(typeof s.carnetChef==='string')carnetChef=s.carnetChef;if(typeof s.coefMargeDefaut==='number')coefMargeDefaut=s.coefMargeDefaut;if(typeof s.coutMO==='number')coutMO=s.coutMO;if(typeof s.tvaDefaut==='number')tvaDefaut=s.tvaDefaut;if(typeof s.margeObjectif==='number')margeObjectif=s.margeObjectif;if(typeof s.arrondiPU==='string')arrondiPU=s.arrondiPU;}planData=planWeekData(planWeek);}
 function saveState(){try{localStorage.setItem(ZP_STORE_KEY,JSON.stringify(_stateObj()));}catch(e){}_cloudPush();}
