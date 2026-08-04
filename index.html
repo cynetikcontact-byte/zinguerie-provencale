@@ -370,7 +370,7 @@ input.noarrow{-moz-appearance:textfield;appearance:textfield}
     <nav id="nav"></nav>
     <div class="side-foot">
       <span class="live" id="syncFoot"><span class="pulse"></span> Cloud Supabase</span><br>
-      <span style="opacity:.8">Zinguerie Provençale · v4.3</span>
+      <span style="opacity:.8">Zinguerie Provençale · v4.4</span>
     </div>
   </aside>
 
@@ -1201,7 +1201,14 @@ function _printBilan(){const a=document.getElementById('bilanArea');if(!a)return
 function exportBilanCSV(){const sep=';';const esc=v=>{v=String(v==null?'':v);return /[";\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};const caCh=chantiers.reduce((a,c)=>a+(c.prix||0),0);let mo=0,mat=0;chantiers.forEach(c=>{const rr=rentaReel(c);mo+=rr.mo;mat+=rr.mat;});const rows=[['Indicateur','Valeur'],['CA chantiers',caCh],['Cout MO',mo],['Cout matieres',mat],['Marge',caCh-mo-mat],['Heures pointees',chantiers.reduce((a,c)=>a+(c.hFaites||0),0)],['Facture',factures.reduce((a,f)=>a+(f.ttc||0),0)],['Encaisse',factures.filter(f=>f.statut==='payee').reduce((a,f)=>a+(f.ttc||0),0)],[],['Chantier','Client','Prix','Cout reel','Marge','%']];chantiers.forEach(c=>{const rr=rentaReel(c);rows.push([c.nom,(cli(c.clientId)||{nom:''}).nom,c.prix||0,rr.tot,rr.marge,rr.pct]);});const csv='﻿'+rows.map(r=>r.map(v=>esc(typeof v==='number'?String(v).replace('.',','):v)).join(sep)).join('\r\n');const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob);const dt=new Date(),p=n=>String(n).padStart(2,'0');const a=document.createElement('a');a.href=url;a.download='bilan-zinguerie-'+dt.getFullYear()+'-'+p(dt.getMonth()+1)+'-'+p(dt.getDate())+'.csv';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);toast('Bilan exporté (CSV)','ok','ti-file-spreadsheet');}
 /* planning stocké par semaine */
 let planStore={26:{km:['ch1','ch1','ch2','ch2','ch2',null],lb:['ch1','ch1','ch4','ch4','conge',null],as:['ch3','ch3','ch2','ch2','ch2','ch2'],jp:['ch1','ch3','ch3','form','form',null]}};
-function planWeekData(w){if(!planStore[w])planStore[w]={};salaries.forEach(s=>{if(!planStore[w][s.id])planStore[w][s.id]=[null,null,null,null,null,null];});return planStore[w];}
+const PLAN_RESOURCES=[
+  {id:'r-chariot',nom:'CHARIOT',init:'🚜',col:'#B83A26',sep:true,groupe:'Moyens'},
+  {id:'r-st1',nom:'Sous-traitant 1',init:'ST1',col:'#8A5A2B',groupe:'Sous-traitants'},
+  {id:'r-st2',nom:'Sous-traitant 2',init:'ST2',col:'#8A5A2B'},
+  {id:'r-int1',nom:'Intérimaire 1',init:'IN1',col:'#6B6B6B',groupe:'Intérimaires'},
+  {id:'r-int2',nom:'Intérimaire 2',init:'IN2',col:'#6B6B6B'},
+];
+function planWeekData(w){if(!planStore[w])planStore[w]={};salaries.forEach(s=>{if(!planStore[w][s.id])planStore[w][s.id]=[null,null,null,null,null,null];});PLAN_RESOURCES.forEach(r=>{if(!planStore[w][r.id])planStore[w][r.id]=[null,null,null,null,null,null];});return planStore[w];}
 let planData=planWeekData(26);
 function gotoWeek(w){planWeek=w;planMode='semaine';planData=planWeekData(w);render();}
 function dlabel(d){const dt=new Date(2026,5,22);dt.setDate(22+(planWeek-26)*7+d);return ['Lun','Mar','Mer','Jeu','Ven','Sam'][d]+' '+dt.getDate();}
@@ -1211,7 +1218,7 @@ function paintCell(sid,day){if(planBrush){planData[sid][day]=planBrush==='erase'
 const HJ=7; /* heures par jour travaillé */
 const isCh=k=>!!chn(k);
 const badDay=i=>weather[i][1].includes('rain')||weather[i][1].includes('wind');
-const planLab=k=>k==='conge'?'Congé':k==='form'?'Formation':chn(k)?chn(k).nom:k;
+const planLab=k=>k==='conge'?'Congé':k==='form'?'Formation':k==='prereserve'?'Pré-réservé':chn(k)?chn(k).nom:k;
 const planCol=k=>chn(k)?chn(k).col:'#9c958a';
 function setMode(m){planMode=m;render();}
 function planNav(dir){if(planMode==='jour'){planDay=Math.max(0,Math.min(5,planDay+dir));}else{planWeek+=dir;planData=planWeekData(planWeek);}render();toast(planMode==='jour'?JOURS[planDay]:planMode==='mois'?'Mois suivant':'Semaine '+planWeek);}
@@ -1255,6 +1262,14 @@ function planGridHTML(days){
             </div>`:`<div class="add"><i class="ti ti-plus"></i></div>`}
         </div>`;}).join('')}
       <div class="pl-tot">${persH(s)} h</div>`;}).join('')}
+    ${PLAN_RESOURCES.map(r=>{const nb=days.filter(d=>isCh(planData[r.id][d])).length;
+      return `${r.sep?`<div style="grid-column:1/-1;height:3px;background:var(--alerte);margin:0"></div>`:''}${r.groupe?`<div style="grid-column:1/-1;padding:5px 14px;background:var(--surface-3);font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3)">${r.groupe}</div>`:''}
+      <div class="pl-name" style="background:${r.col}12"><span class="avatar-sm" style="background:${r.col};font-size:10px">${r.init}</span><div style="flex:1;min-width:0"><div style="font-weight:700;font-size:12px;color:${r.col}">${r.nom}</div></div></div>
+      ${days.map(d=>{const k=planData[r.id][d],dim=planFilter&&k!==planFilter;
+        return `<div class="pl-cell ${planWeek===26&&d===TODAY_IDX?'today':''} ${planBrush?'painting':''}" data-sal="${r.id}" data-day="${d}" onclick="paintCell('${r.id}',${d})">
+          ${k?`<div class="pl-chip ${isCh(k)?'':'off'} ${dim?'pl-dim':''}" draggable="true" data-cell="${k}" style="${isCh(k)?'background:'+planCol(k):''}"><span class="nm">${planLab(k)}</span><button class="px" onclick="event.stopPropagation();removeCell('${r.id}',${d})" title="Retirer">✕</button></div>`:`<div class="add"><i class="ti ti-plus"></i></div>`}
+        </div>`;}).join('')}
+      <div class="pl-tot" style="font-size:11px;color:var(--ink-3)">${nb?nb+' j':'—'}</div>`;}).join('')}
     <div class="pl-foot" style="text-align:left;padding-left:14px;font-size:11px;color:var(--ink-2)">Total / jour</div>
     ${days.map(d=>`<div class="pl-foot" style="color:${dayTot(d)===0?'var(--ink-3)':'var(--ink)'}">${dayTot(d)} h</div>`).join('')}
     <div class="pl-foot" style="color:var(--orange-dark)">${total} h</div>
@@ -1377,7 +1392,7 @@ views.planning=()=>{
   ${planMode!=='mois'?`<div class="card card-pad only-desktop" style="margin-bottom:14px;display:flex;align-items:center;gap:9px;flex-wrap:wrap">
     <span style="font-weight:700;font-size:13px;display:flex;align-items:center;gap:6px;white-space:nowrap"><i class="ti ti-brush" style="color:var(--orange);font-size:18px"></i> Affecter :</span>
     ${chList.map(c=>bchip(c.id,c.nom,c.col)).join('')}
-    ${bchip('conge','Congé','#9c958a')}${bchip('form','Formation','#9c958a')}
+    ${bchip('conge','Congé','#9c958a')}${bchip('form','Formation','#9c958a')}${bchip('prereserve','Pré-réservé','#a9760d')}
     <button onclick="setBrush('erase')" style="border:2px solid ${planBrush==='erase'?'var(--alerte)':'transparent'};background:${planBrush==='erase'?'rgba(184,58,38,.1)':'var(--surface-2)'};color:var(--alerte);border-radius:20px;padding:7px 13px;font-size:12.5px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-family:inherit"><i class="ti ti-eraser"></i> Gomme</button>
     <span style="margin-left:auto;font-size:12.5px;font-weight:600;color:${planBrush?'var(--orange-dark)':'var(--ink-3)'};white-space:nowrap">${planBrush?(planBrush==='erase'?"Cliquez une case pour l'effacer":'👉 Cliquez les jours à affecter'):'1. Choisissez un chantier  →  2. Cliquez les jours'}</span>
   </div>`:''}
