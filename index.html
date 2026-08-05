@@ -370,7 +370,7 @@ input.noarrow{-moz-appearance:textfield;appearance:textfield}
     <nav id="nav"></nav>
     <div class="side-foot">
       <span class="live" id="syncFoot"><span class="pulse"></span> Cloud Supabase</span><br>
-      <span style="opacity:.8">Zinguerie Provençale · v4.8</span>
+      <span style="opacity:.8">Zinguerie Provençale · v4.9</span>
     </div>
   </aside>
 
@@ -1213,27 +1213,31 @@ const planResList=[
   {id:'r-int2',nom:'Intérimaire 2',col:'#6B6B6B',type:'int'},
 ];
 function resInit(r){if(r.init)return r.init;const w=(r.nom||'').split(/\s+/).filter(Boolean);if(w.length>=2)return (w[0][0]+w[1][0]).toUpperCase();return (r.nom||'?').slice(0,3).toUpperCase();}
-function renameRes(id){const r=planResList.find(x=>x.id===id);if(!r)return;const v=prompt('Nom de la ligne (sous-traitant, intérimaire, ou nom du chantier) :',r.nom);if(v===null)return;r.nom=(v.trim()||r.nom);render();toast('Ligne renommée','ok','ti-check');}
-function addRes(type){const cols={st:'#8A5A2B',int:'#6B6B6B'};const id='r-'+type+Date.now();const n=planResList.filter(r=>r.type===type).length+1;planResList.push({id,nom:(type==='st'?'Sous-traitant ':'Intérimaire ')+n,col:cols[type]||'#6B6B6B',type});if(typeof planData!=='undefined'&&planData)planData[id]=[null,null,null,null,null,null];render();toast('Ligne ajoutée — clique ✎ pour la nommer','ok','ti-plus');}
-function delRes(id){const r=planResList.find(x=>x.id===id);if(!r||r.fixed)return;if(!confirm('Supprimer la ligne « '+r.nom+' » ? Les affectations de cette ligne seront perdues.'))return;const i=planResList.findIndex(x=>x.id===id);if(i>=0)planResList.splice(i,1);Object.keys(planStore).forEach(w=>{if(planStore[w])delete planStore[w][id];});render();toast('Ligne supprimée','ok','ti-trash');}
+function renameRes(id){if(!canEditPlan())return;const r=planResList.find(x=>x.id===id);if(!r)return;const v=prompt('Nom de la ligne (sous-traitant, intérimaire, ou nom du chantier) :',r.nom);if(v===null)return;r.nom=(v.trim()||r.nom);render();toast('Ligne renommée','ok','ti-check');}
+function addRes(type){if(!canEditPlan())return;const cols={st:'#8A5A2B',int:'#6B6B6B'};const id='r-'+type+Date.now();const n=planResList.filter(r=>r.type===type).length+1;planResList.push({id,nom:(type==='st'?'Sous-traitant ':'Intérimaire ')+n,col:cols[type]||'#6B6B6B',type});if(typeof planData!=='undefined'&&planData)planData[id]=[null,null,null,null,null,null];render();toast('Ligne ajoutée — clique ✎ pour la nommer','ok','ti-plus');}
+function delRes(id){if(!canEditPlan())return;const r=planResList.find(x=>x.id===id);if(!r||r.fixed)return;if(!confirm('Supprimer la ligne « '+r.nom+' » ? Les affectations de cette ligne seront perdues.'))return;const i=planResList.findIndex(x=>x.id===id);if(i>=0)planResList.splice(i,1);Object.keys(planStore).forEach(w=>{if(planStore[w])delete planStore[w][id];});render();toast('Ligne supprimée','ok','ti-trash');}
 function planWeekData(w){if(!planStore[w])planStore[w]={};salaries.forEach(s=>{if(!planStore[w][s.id])planStore[w][s.id]=[null,null,null,null,null,null];});planResList.forEach(r=>{if(!planStore[w][r.id])planStore[w][r.id]=[null,null,null,null,null,null];});return planStore[w];}
 let planData=planWeekData(26);
 function gotoWeek(w){planWeek=w;planMode='semaine';planData=planWeekData(w);render();}
 function dlabel(d){const dt=new Date(2026,5,22);dt.setDate(22+(planWeek-26)*7+d);return ['Lun','Mar','Mer','Jeu','Ven','Sam'][d]+' '+dt.getDate();}
 let planWeek=26, planFilter='', planMode='semaine', planDay=3, planBrush=null;
-function setBrush(v){planBrush=planBrush===v?null:v;render();}
-function paintCell(sid,day){if(planBrush){/* peinture gérée par pointer (initPlanPaint) : clic simple + glisser */return;}assignCell(sid,day);}
+function canEditPlan(){return role==='patron';}
+function setBrush(v){if(!canEditPlan())return;planBrush=planBrush===v?null:v;render();}
+function paintCell(sid,day){if(!canEditPlan())return;if(planBrush){/* peinture gérée par pointer (initPlanPaint) : clic simple + glisser */return;}assignCell(sid,day);}
 const HJ=7; /* heures par jour travaillé (héritage vue mois) */
 const HJD=8; /* heures planifiées par défaut par jour (grille semaine/jour) */
 let planHrs={}; /* heures ajustées/réelles : planHrs[week][sid][day]=nb */
+let planNotes={}; /* annotations pré-réservation : planNotes[week][sid][day]=texte */
+function _planNote(sid,day){const w=planNotes[planWeek];return (w&&w[sid]&&w[sid][day])||'';}
+function setPlanNote(sid,day){if(!canEditPlan())return;const cur=_planNote(sid,day);const v=prompt('Annotation pré-réservation (ex. chantier cabinet médical d\'Arles) :',cur);if(v===null)return;if(!planNotes[planWeek])planNotes[planWeek]={};if(!planNotes[planWeek][sid])planNotes[planWeek][sid]={};if(String(v).trim()===''){delete planNotes[planWeek][sid][day];}else planNotes[planWeek][sid][day]=String(v).trim();render();toast('Annotation enregistrée','ok','ti-note');}
 const rnd1=n=>Math.round((n||0)*10)/10;
 function _weekDate(day){const dt=new Date(2026,5,22);dt.setDate(22+(planWeek-26)*7+day);return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');}
 function _realH(sid,day){const s=(typeof sal==='function')?sal(sid):null;if(!s||!s.email)return null;const pt=pointages[s.email+'|'+_weekDate(day)];if(!pt||!pt.interventions||!pt.interventions.length)return null;let sc=0;pt.interventions.forEach(iv=>sc+=(iv.secs||0));return sc>0?rnd1(sc/3600):null;}
 function _hrOverride(sid,day){const w=planHrs[planWeek];return (w&&w[sid]&&w[sid][day]!=null)?w[sid][day]:null;}
 function cellH(sid,day){const k=(planData[sid]||[])[day];if(!isCh(k))return 0;const ov=_hrOverride(sid,day);if(ov!=null)return ov;const r=_realH(sid,day);if(r!=null)return r;return HJD;}
 function cellHSrc(sid,day){if(_hrOverride(sid,day)!=null)return 'saisie';if(_realH(sid,day)!=null)return 'reel';return 'plan';}
-function setCellHours(sid,day){const k=(planData[sid]||[])[day];if(!isCh(k)){toast('Affecte d\'abord un chantier sur cette case','info','ti-info-circle');return;}const who=(typeof sal==='function'&&sal(sid))?sal(sid).nom.split(' ')[0]:(planResList.find(r=>r.id===sid)||{}).nom||sid;const v=prompt('Heures pour '+who+' — '+planLab(k)+' ('+_weekDate(day)+') :\n(laisse vide pour revenir au défaut '+HJD+' h)',cellH(sid,day));if(v===null)return;const t=String(v).trim().replace(',','.');if(!planHrs[planWeek])planHrs[planWeek]={};if(!planHrs[planWeek][sid])planHrs[planWeek][sid]={};if(t===''){delete planHrs[planWeek][sid][day];}else{const n=parseFloat(t);if(isNaN(n)||n<0||n>24){toast('Nombre d\'heures invalide','error','ti-alert-circle');return;}planHrs[planWeek][sid][day]=rnd1(n);}render();toast('Heures mises à jour','ok','ti-clock-check');}
-function moveSal(sid,dir){const i=salaries.findIndex(s=>s.id===sid);if(i<0)return;const j=i+dir;if(j<0||j>=salaries.length)return;const t=salaries[i];salaries[i]=salaries[j];salaries[j]=t;render();toast('Ordre mis à jour','ok','ti-arrows-sort');}
+function setCellHours(sid,day){if(!canEditPlan())return;const k=(planData[sid]||[])[day];if(!isCh(k)){toast('Affecte d\'abord un chantier sur cette case','info','ti-info-circle');return;}const who=(typeof sal==='function'&&sal(sid))?sal(sid).nom.split(' ')[0]:(planResList.find(r=>r.id===sid)||{}).nom||sid;const v=prompt('Heures pour '+who+' — '+planLab(k)+' ('+_weekDate(day)+') :\n(laisse vide pour revenir au défaut '+HJD+' h)',cellH(sid,day));if(v===null)return;const t=String(v).trim().replace(',','.');if(!planHrs[planWeek])planHrs[planWeek]={};if(!planHrs[planWeek][sid])planHrs[planWeek][sid]={};if(t===''){delete planHrs[planWeek][sid][day];}else{const n=parseFloat(t);if(isNaN(n)||n<0||n>24){toast('Nombre d\'heures invalide','error','ti-alert-circle');return;}planHrs[planWeek][sid][day]=rnd1(n);}render();toast('Heures mises à jour','ok','ti-clock-check');}
+function moveSal(sid,dir){if(!canEditPlan())return;const i=salaries.findIndex(s=>s.id===sid);if(i<0)return;const j=i+dir;if(j<0||j>=salaries.length)return;const t=salaries[i];salaries[i]=salaries[j];salaries[j]=t;render();toast('Ordre mis à jour','ok','ti-arrows-sort');}
 const isCh=k=>!!chn(k);
 const badDay=i=>weather[i][1].includes('rain')||weather[i][1].includes('wind');
 const planLab=k=>k==='conge'?'Congé':k==='form'?'Formation':k==='prereserve'?'Pré-réservé':chn(k)?chn(k).nom:k;
@@ -1254,7 +1258,7 @@ function planMobileDay(){const d=planDay;const lab=k=>k==='conge'?'Congé':k==='
       <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px">${s.nom}</div>
         ${k?`<span style="display:inline-flex;align-items:center;gap:6px;margin-top:4px;background:${on?colOf(k):'var(--surface-3)'};color:${on?'#fff':'var(--ink-2)'};padding:4px 10px;border-radius:14px;font-size:12px;font-weight:700"><i class="ti ti-${on?'home-bolt':(k==='conge'?'beach':'school')}" style="font-size:12px"></i> ${lab(k)}${on?' · '+cellH(s.id,d)+'h':''}${on&&badDay(d)?' ⚠️':''}</span>`:`<div class="tiny" style="color:var(--ink-3);margin-top:2px">Libre</div>`}
       </div>
-      <div style="display:flex;gap:5px;flex-shrink:0"><button class="btn sm" onclick="assignCell('${s.id}',${d})"><i class="ti ti-${k?'pencil':'plus'}"></i></button>${k?`<button class="icon-x" onclick="removeCell('${s.id}',${d})" title="Retirer"><i class="ti ti-x"></i></button>`:''}</div>
+      ${canEditPlan()?`<div style="display:flex;gap:5px;flex-shrink:0"><button class="btn sm" onclick="assignCell('${s.id}',${d})"><i class="ti ti-${k?'pencil':'plus'}"></i></button>${k?`<button class="icon-x" onclick="removeCell('${s.id}',${d})" title="Retirer"><i class="ti ti-x"></i></button>`:''}</div>`:''}
     </div>`;}).join('')}
   </div>`;}
 
@@ -1265,28 +1269,29 @@ function planGridHTML(days){
   const persH=s=>rnd1(days.reduce((a,d)=>a+cellH(s.id,d),0));
   const dayTot=d=>rnd1(salaries.reduce((a,s)=>a+cellH(s.id,d),0));
   const total=rnd1(salaries.reduce((a,s)=>a+days.reduce((b,d)=>b+cellH(s.id,d),0),0));
+  const ed=canEditPlan();
   return `<div class="pl-grid" id="planGrid" style="grid-template-columns:172px repeat(${cols},1fr) 76px;min-width:${172+cols*132+76}px">
     <div class="pl-h" style="text-align:left;padding-left:14px">Équipe</div>
     ${days.map(d=>`<div class="pl-h ${planWeek===26&&d===TODAY_IDX?'today':''} ${badDay(d)?'bad':''}"><div class="dt">${dlabel(d)}</div><i class="ti ${weather[d][1]}" style="color:${badDay(d)?'var(--alerte)':'var(--ink-3)'};font-size:16px"></i> <span style="font-weight:600">${weather[d][2]}</span>${badDay(d)?'<div style="font-size:9px;color:var(--alerte);font-weight:700"><i class="ti ti-alert-triangle" style="font-size:10px"></i> '+weather[d][3]+'</div>':''}</div>`).join('')}
     <div class="pl-h">Total</div>
     ${salaries.map((s,si)=>{const wl=weekLoad(s),pc=Math.round(wl/(5*HJD)*100);const nmParts=(s.nom||'').split(' ');const nmShort=nmParts[0]+(nmParts[1]?' '+nmParts[1][0]+'.':'');
-      return `<div class="pl-name"><span class="avatar-sm" style="background:${s.col}">${s.init}</span><div style="flex:1;min-width:0"><div style="font-weight:600;font-size:12.5px">${nmShort}</div><div style="height:4px;background:var(--surface-3);border-radius:4px;margin-top:4px;overflow:hidden"><div style="width:${Math.min(100,pc)}%;height:100%;background:${pc>100?'var(--alerte)':s.col}"></div></div></div><div class="pl-ord"><button onclick="event.stopPropagation();moveSal('${s.id}',-1)" title="Monter" ${si===0?'disabled':''}>▲</button><button onclick="event.stopPropagation();moveSal('${s.id}',1)" title="Descendre" ${si===salaries.length-1?'disabled':''}>▼</button></div></div>
+      return `<div class="pl-name"><span class="avatar-sm" style="background:${s.col}">${s.init}</span><div style="flex:1;min-width:0"><div style="font-weight:600;font-size:12.5px">${nmShort}</div><div style="height:4px;background:var(--surface-3);border-radius:4px;margin-top:4px;overflow:hidden"><div style="width:${Math.min(100,pc)}%;height:100%;background:${pc>100?'var(--alerte)':s.col}"></div></div></div>${ed?`<div class="pl-ord"><button onclick="event.stopPropagation();moveSal('${s.id}',-1)" title="Monter" ${si===0?'disabled':''}>▲</button><button onclick="event.stopPropagation();moveSal('${s.id}',1)" title="Descendre" ${si===salaries.length-1?'disabled':''}>▼</button></div>`:''}</div>
       ${days.map(d=>{const k=planData[s.id][d],dim=planFilter&&k!==planFilter;
         return `<div class="pl-cell ${planWeek===26&&d===TODAY_IDX?'today':''} ${planBrush?'painting':''}" data-sal="${s.id}" data-day="${d}" onclick="paintCell('${s.id}',${d})">
           ${k?`<div class="pl-chip ${isCh(k)?'':'off'} ${dim?'pl-dim':''}" draggable="true" data-cell="${k}" style="${isCh(k)?'background:'+planCol(k):''}">
-              <span class="nm">${planLab(k)}</span>${isCh(k)?`<span class="hb" onclick="event.stopPropagation();setCellHours('${s.id}',${d})" title="Cliquer pour saisir les heures réelles"><i class="ti ti-${cellHSrc(s.id,d)==='reel'?'clock-check':'clock'}" style="font-size:10px"></i>${cellH(s.id,d)}h${cellHSrc(s.id,d)==='saisie'?'*':''}</span>`:''}
+              <span class="nm">${planLab(k)}${k==='prereserve'&&_planNote(s.id,d)?' · '+_planNote(s.id,d).replace(/</g,'&lt;'):''}</span>${isCh(k)?`<span class="hb" onclick="event.stopPropagation();setCellHours('${s.id}',${d})" title="Cliquer pour saisir les heures réelles"><i class="ti ti-${cellHSrc(s.id,d)==='reel'?'clock-check':'clock'}" style="font-size:10px"></i>${cellH(s.id,d)}h${cellHSrc(s.id,d)==='saisie'?'*':''}</span>`:''}${k==='prereserve'&&ed?` <button onclick="event.stopPropagation();setPlanNote('${s.id}',${d})" style="background:none;border:none;color:inherit;cursor:pointer;font-size:11px;opacity:.85;padding:0" title="Annoter">✎</button>`:''}
               ${isCh(k)&&badDay(d)?'<span class="rx" title="météo défavorable">⚠️</span>':''}
-              <button class="px" onclick="event.stopPropagation();removeCell('${s.id}',${d})" title="Retirer">✕</button>
-            </div>`:`<div class="add"><i class="ti ti-plus"></i></div>`}
+              ${ed?`<button class="px" onclick="event.stopPropagation();removeCell('${s.id}',${d})" title="Retirer">✕</button>`:''}
+            </div>`:(ed?`<div class="add"><i class="ti ti-plus"></i></div>`:'')}
         </div>`;}).join('')}
       <div class="pl-tot">${persH(s)} h</div>`;}).join('')}
     ${(function(){let prev=null,out='';const grpLab={moyen:'Moyens',st:'Sous-traitants',int:'Intérimaires'};
       planResList.forEach((r,ri)=>{const row=planData[r.id]||(planData[r.id]=[null,null,null,null,null,null]);const nb=days.filter(d=>isCh(row[d])).length;const next=planResList[ri+1];
         if(r.type!==prev){if(r.type==='moyen')out+=`<div style="grid-column:1/-1;height:3px;background:var(--alerte)"></div>`;out+=`<div style="grid-column:1/-1;padding:5px 14px;background:var(--surface-3);font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3)">${grpLab[r.type]||''}</div>`;prev=r.type;}
-        out+=`<div class="pl-name" style="background:${r.col}12"><span class="avatar-sm" style="background:${r.col};font-size:10px">${resInit(r)}</span><div style="flex:1;min-width:0"><div style="font-weight:700;font-size:12px;color:${r.col}">${(r.nom||'').replace(/</g,'&lt;')}</div></div>${r.fixed?'':`<div class="pl-ord"><button onclick="event.stopPropagation();renameRes('${r.id}')" title="Renommer">✎</button><button onclick="event.stopPropagation();delRes('${r.id}')" title="Supprimer">✕</button></div>`}</div>`;
-        days.forEach(d=>{const k=row[d],dim=planFilter&&k!==planFilter;out+=`<div class="pl-cell ${planWeek===26&&d===TODAY_IDX?'today':''} ${planBrush?'painting':''}" data-sal="${r.id}" data-day="${d}" onclick="paintCell('${r.id}',${d})">${k?`<div class="pl-chip ${isCh(k)?'':'off'} ${dim?'pl-dim':''}" draggable="true" data-cell="${k}" style="${isCh(k)?'background:'+planCol(k):''}"><span class="nm">${planLab(k)}</span><button class="px" onclick="event.stopPropagation();removeCell('${r.id}',${d})" title="Retirer">✕</button></div>`:`<div class="add"><i class="ti ti-plus"></i></div>`}</div>`;});
+        out+=`<div class="pl-name" style="background:${r.col}12"><span class="avatar-sm" style="background:${r.col};font-size:10px">${resInit(r)}</span><div style="flex:1;min-width:0"><div style="font-weight:700;font-size:12px;color:${r.col}">${(r.nom||'').replace(/</g,'&lt;')}</div></div>${(r.fixed||!ed)?'':`<div class="pl-ord"><button onclick="event.stopPropagation();renameRes('${r.id}')" title="Renommer">✎</button><button onclick="event.stopPropagation();delRes('${r.id}')" title="Supprimer">✕</button></div>`}</div>`;
+        days.forEach(d=>{const k=row[d],dim=planFilter&&k!==planFilter;out+=`<div class="pl-cell ${planWeek===26&&d===TODAY_IDX?'today':''} ${planBrush?'painting':''}" data-sal="${r.id}" data-day="${d}" onclick="paintCell('${r.id}',${d})">${k?`<div class="pl-chip ${isCh(k)?'':'off'} ${dim?'pl-dim':''}" draggable="true" data-cell="${k}" style="${isCh(k)?'background:'+planCol(k):''}"><span class="nm">${planLab(k)}</span>${ed?`<button class="px" onclick="event.stopPropagation();removeCell('${r.id}',${d})" title="Retirer">✕</button>`:''}</div>`:(ed?`<div class="add"><i class="ti ti-plus"></i></div>`:'')}</div>`;});
         out+=`<div class="pl-tot" style="font-size:11px;color:var(--ink-3)">${nb?nb+' j':'—'}</div>`;
-        if((r.type==='st'||r.type==='int')&&(!next||next.type!==r.type))out+=`<div style="grid-column:1/-1;padding:5px 14px;border-bottom:1px solid var(--line)"><button onclick="addRes('${r.type}')" style="border:1px dashed var(--line-2);background:transparent;color:var(--ink-3);border-radius:8px;padding:4px 11px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:5px"><i class="ti ti-plus" style="font-size:12px"></i> Ajouter ${r.type==='st'?'un sous-traitant':'un intérimaire'}</button></div>`;
+        if(ed&&(r.type==='st'||r.type==='int')&&(!next||next.type!==r.type))out+=`<div style="grid-column:1/-1;padding:5px 14px;border-bottom:1px solid var(--line)"><button onclick="addRes('${r.type}')" style="border:1px dashed var(--line-2);background:transparent;color:var(--ink-3);border-radius:8px;padding:4px 11px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:5px"><i class="ti ti-plus" style="font-size:12px"></i> Ajouter ${r.type==='st'?'un sous-traitant':'un intérimaire'}</button></div>`;
       });return out;})()}
     <div class="pl-foot" style="text-align:left;padding-left:14px;font-size:11px;color:var(--ink-2)">Total / jour</div>
     ${days.map(d=>`<div class="pl-foot" style="color:${dayTot(d)===0?'var(--ink-3)':'var(--ink)'}">${dayTot(d)} h</div>`).join('')}
@@ -1343,7 +1348,7 @@ function planChantierSummary(){
 }
 
 function _devisAPlanifier(){return devisDossiers.filter(d=>d.statut==='accepte'&&!chantiers.some(c=>c.devisId===d.id));}
-function creerChantierDepuisDevis(devisId){const d=devisDossiers.find(x=>x.id===devisId);if(!d)return;const c=d.clientId?cli(d.clientId):null;const pal=[PROV.sienne,PROV.mistral,PROV.garrigue,PROV.lavande,PROV.ocre,PROV.pin,PROV.mer];let ht=0;try{const bak=devisLignes.slice();if(currentDevis===d.id){/* déjà chargé */}else{devisLignes.length=0;(d.lignes||[]).forEach(l=>devisLignes.push(l));}ht=devisTotals().st;devisLignes.length=0;bak.forEach(l=>devisLignes.push(l));}catch(e){}
+function creerChantierDepuisDevis(devisId){if(!canEditPlan())return;const d=devisDossiers.find(x=>x.id===devisId);if(!d)return;const c=d.clientId?cli(d.clientId):null;const pal=[PROV.sienne,PROV.mistral,PROV.garrigue,PROV.lavande,PROV.ocre,PROV.pin,PROV.mer];let ht=0;try{const bak=devisLignes.slice();if(currentDevis===d.id){/* déjà chargé */}else{devisLignes.length=0;(d.lignes||[]).forEach(l=>devisLignes.push(l));}ht=devisTotals().st;devisLignes.length=0;bak.forEach(l=>devisLignes.push(l));}catch(e){}
   const id='ch'+Date.now();chantiers.unshift({id,nom:(d.titre||(c?c.nom:d.ref)||'Chantier'),clientId:d.clientId||'',col:pal[chantiers.length%pal.length],statut:'venir',prix:ht||0,hEst:0,hFaites:0,matiere:0,chef:'',equipe:[],fin:'à planifier',adresse:d.adrChantier||(c?[c.adr,c.ville].filter(Boolean).join(', '):'')||'À planifier',prep:false,av:0,devisId:d.id});
   _logAction('ti-building','a créé le chantier '+(d.titre||d.ref)+' depuis le devis accepté');render();toast('Chantier créé — à planifier dans le planning','ok','ti-building');}
 views.planning=()=>{
@@ -1394,7 +1399,7 @@ views.planning=()=>{
     .pl-chip .hb:hover{background:rgba(255,255,255,.28);border-radius:6px}
     .pl-cell.paint-hit{box-shadow:inset 0 0 0 2px var(--orange)}
   </style>
-  ${_aPlan.length?`<div class="card" style="margin-bottom:14px;border-left:4px solid var(--orange)"><div class="card-pad"><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><i class="ti ti-clipboard-list" style="color:var(--orange-dark);font-size:18px"></i><b style="font-family:'Baloo 2';font-size:15px">À planifier</b><span class="tag t-amber">${_aPlan.length}</span><span class="tiny" style="color:var(--ink-3)">devis acceptés en attente de chantier</span></div><div class="grid cols-3" style="gap:10px">${_aPlan.map(d=>{const c=d.clientId?cli(d.clientId):null;return `<div style="border:1px solid var(--line);border-radius:10px;padding:10px"><div style="font-weight:700;font-size:13px">${(d.titre||d.ref).replace(/</g,'&lt;')}</div><div class="tiny" style="color:var(--ink-3);margin:3px 0 8px">${c?c.nom.replace(/</g,'&lt;'):'—'}${d.adrChantier?' · '+String(d.adrChantier).replace(/</g,'&lt;'):''}</div><button class="btn sm primary" style="width:100%;justify-content:center" onclick="creerChantierDepuisDevis('${d.id}')"><i class="ti ti-building-plus"></i> Créer le chantier</button></div>`;}).join('')}</div></div></div>`:''}
+  ${_aPlan.length&&canEditPlan()?`<div class="card" style="margin-bottom:14px;border-left:4px solid var(--orange)"><div class="card-pad"><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><i class="ti ti-clipboard-list" style="color:var(--orange-dark);font-size:18px"></i><b style="font-family:'Baloo 2';font-size:15px">À planifier</b><span class="tag t-amber">${_aPlan.length}</span><span class="tiny" style="color:var(--ink-3)">devis acceptés en attente de chantier</span></div><div class="grid cols-3" style="gap:10px">${_aPlan.map(d=>{const c=d.clientId?cli(d.clientId):null;return `<div style="border:1px solid var(--line);border-radius:10px;padding:10px"><div style="font-weight:700;font-size:13px">${(d.titre||d.ref).replace(/</g,'&lt;')}</div><div class="tiny" style="color:var(--ink-3);margin:3px 0 8px">${c?c.nom.replace(/</g,'&lt;'):'—'}${d.adrChantier?' · '+String(d.adrChantier).replace(/</g,'&lt;'):''}</div><button class="btn sm primary" style="width:100%;justify-content:center" onclick="creerChantierDepuisDevis('${d.id}')"><i class="ti ti-building-plus"></i> Créer le chantier</button></div>`;}).join('')}</div></div></div>`:''}
   <div class="page-head"><div><h1>Planning</h1><p>Vue ${planMode==='jour'?'journée':planMode==='mois'?'mensuelle':planMode==='perso'?'personnalisée':'hebdomadaire'} · glisser-déposer ou cliquer une case</p></div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <div class="role-switch">${[['jour','Jour'],['semaine','Semaine'],['mois','Mois'],['perso','Perso']].map(m=>`<button class="${planMode===m[0]?'active':''}" onclick="setMode('${m[0]}')">${m[1]}</button>`).join('')}</div>
@@ -1404,7 +1409,7 @@ views.planning=()=>{
         <button class="icon-btn" onclick="planNav(1)" title="${planMode==='jour'?'Jour suivant':planMode==='mois'?'Mois suivant':'Semaine suivante'}"><i class="ti ti-chevron-right"></i></button>
       </div>`:''}
       <select class="cell" onchange="planFilter=this.value;render()" style="height:38px"><option value="">Tous les chantiers</option>${chList.map(c=>`<option value="${c.id}" ${planFilter===c.id?'selected':''}>${c.nom}</option>`).join('')}</select>
-      ${planMode!=='mois'?'<button class="btn primary" onclick="autoPlan()"><i class="ti ti-wand"></i> Auto-remplir</button>':''}
+      ${planMode!=='mois'&&canEditPlan()?'<button class="btn primary" onclick="autoPlan()"><i class="ti ti-wand"></i> Auto-remplir</button>':''}
     </div></div>
   ${planMode==='perso'?`<div class="card card-pad" style="margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap"><i class="ti ti-calendar-event" style="color:var(--orange);font-size:20px"></i><span style="font-weight:600">Plage personnalisée</span><input type="date" class="cell" value="2026-06-22"><span class="muted">→</span><input type="date" class="cell" value="2026-06-27"><button class="btn" onclick="toast('Plage appliquée','ok','ti-check')"><i class="ti ti-check"></i> Appliquer</button><span class="tiny">Affiche jour par jour la plage choisie.</span></div>`:''}
 
@@ -1415,27 +1420,28 @@ views.planning=()=>{
     ${kpiS('Disponibilités','3 ½‑j','cases libres','ti-calendar-plus','var(--bleu-mer)','rgba(61,138,198,.14)')}
   </div>
 
-  ${planMode!=='mois'?`<div class="card card-pad only-desktop" style="margin-bottom:14px;display:flex;align-items:center;gap:9px;flex-wrap:wrap">
+  ${planMode!=='mois'?(canEditPlan()?`<div class="card card-pad only-desktop" style="margin-bottom:14px;display:flex;align-items:center;gap:9px;flex-wrap:wrap">
     <span style="font-weight:700;font-size:13px;display:flex;align-items:center;gap:6px;white-space:nowrap"><i class="ti ti-brush" style="color:var(--orange);font-size:18px"></i> Affecter :</span>
     ${chList.map(c=>bchip(c.id,c.nom,c.col)).join('')}
     ${bchip('conge','Congé','#9c958a')}${bchip('form','Formation','#9c958a')}${bchip('prereserve','Pré-réservé','#a9760d')}
     <button onclick="setBrush('erase')" style="border:2px solid ${planBrush==='erase'?'var(--alerte)':'transparent'};background:${planBrush==='erase'?'rgba(184,58,38,.1)':'var(--surface-2)'};color:var(--alerte);border-radius:20px;padding:7px 13px;font-size:12.5px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-family:inherit"><i class="ti ti-eraser"></i> Gomme</button>
     <span style="margin-left:auto;font-size:12.5px;font-weight:600;color:${planBrush?'var(--orange-dark)':'var(--ink-3)'};white-space:nowrap">${planBrush?(planBrush==='erase'?"Cliquez une case pour l'effacer":'👉 Cliquez les jours à affecter'):'1. Choisissez un chantier  →  2. Cliquez les jours'}</span>
-  </div>`:''}
+  </div>`:`<div class="card card-pad only-desktop" style="margin-bottom:14px;display:flex;align-items:center;gap:9px;background:rgba(61,138,198,.07)"><i class="ti ti-eye" style="color:var(--bleu-mer);font-size:18px"></i><span style="font-weight:700;font-size:13px">Lecture seule</span><span class="tiny" style="color:var(--ink-3)">Le planning est modifiable uniquement par le patron. Vous pouvez le consulter, filtrer et naviguer.</span></div>`):''}
 
   ${planChantierSummary()}
   <div class="card only-desktop" style="overflow:auto">${planMode==='mois'?planMonthGrid():planGridHTML(planMode==='jour'?[planDay]:[0,1,2,3,4,5])}</div>${planMobileDay()}
-  <p class="tiny" style="margin-top:12px"><i class="ti ti-info-circle"></i> Choisissez un chantier en haut, puis <b>cliquez ou glissez sur plusieurs jours</b> pour l'affecter d'un coup. Gomme pour retirer. Chaque case vaut ${HJD} h par défaut — cliquez le badge « ${HJD}h » d'une affectation pour saisir les heures réelles. Les flèches ▲▼ (au survol d'un nom) réordonnent les lignes. Jours de pluie/vent en rouge.</p>
+  ${canEditPlan()?`<p class="tiny" style="margin-top:12px"><i class="ti ti-info-circle"></i> Choisissez un chantier en haut, puis <b>cliquez ou glissez sur plusieurs jours</b> pour l'affecter d'un coup. Gomme pour retirer. Chaque case vaut ${HJD} h par défaut — cliquez le badge « ${HJD}h » d'une affectation pour saisir les heures réelles. Les flèches ▲▼ (au survol d'un nom) réordonnent les lignes. Jours de pluie/vent en rouge.</p>`:`<p class="tiny" style="margin-top:12px"><i class="ti ti-info-circle"></i> Planning en lecture seule. Les jours de pluie/vent sont signalés en rouge.</p>`}
   </div>`;
 };
 function assignCell(sid,day){
+  if(!canEditPlan())return;
   const opts=chantiers.filter(c=>c.statut!=='fini').map(c=>`<button class="btn" style="width:100%;justify-content:flex-start;margin-bottom:8px" onclick="setCell('${sid}',${day},'${c.id}')"><span style="width:11px;height:11px;border-radius:50%;background:${c.col};margin-right:8px"></span>${c.nom}</button>`).join('');
   const _who=sal(sid)||planResList.find(r=>r.id===sid)||{nom:sid};
   modal(`<div class="modal-head"><h3>Affecter — ${(_who.nom||sid).split(' ')[0]}, ${JOURS[day]}</h3><button class="icon-x" onclick="this.closest('.overlay').remove()"><i class="ti ti-x"></i></button></div><div class="modal-body">${opts}<div class="divider"></div><div style="display:flex;gap:8px"><button class="btn" style="flex:1;justify-content:center" onclick="setCell('${sid}',${day},'conge')"><i class="ti ti-beach"></i> Congé</button><button class="btn" style="flex:1;justify-content:center" onclick="setCell('${sid}',${day},'form')"><i class="ti ti-school"></i> Formation</button></div></div>`);
 }
-function setCell(sid,day,val){planData[sid][day]=val;document.querySelectorAll('.overlay').forEach(o=>o.remove());render();toast('Affectation ajoutée','ok','ti-calendar-check');}
-function removeCell(sid,day){planData[sid][day]=null;render();toast('Affectation retirée');}
-function autoPlan(){const open=chantiers.filter(c=>['cours','prep'].includes(c.statut));salaries.forEach(s=>{planData[s.id]=planData[s.id].map((k,d)=>{if(k||d>4)return k;if(badDay(d))return k;return s.equipe?null:(open.find(c=>c.equipe.includes(s.id))||open[0]).id;});});salaries.forEach(s=>{for(let d=0;d<5;d++){if(!planData[s.id][d]&&!badDay(d)){const c=open.find(x=>x.equipe.includes(s.id));if(c)planData[s.id][d]=c.id;}}});render();toast('Planning pré-rempli selon les équipes','ok','ti-wand');}
+function setCell(sid,day,val){if(!canEditPlan())return;planData[sid][day]=val;document.querySelectorAll('.overlay').forEach(o=>o.remove());render();toast('Affectation ajoutée','ok','ti-calendar-check');}
+function removeCell(sid,day){if(!canEditPlan())return;planData[sid][day]=null;render();toast('Affectation retirée');}
+function autoPlan(){if(!canEditPlan())return;const open=chantiers.filter(c=>['cours','prep'].includes(c.statut));salaries.forEach(s=>{planData[s.id]=planData[s.id].map((k,d)=>{if(k||d>4)return k;if(badDay(d))return k;return s.equipe?null:(open.find(c=>c.equipe.includes(s.id))||open[0]).id;});});salaries.forEach(s=>{for(let d=0;d<5;d++){if(!planData[s.id][d]&&!badDay(d)){const c=open.find(x=>x.equipe.includes(s.id));if(c)planData[s.id][d]=c.id;}}});render();toast('Planning pré-rempli selon les équipes','ok','ti-wand');}
 
 let clockTimer=null;
 function _ptTodayKey(){const d=new Date();return (sessionEmail||'moi')+'|'+d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
@@ -2634,26 +2640,30 @@ function creerEquipe(){const nom=_v('eqNom')||('Équipe '+(equipes.length+1));eq
 
 /* ===== Ajouter / modifier une personne (photo + compétences) ===== */
 let editing=null;
-function nouveauSalarie(){editing={id:null,nom:'',role:'Couvreur-zingueur',cout:30,type:'terrain',comp:new Set(),photo:'',habil:['Travail hauteur']};openSalForm();}
-function editSalarie(id){const s=sal(id);editing={id,nom:s.nom,role:s.role,cout:s.cout,type:'terrain',comp:new Set(COMPMAP[id]||[]),photo:s.photo||'',habil:s.habil||[]};openSalForm();}
-function editBuro(id){const b=buro(id);editing={id,nom:b.nom,role:b.poste,cout:0,type:'bureau',comp:new Set(),photo:b.photo||'',habil:[]};openSalForm();}
+function nouveauSalarie(){editing={id:null,nom:'',role:'Couvreur-zingueur',cout:30,type:'terrain',comp:new Set(),col:'#3D8AC6',habil:['Travail hauteur']};openSalForm();}
+function editSalarie(id){const s=sal(id);editing={id,nom:s.nom,role:s.role,cout:s.cout,type:'terrain',comp:new Set(COMPMAP[id]||[]),col:s.col||'#3D8AC6',habil:s.habil||[]};openSalForm();}
+function editBuro(id){const b=buro(id);editing={id,nom:b.nom,role:b.poste,cout:0,type:'bureau',comp:new Set(),col:b.col||'#3D8AC6',habil:[]};openSalForm();}
 function openSalForm(){modal('<div id="salForm"></div>');drawSalForm();}
 function photoPick(inp){const f=inp.files&&inp.files[0];if(!f)return;const r=new FileReader();r.onload=e=>{editing.photo=e.target.result;drawSalForm();};r.readAsDataURL(f);}
 function toggleComp(c){editing.comp.has(c)?editing.comp.delete(c):editing.comp.add(c);drawSalForm();}
 function addComp(){const inp=document.getElementById('newComp');const v=(inp.value||'').trim();if(!v)return;if(!COMP[v]){const pal=['#3D8AC6','#7A8B4F','#C66B3D','#9B8FB8','#E0991A','#1B4F8A','#F39200'];COMP[v]=pal[Object.keys(COMP).length%pal.length];}editing.comp.add(v);drawSalForm();}
 function drawSalForm(){
   const e=editing,esc=s=>(s||'').replace(/"/g,'&quot;');
+  const initPrev=(e.nom||'').trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase()||'?';
+  const PAL=['#3D8AC6','#C66B3D','#7A8B4F','#9B8FB8','#E0991A','#B83A26','#1B4F8A','#5B8C5A','#C56F00','#6B6B6B'];
   document.getElementById('salForm').innerHTML=`
   <div class="modal-head"><h3>${e.id?'Modifier la fiche':'Nouvelle personne'}</h3><button class="icon-x" onclick="this.closest('.overlay').remove()"><i class="ti ti-x"></i></button></div>
   <div class="modal-body">
-    <div style="display:flex;align-items:center;gap:15px;margin-bottom:16px">
-      <label style="cursor:pointer;position:relative;flex-shrink:0">
-        ${e.photo?`<img src="${e.photo}" style="width:66px;height:66px;border-radius:50%;object-fit:cover;border:2px solid var(--line)">`:`<span style="width:66px;height:66px;border-radius:50%;background:var(--surface-3);display:flex;align-items:center;justify-content:center;color:var(--ink-3)"><i class="ti ti-camera" style="font-size:24px"></i></span>`}
-        <input type="file" accept="image/*" onchange="photoPick(this)" style="display:none">
-        <span style="position:absolute;bottom:0;right:0;width:24px;height:24px;border-radius:50%;background:var(--orange);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;border:2px solid var(--surface)"><i class="ti ti-camera"></i></span>
-      </label>
-      <div style="flex:1"><div class="field" style="margin:0"><label>Nom complet</label><input value="${esc(e.nom)}" oninput="editing.nom=this.value" placeholder="Prénom Nom"></div></div>
+    <div style="display:flex;align-items:center;gap:15px;margin-bottom:10px">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:7px;flex-shrink:0">
+        <span class="avatar-sm" style="width:64px;height:64px;font-size:22px;background:${e.col||'#3D8AC6'}">${initPrev}</span>
+        <input type="color" value="${e.col||'#3D8AC6'}" oninput="editing.col=this.value;drawSalForm()" style="width:64px;height:26px;border:1px solid var(--line);border-radius:6px;cursor:pointer;padding:1px" title="Couleur (reprise au planning)">
+      </div>
+      <div style="flex:1"><div class="field" style="margin:0"><label>Nom complet</label><input value="${esc(e.nom)}" oninput="editing.nom=this.value" placeholder="Prénom Nom"></div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px">${PAL.map(c=>`<button onclick="editing.col='${c}';drawSalForm()" title="${c}" style="width:22px;height:22px;border-radius:50%;background:${c};border:2px solid ${(e.col||'').toLowerCase()===c.toLowerCase()?'var(--ink)':'#fff'};box-shadow:0 0 0 1px var(--line);cursor:pointer;padding:0"></button>`).join('')}</div>
+      </div>
     </div>
+    <div class="tiny" style="color:var(--ink-3);margin-bottom:14px"><i class="ti ti-palette"></i> La couleur identifie la personne dans le planning (pas de photo, pour garder le code couleur).</div>
     <div style="display:flex;gap:12px">
       <div class="field" style="flex:1"><label>${e.type==='bureau'?'Poste':'Poste / métier'}</label><input value="${esc(e.role)}" oninput="editing.role=this.value" placeholder="${e.type==='bureau'?"Ex. Chargé d'affaires":'Ex. Couvreur-zingueur'}"></div>
       ${e.type==='bureau'?'':`<div class="field" style="width:140px"><label>Coût horaire €</label><input type="number" value="${e.cout}" oninput="editing.cout=+this.value||0"></div>`}
@@ -2684,11 +2694,11 @@ function saveSalarie(){
   const init=e.nom.trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase()||'??';
   const pal=['#3D8AC6','#7A8B4F','#C66B3D','#9B8FB8','#E0991A','#1B4F8A','#F39200'];
   if(e.type==='bureau'){
-    if(e.id){const b=buro(e.id);b.nom=e.nom;b.poste=e.role;b.photo=e.photo;}
-    else bureau.push({id:'b'+Date.now(),nom:e.nom,poste:e.role||'Bureau',init,col:pal[bureau.length%pal.length],photo:e.photo});
+    if(e.id){const b=buro(e.id);b.nom=e.nom;b.poste=e.role;b.init=init;b.col=e.col||b.col;b.photo='';}
+    else bureau.push({id:'b'+Date.now(),nom:e.nom,poste:e.role||'Bureau',init,col:e.col||pal[bureau.length%pal.length],photo:''});
   } else {
-    if(e.id){const s=sal(e.id);s.nom=e.nom;s.role=e.role;s.cout=e.cout;s.photo=e.photo;COMPMAP[e.id]=comp;}
-    else{const id='s'+Date.now();salaries.push({id,nom:e.nom,init,role:e.role||'Salarié',col:pal[salaries.length%pal.length],cout:e.cout,habil:e.habil,visite:'—',ok:true,photo:e.photo});COMPMAP[id]=comp;planData[id]=[null,null,null,null,null,null];}
+    if(e.id){const s=sal(e.id);s.nom=e.nom;s.role=e.role;s.cout=e.cout;s.init=init;s.col=e.col||s.col;s.photo='';COMPMAP[e.id]=comp;}
+    else{const id='s'+Date.now();salaries.push({id,nom:e.nom,init,role:e.role||'Salarié',col:e.col||pal[salaries.length%pal.length],cout:e.cout,habil:e.habil,visite:'—',ok:true,photo:''});COMPMAP[id]=comp;planData[id]=[null,null,null,null,null,null];}
   }
   document.querySelectorAll('.overlay').forEach(o=>o.remove());render();toast(e.id?'Fiche enregistrée':'Personne ajoutée','ok','ti-check');
 }
@@ -3008,7 +3018,7 @@ function render(){
   bind();
   if(view==='dash')initDash();
   initSparks();
-  if(view==='planning'){initDnD();initPlanPaint();}
+  if(view==='planning'&&canEditPlan()){initDnD();initPlanPaint();}
   if(view==='chantierDetail')initSim();
   if(view==='pointage')initClock();
   if(view==='plieur')initPlieur();
@@ -3304,7 +3314,7 @@ async function logout(){closeMenus();try{if(sb)await sb.auth.signOut();}catch(e)
 /* ===== Persistance locale (localStorage) + cloud (Supabase) ===== */
 const ZP_STORE_KEY='zp_erp_state_v3';
 const _persistArrays={salaries,equipes,clients,chantiers,stock,profils,bureau,taches,demandesList,congesList,carnet,rdvs,devisLignes,catFournitures,ouvrages,factures,comptes,prodCats,ouvrCats,devisDossiers,stockMoves,matConsos,_delCats,journal,planResList};
-const _persistObjects={congesBalance,planStore,planHrs,chatMsgs,chantierSteps,profilUser,txtModeles,pointages};
+const _persistObjects={congesBalance,planStore,planHrs,planNotes,chatMsgs,chantierSteps,profilUser,txtModeles,pointages};
 function _stateObj(){if(typeof _syncCurDevis==='function')_syncCurDevis();const d={arr:{},obj:{},scal:{tauxMO,coutMO,devisClient,currentDevis,_devisSeq,rdvSeq,agendaWeek,planWeek,carnetChef,coefMargeDefaut,sessionEmail,tvaDefaut,margeObjectif,arrondiPU}};for(const k in _persistArrays)d.arr[k]=_persistArrays[k];for(const k in _persistObjects)d.obj[k]=_persistObjects[k];return d;}
 function _applyState(d){if(!d)return;if(d.arr)for(const k in _persistArrays){const v=d.arr[k];if(Array.isArray(v)){const a=_persistArrays[k];a.length=0;v.forEach(x=>a.push(x));}}if(d.obj)for(const k in _persistObjects){const v=d.obj[k];if(v&&typeof v==='object'){const o=_persistObjects[k];Object.keys(o).forEach(kk=>delete o[kk]);Object.assign(o,v);}}if(d.scal){const s=d.scal;if(typeof s.tauxMO==='number')tauxMO=s.tauxMO;if(s.devisClient!=null)devisClient=s.devisClient;if(s.currentDevis!==undefined)currentDevis=s.currentDevis;if(typeof s._devisSeq==='number')_devisSeq=s._devisSeq;if(typeof s.rdvSeq==='number')rdvSeq=s.rdvSeq;if(typeof s.agendaWeek==='number')agendaWeek=s.agendaWeek;if(typeof s.planWeek==='number')planWeek=s.planWeek;if(typeof s.carnetChef==='string')carnetChef=s.carnetChef;if(typeof s.coefMargeDefaut==='number')coefMargeDefaut=s.coefMargeDefaut;if(typeof s.coutMO==='number')coutMO=s.coutMO;if(typeof s.tvaDefaut==='number')tvaDefaut=s.tvaDefaut;if(typeof s.margeObjectif==='number')margeObjectif=s.margeObjectif;if(typeof s.arrondiPU==='string')arrondiPU=s.arrondiPU;}planData=planWeekData(planWeek);}
 function saveState(){try{localStorage.setItem(ZP_STORE_KEY,JSON.stringify(_stateObj()));}catch(e){}_cloudPush();}
