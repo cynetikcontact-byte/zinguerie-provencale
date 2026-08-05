@@ -370,7 +370,7 @@ input.noarrow{-moz-appearance:textfield;appearance:textfield}
     <nav id="nav"></nav>
     <div class="side-foot">
       <span class="live" id="syncFoot"><span class="pulse"></span> Cloud Supabase</span><br>
-      <span style="opacity:.8">Zinguerie Provençale · v5.0</span>
+      <span style="opacity:.8">Zinguerie Provençale · v5.1</span>
     </div>
   </aside>
 
@@ -1342,36 +1342,43 @@ function planMonthGrid(){
   </div>`;
 }
 
+/* heures de MO estimées d'un devis (h × quantité par ligne) */
+function _devisHeuresMO(d){return Math.round(((d&&d.lignes)||[]).reduce((a,l)=>a+(+l.h||0)*(+l.qte||0),0));}
+/* budget d'heures d'un chantier : hEst, ou dérivé du devis lié si non défini */
+function _chantierBudgetH(c){if(!c)return 0;if(c.hEst)return c.hEst;if(c.devisId){const d=devisDossiers.find(x=>x.id===c.devisId);if(d)return _devisHeuresMO(d);}return 0;}
+/* heures planifiées pour un chantier sur toutes les semaines (override ou 8h/jour) */
+function _planifHoursForChantier(cid){let h=0;const ppl=planPeople();Object.keys(planStore).forEach(w=>{const wd=planStore[w];if(!wd)return;ppl.forEach(p=>{const row=wd[p.id];if(!row)return;row.forEach((k,d)=>{if(k===cid){const ov=(planHrs[w]&&planHrs[w][p.id]&&planHrs[w][p.id][d]!=null)?planHrs[w][p.id][d]:HJD;h+=ov;}});});});return rnd1(h);}
 /* bandeau de suivi quand un chantier est sélectionné */
 function planChantierSummary(){
   if(!planFilter)return '';
   const c=chn(planFilter);if(!c)return '';
-  const planif=salaries.reduce((a,s)=>a+planData[s.id].filter(k=>k===c.id).length,0)*HJ;
-  const pctReal=c.hEst?Math.round(c.hFaites/c.hEst*100):0;
-  const aPlanifier=Math.max(0,c.hEst-c.hFaites-planif);
+  const planif=_planifHoursForChantier(c.id);
+  const budget=_chantierBudgetH(c);
+  const pctReal=budget?Math.round((c.hFaites||0)/budget*100):0;
+  const aPlanifier=Math.max(0,budget-Math.max(planif,c.hFaites||0));
   const diff=pctReal-c.av;
   let v,vc,vb,vi;
   if(c.statut==='fini'){v='Chantier terminé';vc='var(--olive)';vb='rgba(122,139,79,.16)';vi='ti-circle-check';}
   else if(diff>8){v='En retard — heures brûlées plus vite que l\'avancement';vc='var(--alerte)';vb='rgba(184,58,38,.13)';vi='ti-trending-down';}
   else if(diff<-8){v='En avance — marge d\'heures confortable';vc='var(--olive)';vb='rgba(122,139,79,.16)';vi='ti-trending-up';}
   else{v='Dans les temps';vc='var(--bleu-mer)';vb='rgba(61,138,198,.14)';vi='ti-circle-check';}
-  const realW=Math.min(100,c.hFaites/c.hEst*100),planW=Math.min(100-realW,planif/c.hEst*100);
+  const realW=budget?Math.min(100,(c.hFaites||0)/budget*100):0,planW=budget?Math.min(100-realW,planif/budget*100):0;
   return `<div class="card" style="margin-bottom:16px;border-left:4px solid ${c.col}"><div class="card-pad">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><span style="width:12px;height:12px;border-radius:50%;background:${c.col}"></span><h3 style="font-size:17px">${c.nom}</h3><span class="muted" style="font-size:12px">${cli(c.clientId).nom} · avancement ${c.av}%</span><span class="tag" style="margin-left:auto;background:${vb};color:${vc}"><i class="ti ${vi}" style="font-size:12px"></i> ${v}</span></div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><span style="width:12px;height:12px;border-radius:50%;background:${c.col}"></span><h3 style="font-size:17px">${c.nom}</h3><span class="muted" style="font-size:12px">${(cli(c.clientId)||{nom:'—'}).nom} · avancement ${c.av||0}%</span><span class="tag" style="margin-left:auto;background:${vb};color:${vc}"><i class="ti ${vi}" style="font-size:12px"></i> ${v}</span></div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
-      ${[['Budget heures',c.hEst+' h','var(--ink)'],['Réalisées (pointées)',c.hFaites+' h · '+pctReal+'%','var(--terracotta)'],['Planifiées (cette vue)',planif+' h','var(--bleu-mer)'],['Reste à planifier',aPlanifier+' h',aPlanifier?'var(--orange-dark)':'var(--olive)']].map(x=>`<div style="background:var(--surface-2);border-radius:12px;padding:12px"><div class="tiny">${x[0]}</div><div class="rnd" style="font-size:21px;font-weight:800;color:${x[2]}">${x[1]}</div></div>`).join('')}
+      ${[['Budget heures',budget+' h','var(--ink)'],['Réalisées (pointées)',(c.hFaites||0)+' h · '+pctReal+'%','var(--terracotta)'],['Planifiées (total)',planif+' h','var(--bleu-mer)'],['Reste à planifier',aPlanifier+' h',aPlanifier?'var(--orange-dark)':'var(--olive)']].map(x=>`<div style="background:var(--surface-2);border-radius:12px;padding:12px"><div class="tiny">${x[0]}</div><div class="rnd" style="font-size:21px;font-weight:800;color:${x[2]}">${x[1]}</div></div>`).join('')}
     </div>
     <div style="height:16px;background:var(--surface-3);border-radius:8px;overflow:hidden;display:flex">
       <div style="width:${realW}%;background:${c.col}"></div>
       <div style="width:${planW}%;background:${c.col};opacity:.45;background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.6) 0 5px,transparent 5px 10px)"></div>
     </div>
-    <div style="display:flex;justify-content:space-between;margin-top:8px" class="tiny"><span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${c.col};vertical-align:middle"></span> Réalisées ${c.hFaites} h</span><span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${c.col};opacity:.45;vertical-align:middle"></span> Planifiées ${planif} h</span><span>Budget ${c.hEst} h</span></div>
+    <div style="display:flex;justify-content:space-between;margin-top:8px" class="tiny"><span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${c.col};vertical-align:middle"></span> Réalisées ${c.hFaites||0} h</span><span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${c.col};opacity:.45;vertical-align:middle"></span> Planifiées ${planif} h</span><span>Budget ${budget} h</span></div>
   </div></div>`;
 }
 
 function _devisAPlanifier(){return devisDossiers.filter(d=>d.statut==='accepte'&&!chantiers.some(c=>c.devisId===d.id));}
 function creerChantierDepuisDevis(devisId){if(!canEditPlan())return;const d=devisDossiers.find(x=>x.id===devisId);if(!d)return;const c=d.clientId?cli(d.clientId):null;const pal=[PROV.sienne,PROV.mistral,PROV.garrigue,PROV.lavande,PROV.ocre,PROV.pin,PROV.mer];let ht=0;try{const bak=devisLignes.slice();if(currentDevis===d.id){/* déjà chargé */}else{devisLignes.length=0;(d.lignes||[]).forEach(l=>devisLignes.push(l));}ht=devisTotals().st;devisLignes.length=0;bak.forEach(l=>devisLignes.push(l));}catch(e){}
-  const id='ch'+Date.now();chantiers.unshift({id,nom:(d.titre||(c?c.nom:d.ref)||'Chantier'),clientId:d.clientId||'',col:pal[chantiers.length%pal.length],statut:'venir',prix:ht||0,hEst:0,hFaites:0,matiere:0,chef:'',equipe:[],fin:'à planifier',adresse:d.adrChantier||(c?[c.adr,c.ville].filter(Boolean).join(', '):'')||'À planifier',prep:false,av:0,devisId:d.id});
+  const id='ch'+Date.now();chantiers.unshift({id,nom:(d.titre||(c?c.nom:d.ref)||'Chantier'),clientId:d.clientId||'',col:pal[chantiers.length%pal.length],statut:'venir',prix:ht||0,hEst:_devisHeuresMO(d),hFaites:0,matiere:0,chef:'',equipe:[],fin:'à planifier',adresse:d.adrChantier||(c?[c.adr,c.ville].filter(Boolean).join(', '):'')||'À planifier',prep:false,av:0,devisId:d.id});
   _logAction('ti-building','a créé le chantier '+(d.titre||d.ref)+' depuis le devis accepté');render();toast('Chantier créé — à planifier dans le planning','ok','ti-building');}
 views.planning=()=>{
   const _aPlan=_devisAPlanifier();
@@ -1448,7 +1455,7 @@ views.planning=()=>{
     ${chList.map(c=>bchip(c.id,c.nom,c.col)).join('')}
     ${bchip('conge','Congé','#9c958a')}${bchip('form','Formation','#9c958a')}${bchip('prereserve','Pré-réservé','#a9760d')}
     <button onclick="setBrush('erase')" style="border:2px solid ${planBrush==='erase'?'var(--alerte)':'transparent'};background:${planBrush==='erase'?'rgba(184,58,38,.1)':'var(--surface-2)'};color:var(--alerte);border-radius:20px;padding:7px 13px;font-size:12.5px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-family:inherit"><i class="ti ti-eraser"></i> Gomme</button>
-    <span style="margin-left:auto;font-size:12.5px;font-weight:600;color:${planBrush?'var(--orange-dark)':'var(--ink-3)'};white-space:nowrap">${planBrush?(planBrush==='erase'?"Cliquez une case pour l'effacer":'👉 Cliquez les jours à affecter'):'1. Choisissez un chantier  →  2. Cliquez les jours'}</span>
+    <span style="margin-left:auto;font-size:12.5px;font-weight:600;white-space:nowrap">${(function(){const cb=planBrush&&chn(planBrush);const bud=cb?_chantierBudgetH(cb):0;if(cb&&bud>0){const pl=_planifHoursForChantier(cb.id);const reste=Math.max(0,bud-pl);return `<span style="color:var(--ink-2);font-weight:700"><i class="ti ti-clock" style="color:${cb.col}"></i> ${cb.nom.replace(/</g,'&lt;')} — budget ${bud} h · planifié ${pl} h · <b style="color:${reste?'var(--orange-dark)':'var(--olive)'}">reste ${reste} h</b></span>`;}return `<span style="color:${planBrush?'var(--orange-dark)':'var(--ink-3)'}">${planBrush==='erase'?"Cliquez une case pour l'effacer":(planBrush?'👉 Cliquez les jours à affecter':'1. Choisissez un chantier  →  2. Cliquez les jours')}</span>`;})()}</span>
   </div>`:`<div class="card card-pad only-desktop" style="margin-bottom:14px;display:flex;align-items:center;gap:9px;background:rgba(61,138,198,.07)"><i class="ti ti-eye" style="color:var(--bleu-mer);font-size:18px"></i><span style="font-weight:700;font-size:13px">Lecture seule</span><span class="tiny" style="color:var(--ink-3)">Le planning est modifiable uniquement par le patron. Vous pouvez le consulter, filtrer et naviguer.</span></div>`):''}
 
   ${planChantierSummary()}
