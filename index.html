@@ -370,7 +370,7 @@ input.noarrow{-moz-appearance:textfield;appearance:textfield}
     <nav id="nav"></nav>
     <div class="side-foot">
       <span class="live" id="syncFoot"><span class="pulse"></span> Cloud Supabase</span><br>
-      <span style="opacity:.8">Zinguerie Provençale · v5.1</span>
+      <span style="opacity:.8">Zinguerie Provençale · v5.2</span>
     </div>
   </aside>
 
@@ -1228,7 +1228,7 @@ function planWeekData(w){_migrateInterims();if(!planStore[w])planStore[w]={};sal
 let planData=planWeekData(26);
 function gotoWeek(w){planWeek=w;planMode='semaine';planData=planWeekData(w);render();}
 function dlabel(d){const dt=new Date(2026,5,22);dt.setDate(22+(planWeek-26)*7+d);return ['Lun','Mar','Mer','Jeu','Ven','Sam'][d]+' '+dt.getDate();}
-let planWeek=26, planFilter='', planMode='semaine', planDay=3, planBrush=null;
+let planWeek=26, planFilter='', planMode='semaine', planDay=3, planBrush=null, planMonthView='occupation';
 function canEditPlan(){return role==='patron';}
 function setBrush(v){if(!canEditPlan())return;planBrush=planBrush===v?null:v;render();}
 function paintCell(sid,day){if(!canEditPlan())return;if(planBrush){/* peinture gérée par pointer (initPlanPaint) : clic simple + glisser */return;}assignCell(sid,day);}
@@ -1251,6 +1251,7 @@ const badDay=i=>weather[i][1].includes('rain')||weather[i][1].includes('wind');
 const planLab=k=>k==='conge'?'Congé':k==='form'?'Formation':k==='prereserve'?'Pré-réservé':chn(k)?chn(k).nom:k;
 const planCol=k=>chn(k)?chn(k).col:'#9c958a';
 function setMode(m){planMode=m;render();}
+function setMonthView(v){planMonthView=v;render();}
 function planNav(dir){if(planMode==='jour'){planDay=Math.max(0,Math.min(5,planDay+dir));}else{planWeek+=dir;planData=planWeekData(planWeek);}render();toast(planMode==='jour'?JOURS[planDay]:planMode==='mois'?'Mois suivant':'Semaine '+planWeek);}
 function planDayNext(){if(planDay<5)planDay++;else{planWeek++;planData=planWeekData(planWeek);planDay=0;}render();}
 function planDayPrev(){if(planDay>0)planDay--;else if(planWeek>26){planWeek--;planData=planWeekData(planWeek);planDay=5;}render();}
@@ -1340,6 +1341,33 @@ function planMonthGrid(){
     ${weeks.map((w,wi)=>`<div class="pl-foot">${wk(wi)} h</div>`).join('')}
     <div class="pl-foot" style="color:var(--orange-dark)">${weeks.reduce((a,_,wi)=>a+wk(wi),0)} h</div>
   </div>`;
+}
+
+/* vue mois détaillée « façon Excel » : personnes en lignes, jours en colonnes, nom du chantier dans la case */
+function planMonthChantierGrid(){
+  const ppl=planPeople();
+  const NW=4, wks=[]; for(let i=0;i<NW;i++)wks.push(planWeek+i);
+  wks.forEach(w=>planWeekData(w));
+  const dLet=['L','M','M','J','V','S'];
+  const wLabel=w=>{const s=new Date(2026,5,22);s.setDate(22+(w-26)*7);const e=new Date(s);e.setDate(s.getDate()+5);return 'S'+w+' · '+s.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})+'–'+e.toLocaleDateString('fr-FR',{day:'numeric'});};
+  const dNum=(w,d)=>{const dt=new Date(2026,5,22);dt.setDate(22+(w-26)*7+d);return dt.getDate();};
+  const nCols=wks.length*6;
+  const esc=s=>String(s||'').replace(/</g,'&lt;');
+  const escA=s=>String(s||'').replace(/"/g,'').replace(/</g,'');
+  const lab=k=>k==='conge'?'Congé':k==='form'?'Form.':k==='prereserve'?'Pré-rés.':(chn(k)?chn(k).nom:'');
+  const cellBg=k=>chn(k)?planCol(k):((k==='conge'||k==='form'||k==='prereserve')?'#c9c2b6':'transparent');
+  let h='<div style="display:grid;grid-template-columns:148px repeat('+nCols+',minmax(30px,1fr));min-width:'+(148+nCols*34)+'px;font-size:8.5px">';
+  h+='<div style="position:sticky;left:0;background:var(--surface-2);z-index:3;border-bottom:1px solid var(--line)"></div>';
+  wks.forEach(w=>{h+='<div onclick="gotoWeek('+w+')" title="Ouvrir la semaine '+w+'" style="grid-column:span 6;cursor:pointer;padding:5px 4px;text-align:center;font-weight:800;font-size:10px;background:var(--surface-2);border-bottom:1px solid var(--line);border-left:2px solid var(--line-2);'+(w===planWeek?'color:var(--orange-dark)':'')+'">'+wLabel(w)+'</div>';});
+  h+='<div style="position:sticky;left:0;background:var(--surface-2);z-index:3;padding:4px 8px;font-weight:700;color:var(--ink-2);border-bottom:2px solid var(--line)">Équipe</div>';
+  wks.forEach(w=>{for(let d=0;d<6;d++){const bad=(w===26)&&badDay(d);h+='<div style="text-align:center;padding:2px 0;background:var(--surface-2);border-bottom:2px solid var(--line);'+(d===0?'border-left:2px solid var(--line-2);':'')+'color:'+(bad?'var(--alerte)':'var(--ink-3)')+'"><div style="font-weight:700">'+dLet[d]+'</div><div style="font-size:8px">'+dNum(w,d)+'</div></div>';}});
+  ppl.forEach(p=>{
+    h+='<div style="position:sticky;left:0;background:var(--surface);z-index:2;display:flex;align-items:center;gap:6px;padding:3px 8px;border-bottom:1px solid var(--line);border-right:1px solid var(--line)"><span class="avatar-sm" style="width:19px;height:19px;font-size:9px;background:'+p.col+'">'+(p.init||'')+'</span><span style="font-weight:600;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc((p.nom||'').split(' ')[0])+(p.interim?' <span style=\'font-size:7px;color:var(--ink-3)\'>INT</span>':'')+'</span></div>';
+    wks.forEach(w=>{const row=(planStore[w]||{})[p.id]||[];for(let d=0;d<6;d++){const k=row[d];const has=!!k;const dim=planFilter&&k!==planFilter;const isC=!!chn(k);h+='<div title="'+(has?escA(lab(k))+' — '+dNum(w,d):'')+'" style="border-bottom:1px solid var(--line);'+(d===0?'border-left:2px solid var(--line-2);':'border-left:1px solid var(--line);')+'min-height:21px;background:'+cellBg(k)+';'+(dim?'opacity:.22;':'')+'display:flex;align-items:center;justify-content:center;overflow:hidden;padding:0 2px"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:700;'+(isC?'color:#fff':'color:var(--ink-2)')+'">'+(has?esc(lab(k)):'')+'</span></div>';}});
+  });
+  h+='</div>';
+  h+='<p class="tiny" style="margin:10px 4px 0"><i class="ti ti-info-circle"></i> Vue macro : chaque case = un jour, couleur + nom du chantier. Cliquez l\'en-tête d\'une semaine pour l\'ouvrir en détail. '+(planFilter?'Filtre actif : seul le chantier choisi est en couleur.':'')+'</p>';
+  return h;
 }
 
 /* heures de MO estimées d'un devis (h × quantité par ligne) */
@@ -1433,6 +1461,7 @@ views.planning=()=>{
   <div class="page-head"><div><h1>Planning</h1><p>Vue ${planMode==='jour'?'journée':planMode==='mois'?'mensuelle':planMode==='perso'?'personnalisée':'hebdomadaire'} · glisser-déposer ou cliquer une case</p></div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <div class="role-switch">${[['jour','Jour'],['semaine','Semaine'],['mois','Mois'],['perso','Perso']].map(m=>`<button class="${planMode===m[0]?'active':''}" onclick="setMode('${m[0]}')">${m[1]}</button>`).join('')}</div>
+      ${planMode==='mois'?`<div class="role-switch">${[['occupation','Occupation'],['chantier','Chantier']].map(v=>`<button class="${planMonthView===v[0]?'active':''}" onclick="setMonthView('${v[0]}')">${v[1]}</button>`).join('')}</div>`:''}
       ${planMode!=='perso'?`<div class="only-desktop" style="display:flex;align-items:center;gap:7px">
         <button class="icon-btn" onclick="planNav(-1)" title="${planMode==='jour'?'Jour précédent':planMode==='mois'?'Mois précédent':'Semaine précédente'}"><i class="ti ti-chevron-left"></i></button>
         <div style="text-align:center;min-width:128px;font-weight:700;font-size:14px;line-height:1.1">${planMode==='mois'?'Juin 2026':planMode==='jour'?JOURS[planDay]:'Semaine '+planWeek}${planMode==='semaine'?`<div class="tiny" style="font-weight:500;margin-top:1px">${weekRange}</div>`:''}</div>
@@ -1459,7 +1488,7 @@ views.planning=()=>{
   </div>`:`<div class="card card-pad only-desktop" style="margin-bottom:14px;display:flex;align-items:center;gap:9px;background:rgba(61,138,198,.07)"><i class="ti ti-eye" style="color:var(--bleu-mer);font-size:18px"></i><span style="font-weight:700;font-size:13px">Lecture seule</span><span class="tiny" style="color:var(--ink-3)">Le planning est modifiable uniquement par le patron. Vous pouvez le consulter, filtrer et naviguer.</span></div>`):''}
 
   ${planChantierSummary()}
-  <div class="card only-desktop" style="overflow:auto">${planMode==='mois'?planMonthGrid():planGridHTML(planMode==='jour'?[planDay]:[0,1,2,3,4,5])}</div>${planMobileDay()}
+  <div class="card only-desktop" style="overflow:auto">${planMode==='mois'?(planMonthView==='chantier'?planMonthChantierGrid():planMonthGrid()):planGridHTML(planMode==='jour'?[planDay]:[0,1,2,3,4,5])}</div>${planMobileDay()}
   ${canEditPlan()?`<p class="tiny" style="margin-top:12px"><i class="ti ti-info-circle"></i> Choisissez un chantier en haut, puis <b>cliquez ou glissez sur plusieurs jours</b> pour l'affecter d'un coup. Gomme pour retirer. Chaque case vaut ${HJD} h par défaut — cliquez le badge « ${HJD}h » d'une affectation pour saisir les heures réelles. Les flèches ▲▼ (au survol d'un nom) réordonnent les lignes. Jours de pluie/vent en rouge.</p>`:`<p class="tiny" style="margin-top:12px"><i class="ti ti-info-circle"></i> Planning en lecture seule. Les jours de pluie/vent sont signalés en rouge.</p>`}
   </div>`;
 };
