@@ -370,7 +370,7 @@ input.noarrow{-moz-appearance:textfield;appearance:textfield}
     <nav id="nav"></nav>
     <div class="side-foot">
       <span class="live" id="syncFoot"><span class="pulse"></span> Cloud Supabase</span><br>
-      <span style="opacity:.8">Zinguerie Provençale · v4.9</span>
+      <span style="opacity:.8">Zinguerie Provençale · v5.0</span>
     </div>
   </aside>
 
@@ -869,7 +869,7 @@ const facturesPayees=()=>factures.filter(f=>f.statut==='payee');
 const facturesImpayees=()=>factures.filter(f=>f.statut==='retard');
 const caEncaisse=()=>facturesPayees().reduce((a,f)=>a+f.ttc,0);
 const totalImpayes=()=>facturesImpayees().reduce((a,f)=>a+f.ttc,0);
-const heuresSemaine=()=>rnd1(salaries.reduce((a,s)=>a+[0,1,2,3,4,5].reduce((b,d)=>b+cellH(s.id,d),0),0));
+const heuresSemaine=()=>rnd1(planPeople().reduce((a,s)=>a+[0,1,2,3,4,5].reduce((b,d)=>b+cellH(s.id,d),0),0));
 const plur=(n,s)=>n>1?s:'';
 
 const views={};
@@ -1209,14 +1209,22 @@ const planResList=[
   {id:'r-chariot',nom:'CHARIOT',init:'🚜',col:'#B83A26',type:'moyen',fixed:true},
   {id:'r-st1',nom:'Sous-traitant 1',col:'#8A5A2B',type:'st'},
   {id:'r-st2',nom:'Sous-traitant 2',col:'#8A5A2B',type:'st'},
-  {id:'r-int1',nom:'Intérimaire 1',col:'#6B6B6B',type:'int'},
-  {id:'r-int2',nom:'Intérimaire 2',col:'#6B6B6B',type:'int'},
 ];
+/* intérimaires = personnes du planning (avec les compagnons, pour composer des équipes) — hors RH/coûts fixes */
+const interims=[];
+const INT_PAL=['#6B6B6B','#8A7A5B','#5B7A8C','#7A5B8C','#8C6B5B'];
+function _migrateInterims(){for(let i=planResList.length-1;i>=0;i--){const r=planResList[i];if(r.type==='int'){if(!interims.some(x=>x.id===r.id))interims.push({id:r.id,nom:r.nom,col:r.col||'#6B6B6B',init:resInit(r),interim:true});planResList.splice(i,1);}}}
+const person=id=>sal(id)||interims.find(x=>x.id===id)||null;
+function planPeople(){return salaries.concat(interims);}
+function moveInterim(id,dir){if(!canEditPlan())return;const i=interims.findIndex(x=>x.id===id);if(i<0)return;const j=i+dir;if(j<0||j>=interims.length)return;const t=interims[i];interims[i]=interims[j];interims[j]=t;render();toast('Ordre mis à jour','ok','ti-arrows-sort');}
+function addInterim(){if(!canEditPlan())return;const id='int'+Date.now();interims.push({id,nom:'Intérimaire '+(interims.length+1),col:INT_PAL[interims.length%INT_PAL.length],init:'IN',interim:true});if(typeof planData!=='undefined'&&planData)planData[id]=[null,null,null,null,null,null];render();toast('Intérimaire ajouté — clique ✎ pour le nommer','ok','ti-plus');}
+function renameInterim(id){if(!canEditPlan())return;const r=interims.find(x=>x.id===id);if(!r)return;const v=prompt('Nom de l\'intérimaire :',r.nom);if(v===null)return;r.nom=(v.trim()||r.nom);r.init=(r.nom.trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('')||'IN').toUpperCase();render();toast('Intérimaire renommé','ok','ti-check');}
+function delInterim(id){if(!canEditPlan())return;const r=interims.find(x=>x.id===id);if(!r)return;if(!confirm('Supprimer l\'intérimaire « '+r.nom+' » ? Ses affectations seront perdues.'))return;const i=interims.findIndex(x=>x.id===id);if(i>=0)interims.splice(i,1);Object.keys(planStore).forEach(w=>{if(planStore[w])delete planStore[w][id];});render();toast('Intérimaire supprimé','ok','ti-trash');}
 function resInit(r){if(r.init)return r.init;const w=(r.nom||'').split(/\s+/).filter(Boolean);if(w.length>=2)return (w[0][0]+w[1][0]).toUpperCase();return (r.nom||'?').slice(0,3).toUpperCase();}
 function renameRes(id){if(!canEditPlan())return;const r=planResList.find(x=>x.id===id);if(!r)return;const v=prompt('Nom de la ligne (sous-traitant, intérimaire, ou nom du chantier) :',r.nom);if(v===null)return;r.nom=(v.trim()||r.nom);render();toast('Ligne renommée','ok','ti-check');}
 function addRes(type){if(!canEditPlan())return;const cols={st:'#8A5A2B',int:'#6B6B6B'};const id='r-'+type+Date.now();const n=planResList.filter(r=>r.type===type).length+1;planResList.push({id,nom:(type==='st'?'Sous-traitant ':'Intérimaire ')+n,col:cols[type]||'#6B6B6B',type});if(typeof planData!=='undefined'&&planData)planData[id]=[null,null,null,null,null,null];render();toast('Ligne ajoutée — clique ✎ pour la nommer','ok','ti-plus');}
 function delRes(id){if(!canEditPlan())return;const r=planResList.find(x=>x.id===id);if(!r||r.fixed)return;if(!confirm('Supprimer la ligne « '+r.nom+' » ? Les affectations de cette ligne seront perdues.'))return;const i=planResList.findIndex(x=>x.id===id);if(i>=0)planResList.splice(i,1);Object.keys(planStore).forEach(w=>{if(planStore[w])delete planStore[w][id];});render();toast('Ligne supprimée','ok','ti-trash');}
-function planWeekData(w){if(!planStore[w])planStore[w]={};salaries.forEach(s=>{if(!planStore[w][s.id])planStore[w][s.id]=[null,null,null,null,null,null];});planResList.forEach(r=>{if(!planStore[w][r.id])planStore[w][r.id]=[null,null,null,null,null,null];});return planStore[w];}
+function planWeekData(w){_migrateInterims();if(!planStore[w])planStore[w]={};salaries.forEach(s=>{if(!planStore[w][s.id])planStore[w][s.id]=[null,null,null,null,null,null];});interims.forEach(r=>{if(!planStore[w][r.id])planStore[w][r.id]=[null,null,null,null,null,null];});planResList.forEach(r=>{if(!planStore[w][r.id])planStore[w][r.id]=[null,null,null,null,null,null];});return planStore[w];}
 let planData=planWeekData(26);
 function gotoWeek(w){planWeek=w;planMode='semaine';planData=planWeekData(w);render();}
 function dlabel(d){const dt=new Date(2026,5,22);dt.setDate(22+(planWeek-26)*7+d);return ['Lun','Mar','Mer','Jeu','Ven','Sam'][d]+' '+dt.getDate();}
@@ -1246,14 +1254,14 @@ function setMode(m){planMode=m;render();}
 function planNav(dir){if(planMode==='jour'){planDay=Math.max(0,Math.min(5,planDay+dir));}else{planWeek+=dir;planData=planWeekData(planWeek);}render();toast(planMode==='jour'?JOURS[planDay]:planMode==='mois'?'Mois suivant':'Semaine '+planWeek);}
 function planDayNext(){if(planDay<5)planDay++;else{planWeek++;planData=planWeekData(planWeek);planDay=0;}render();}
 function planDayPrev(){if(planDay>0)planDay--;else if(planWeek>26){planWeek--;planData=planWeekData(planWeek);planDay=5;}render();}
-function planMobileDay(){const d=planDay;const lab=k=>k==='conge'?'Congé':k==='form'?'Formation':(chn(k)?chn(k).nom:k);const colOf=k=>(k==='conge'||k==='form')?'#9c958a':(chn(k)?chn(k).col:'#9c958a');const dayTot=rnd1(salaries.reduce((a,s)=>a+cellH(s.id,d),0));
+function planMobileDay(){const d=planDay;const _ppl=planPeople();const lab=k=>k==='conge'?'Congé':k==='form'?'Formation':(chn(k)?chn(k).nom:k);const colOf=k=>(k==='conge'||k==='form')?'#9c958a':(chn(k)?chn(k).col:'#9c958a');const dayTot=rnd1(_ppl.reduce((a,s)=>a+cellH(s.id,d),0));
   return `<div class="only-mobile" style="flex-direction:column;gap:10px">
     <div class="card card-pad" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
       <button class="icon-btn" onclick="planDayPrev()" title="Jour précédent"><i class="ti ti-chevron-left"></i></button>
       <div style="text-align:center"><div style="font-weight:800;font-size:16px">${dlabel(d)}</div><div class="tiny" style="color:var(--ink-3)">Semaine ${planWeek} · ${dayTot} h planifiées</div></div>
       <button class="icon-btn" onclick="planDayNext()" title="Jour suivant"><i class="ti ti-chevron-right"></i></button>
     </div>
-    ${salaries.map(s=>{const k=planData[s.id][d];const on=isCh(k);return `<div class="card" style="padding:11px 12px;display:flex;align-items:center;gap:11px">
+    ${_ppl.map(s=>{const k=planData[s.id][d];const on=isCh(k);return `<div class="card" style="padding:11px 12px;display:flex;align-items:center;gap:11px">
       <span class="avatar-sm" style="background:${s.col};flex-shrink:0">${s.init}</span>
       <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px">${s.nom}</div>
         ${k?`<span style="display:inline-flex;align-items:center;gap:6px;margin-top:4px;background:${on?colOf(k):'var(--surface-3)'};color:${on?'#fff':'var(--ink-2)'};padding:4px 10px;border-radius:14px;font-size:12px;font-weight:700"><i class="ti ti-${on?'home-bolt':(k==='conge'?'beach':'school')}" style="font-size:12px"></i> ${lab(k)}${on?' · '+cellH(s.id,d)+'h':''}${on&&badDay(d)?' ⚠️':''}</span>`:`<div class="tiny" style="color:var(--ink-3);margin-top:2px">Libre</div>`}
@@ -1266,9 +1274,10 @@ function planMobileDay(){const d=planDay;const lab=k=>k==='conge'?'Congé':k==='
 function planGridHTML(days){
   const cols=days.length;
   const weekLoad=s=>[0,1,2,3,4,5].reduce((a,d)=>a+cellH(s.id,d),0);
+  const ppl=planPeople();
   const persH=s=>rnd1(days.reduce((a,d)=>a+cellH(s.id,d),0));
-  const dayTot=d=>rnd1(salaries.reduce((a,s)=>a+cellH(s.id,d),0));
-  const total=rnd1(salaries.reduce((a,s)=>a+days.reduce((b,d)=>b+cellH(s.id,d),0),0));
+  const dayTot=d=>rnd1(ppl.reduce((a,s)=>a+cellH(s.id,d),0));
+  const total=rnd1(ppl.reduce((a,s)=>a+days.reduce((b,d)=>b+cellH(s.id,d),0),0));
   const ed=canEditPlan();
   return `<div class="pl-grid" id="planGrid" style="grid-template-columns:172px repeat(${cols},1fr) 76px;min-width:${172+cols*132+76}px">
     <div class="pl-h" style="text-align:left;padding-left:14px">Équipe</div>
@@ -1285,13 +1294,26 @@ function planGridHTML(days){
             </div>`:(ed?`<div class="add"><i class="ti ti-plus"></i></div>`:'')}
         </div>`;}).join('')}
       <div class="pl-tot">${persH(s)} h</div>`;}).join('')}
-    ${(function(){let prev=null,out='';const grpLab={moyen:'Moyens',st:'Sous-traitants',int:'Intérimaires'};
+    ${(interims.length||ed)?`<div style="grid-column:1/-1;padding:4px 14px;background:var(--surface-2);font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3);border-bottom:1px solid var(--line)">Intérimaires <span style="font-weight:600;text-transform:none;letter-spacing:0;color:var(--ink-3)">· dans l'équipe</span></div>`:''}
+    ${interims.map((s,si)=>{const wl=weekLoad(s),pc=Math.round(wl/(5*HJD)*100);const nmParts=(s.nom||'').split(' ');const nmShort=nmParts[0]+(nmParts[1]?' '+nmParts[1][0]+'.':'');
+      return `<div class="pl-name"><span class="avatar-sm" style="background:${s.col}">${s.init||resInit(s)}</span><div style="flex:1;min-width:0"><div style="font-weight:600;font-size:12.5px">${nmShort} <span style="font-size:8.5px;font-weight:800;background:${s.col}22;color:${s.col};padding:1px 5px;border-radius:6px;vertical-align:middle">INT</span></div><div style="height:4px;background:var(--surface-3);border-radius:4px;margin-top:4px;overflow:hidden"><div style="width:${Math.min(100,pc)}%;height:100%;background:${pc>100?'var(--alerte)':s.col}"></div></div></div>${ed?`<div class="pl-ord" style="display:grid;grid-template-columns:auto auto"><button onclick="event.stopPropagation();moveInterim('${s.id}',-1)" title="Monter" ${si===0?'disabled':''}>▲</button><button onclick="event.stopPropagation();renameInterim('${s.id}')" title="Renommer">✎</button><button onclick="event.stopPropagation();moveInterim('${s.id}',1)" title="Descendre" ${si===interims.length-1?'disabled':''}>▼</button><button onclick="event.stopPropagation();delInterim('${s.id}')" title="Supprimer">✕</button></div>`:''}</div>
+      ${days.map(d=>{const k=planData[s.id][d],dim=planFilter&&k!==planFilter;
+        return `<div class="pl-cell ${planWeek===26&&d===TODAY_IDX?'today':''} ${planBrush?'painting':''}" data-sal="${s.id}" data-day="${d}" onclick="paintCell('${s.id}',${d})">
+          ${k?`<div class="pl-chip ${isCh(k)?'':'off'} ${dim?'pl-dim':''}" draggable="true" data-cell="${k}" style="${isCh(k)?'background:'+planCol(k):''}">
+              <span class="nm">${planLab(k)}${k==='prereserve'&&_planNote(s.id,d)?' · '+_planNote(s.id,d).replace(/</g,'&lt;'):''}</span>${isCh(k)?`<span class="hb" onclick="event.stopPropagation();setCellHours('${s.id}',${d})" title="Cliquer pour saisir les heures réelles"><i class="ti ti-${cellHSrc(s.id,d)==='reel'?'clock-check':'clock'}" style="font-size:10px"></i>${cellH(s.id,d)}h${cellHSrc(s.id,d)==='saisie'?'*':''}</span>`:''}${k==='prereserve'&&ed?` <button onclick="event.stopPropagation();setPlanNote('${s.id}',${d})" style="background:none;border:none;color:inherit;cursor:pointer;font-size:11px;opacity:.85;padding:0" title="Annoter">✎</button>`:''}
+              ${isCh(k)&&badDay(d)?'<span class="rx" title="météo défavorable">⚠️</span>':''}
+              ${ed?`<button class="px" onclick="event.stopPropagation();removeCell('${s.id}',${d})" title="Retirer">✕</button>`:''}
+            </div>`:(ed?`<div class="add"><i class="ti ti-plus"></i></div>`:'')}
+        </div>`;}).join('')}
+      <div class="pl-tot">${persH(s)} h</div>`;}).join('')}
+    ${ed?`<div style="grid-column:1/-1;padding:5px 14px;border-bottom:1px solid var(--line)"><button onclick="addInterim()" style="border:1px dashed var(--line-2);background:transparent;color:var(--ink-3);border-radius:8px;padding:4px 11px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:5px"><i class="ti ti-plus" style="font-size:12px"></i> Ajouter un intérimaire</button></div>`:''}
+    ${(function(){let prev=null,out='';const grpLab={moyen:'Moyens',st:'Sous-traitants'};
       planResList.forEach((r,ri)=>{const row=planData[r.id]||(planData[r.id]=[null,null,null,null,null,null]);const nb=days.filter(d=>isCh(row[d])).length;const next=planResList[ri+1];
         if(r.type!==prev){if(r.type==='moyen')out+=`<div style="grid-column:1/-1;height:3px;background:var(--alerte)"></div>`;out+=`<div style="grid-column:1/-1;padding:5px 14px;background:var(--surface-3);font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3)">${grpLab[r.type]||''}</div>`;prev=r.type;}
         out+=`<div class="pl-name" style="background:${r.col}12"><span class="avatar-sm" style="background:${r.col};font-size:10px">${resInit(r)}</span><div style="flex:1;min-width:0"><div style="font-weight:700;font-size:12px;color:${r.col}">${(r.nom||'').replace(/</g,'&lt;')}</div></div>${(r.fixed||!ed)?'':`<div class="pl-ord"><button onclick="event.stopPropagation();renameRes('${r.id}')" title="Renommer">✎</button><button onclick="event.stopPropagation();delRes('${r.id}')" title="Supprimer">✕</button></div>`}</div>`;
         days.forEach(d=>{const k=row[d],dim=planFilter&&k!==planFilter;out+=`<div class="pl-cell ${planWeek===26&&d===TODAY_IDX?'today':''} ${planBrush?'painting':''}" data-sal="${r.id}" data-day="${d}" onclick="paintCell('${r.id}',${d})">${k?`<div class="pl-chip ${isCh(k)?'':'off'} ${dim?'pl-dim':''}" draggable="true" data-cell="${k}" style="${isCh(k)?'background:'+planCol(k):''}"><span class="nm">${planLab(k)}</span>${ed?`<button class="px" onclick="event.stopPropagation();removeCell('${r.id}',${d})" title="Retirer">✕</button>`:''}</div>`:(ed?`<div class="add"><i class="ti ti-plus"></i></div>`:'')}</div>`;});
         out+=`<div class="pl-tot" style="font-size:11px;color:var(--ink-3)">${nb?nb+' j':'—'}</div>`;
-        if(ed&&(r.type==='st'||r.type==='int')&&(!next||next.type!==r.type))out+=`<div style="grid-column:1/-1;padding:5px 14px;border-bottom:1px solid var(--line)"><button onclick="addRes('${r.type}')" style="border:1px dashed var(--line-2);background:transparent;color:var(--ink-3);border-radius:8px;padding:4px 11px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:5px"><i class="ti ti-plus" style="font-size:12px"></i> Ajouter ${r.type==='st'?'un sous-traitant':'un intérimaire'}</button></div>`;
+        if(ed&&r.type==='st'&&(!next||next.type!=='st'))out+=`<div style="grid-column:1/-1;padding:5px 14px;border-bottom:1px solid var(--line)"><button onclick="addRes('st')" style="border:1px dashed var(--line-2);background:transparent;color:var(--ink-3);border-radius:8px;padding:4px 11px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:5px"><i class="ti ti-plus" style="font-size:12px"></i> Ajouter un sous-traitant</button></div>`;
       });return out;})()}
     <div class="pl-foot" style="text-align:left;padding-left:14px;font-size:11px;color:var(--ink-2)">Total / jour</div>
     ${days.map(d=>`<div class="pl-foot" style="color:${dayTot(d)===0?'var(--ink-3)':'var(--ink)'}">${dayTot(d)} h</div>`).join('')}
@@ -1355,11 +1377,12 @@ views.planning=()=>{
   const _aPlan=_devisAPlanifier();
   const lab=k=>k==='conge'?'Congé':k==='form'?'Formation':chn(k)?chn(k).nom:k;
   const colOf=k=>chn(k)?chn(k).col:'#9c958a';
+  const _ppl=planPeople();
   const persH=s=>rnd1([0,1,2,3,4,5].reduce((a,d)=>a+cellH(s.id,d),0));
-  const dayTot=d=>rnd1(salaries.reduce((a,s)=>a+cellH(s.id,d),0));
-  const totalWeek=rnd1(salaries.reduce((a,s)=>a+persH(s),0));
-  const cap=salaries.length*5*HJD, occ=Math.round(totalWeek/cap*100);
-  let risques=0;salaries.forEach(s=>planData[s.id].forEach((k,d)=>{if(isCh(k)&&badDay(d))risques++;}));
+  const dayTot=d=>rnd1(_ppl.reduce((a,s)=>a+cellH(s.id,d),0));
+  const totalWeek=rnd1(_ppl.reduce((a,s)=>a+persH(s),0));
+  const cap=_ppl.length*5*HJD, occ=cap?Math.round(totalWeek/cap*100):0;
+  let risques=0;_ppl.forEach(s=>(planData[s.id]||[]).forEach((k,d)=>{if(isCh(k)&&badDay(d))risques++;}));
   const chList=chantiers.filter(c=>c.statut!=='fini');
   const bchip=(val,label,col)=>`<button onclick="setBrush('${val}')" style="border:2px solid ${planBrush===val?col:'transparent'};background:${planBrush===val?col+'22':'var(--surface-2)'};color:${col};border-radius:20px;padding:7px 13px;font-size:12.5px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:7px;font-family:inherit"><span style="width:10px;height:10px;border-radius:50%;background:${col}"></span>${label}</button>`;
   const _ws=new Date(2026,5,22);_ws.setDate(22+(planWeek-26)*7);const _we=new Date(_ws);_we.setDate(_ws.getDate()+5);
@@ -1436,7 +1459,7 @@ views.planning=()=>{
 function assignCell(sid,day){
   if(!canEditPlan())return;
   const opts=chantiers.filter(c=>c.statut!=='fini').map(c=>`<button class="btn" style="width:100%;justify-content:flex-start;margin-bottom:8px" onclick="setCell('${sid}',${day},'${c.id}')"><span style="width:11px;height:11px;border-radius:50%;background:${c.col};margin-right:8px"></span>${c.nom}</button>`).join('');
-  const _who=sal(sid)||planResList.find(r=>r.id===sid)||{nom:sid};
+  const _who=person(sid)||planResList.find(r=>r.id===sid)||{nom:sid};
   modal(`<div class="modal-head"><h3>Affecter — ${(_who.nom||sid).split(' ')[0]}, ${JOURS[day]}</h3><button class="icon-x" onclick="this.closest('.overlay').remove()"><i class="ti ti-x"></i></button></div><div class="modal-body">${opts}<div class="divider"></div><div style="display:flex;gap:8px"><button class="btn" style="flex:1;justify-content:center" onclick="setCell('${sid}',${day},'conge')"><i class="ti ti-beach"></i> Congé</button><button class="btn" style="flex:1;justify-content:center" onclick="setCell('${sid}',${day},'form')"><i class="ti ti-school"></i> Formation</button></div></div>`);
 }
 function setCell(sid,day,val){if(!canEditPlan())return;planData[sid][day]=val;document.querySelectorAll('.overlay').forEach(o=>o.remove());render();toast('Affectation ajoutée','ok','ti-calendar-check');}
@@ -3313,7 +3336,7 @@ function _doReset(){if(!_resetEmail){doLogin();return;}const c=comptes.find(x=>x
 async function logout(){closeMenus();try{if(sb)await sb.auth.signOut();}catch(e){}_cloudReady=false;sessionEmail=null;saveState();showLogin();}
 /* ===== Persistance locale (localStorage) + cloud (Supabase) ===== */
 const ZP_STORE_KEY='zp_erp_state_v3';
-const _persistArrays={salaries,equipes,clients,chantiers,stock,profils,bureau,taches,demandesList,congesList,carnet,rdvs,devisLignes,catFournitures,ouvrages,factures,comptes,prodCats,ouvrCats,devisDossiers,stockMoves,matConsos,_delCats,journal,planResList};
+const _persistArrays={salaries,equipes,clients,chantiers,stock,profils,bureau,taches,demandesList,congesList,carnet,rdvs,devisLignes,catFournitures,ouvrages,factures,comptes,prodCats,ouvrCats,devisDossiers,stockMoves,matConsos,_delCats,journal,planResList,interims};
 const _persistObjects={congesBalance,planStore,planHrs,planNotes,chatMsgs,chantierSteps,profilUser,txtModeles,pointages};
 function _stateObj(){if(typeof _syncCurDevis==='function')_syncCurDevis();const d={arr:{},obj:{},scal:{tauxMO,coutMO,devisClient,currentDevis,_devisSeq,rdvSeq,agendaWeek,planWeek,carnetChef,coefMargeDefaut,sessionEmail,tvaDefaut,margeObjectif,arrondiPU}};for(const k in _persistArrays)d.arr[k]=_persistArrays[k];for(const k in _persistObjects)d.obj[k]=_persistObjects[k];return d;}
 function _applyState(d){if(!d)return;if(d.arr)for(const k in _persistArrays){const v=d.arr[k];if(Array.isArray(v)){const a=_persistArrays[k];a.length=0;v.forEach(x=>a.push(x));}}if(d.obj)for(const k in _persistObjects){const v=d.obj[k];if(v&&typeof v==='object'){const o=_persistObjects[k];Object.keys(o).forEach(kk=>delete o[kk]);Object.assign(o,v);}}if(d.scal){const s=d.scal;if(typeof s.tauxMO==='number')tauxMO=s.tauxMO;if(s.devisClient!=null)devisClient=s.devisClient;if(s.currentDevis!==undefined)currentDevis=s.currentDevis;if(typeof s._devisSeq==='number')_devisSeq=s._devisSeq;if(typeof s.rdvSeq==='number')rdvSeq=s.rdvSeq;if(typeof s.agendaWeek==='number')agendaWeek=s.agendaWeek;if(typeof s.planWeek==='number')planWeek=s.planWeek;if(typeof s.carnetChef==='string')carnetChef=s.carnetChef;if(typeof s.coefMargeDefaut==='number')coefMargeDefaut=s.coefMargeDefaut;if(typeof s.coutMO==='number')coutMO=s.coutMO;if(typeof s.tvaDefaut==='number')tvaDefaut=s.tvaDefaut;if(typeof s.margeObjectif==='number')margeObjectif=s.margeObjectif;if(typeof s.arrondiPU==='string')arrondiPU=s.arrondiPU;}planData=planWeekData(planWeek);}
