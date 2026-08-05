@@ -370,7 +370,7 @@ input.noarrow{-moz-appearance:textfield;appearance:textfield}
     <nav id="nav"></nav>
     <div class="side-foot">
       <span class="live" id="syncFoot"><span class="pulse"></span> Cloud Supabase</span><br>
-      <span style="opacity:.8">Zinguerie Provençale · v5.2</span>
+      <span style="opacity:.8">Zinguerie Provençale · v5.3</span>
     </div>
   </aside>
 
@@ -1242,7 +1242,37 @@ const rnd1=n=>Math.round((n||0)*10)/10;
 function _weekDate(day){const dt=new Date(2026,5,22);dt.setDate(22+(planWeek-26)*7+day);return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');}
 function _realH(sid,day){const s=(typeof sal==='function')?sal(sid):null;if(!s||!s.email)return null;const pt=pointages[s.email+'|'+_weekDate(day)];if(!pt||!pt.interventions||!pt.interventions.length)return null;let sc=0;pt.interventions.forEach(iv=>sc+=(iv.secs||0));return sc>0?rnd1(sc/3600):null;}
 function _hrOverride(sid,day){const w=planHrs[planWeek];return (w&&w[sid]&&w[sid][day]!=null)?w[sid][day]:null;}
-function cellH(sid,day){const k=(planData[sid]||[])[day];if(!isCh(k))return 0;const ov=_hrOverride(sid,day);if(ov!=null)return ov;const r=_realH(sid,day);if(r!=null)return r;return HJD;}
+function cellHSingle(sid,day){const ov=_hrOverride(sid,day);if(ov!=null)return ov;const r=_realH(sid,day);if(r!=null)return r;return HJD;}
+/* une case peut contenir : null · un id (string, 1 chantier) · un tableau [{k,h},{k,h}] (2 interventions/jour) */
+function _cellItems(sid,day){const v=(planData[sid]||[])[day];if(v==null)return [];if(Array.isArray(v))return v.filter(x=>x&&x.k).map(x=>({k:x.k,h:Math.max(0,+x.h||0)}));return [{k:v,h:isCh(v)?cellHSingle(sid,day):0}];}
+function cellH(sid,day){return rnd1(_cellItems(sid,day).reduce((a,it)=>a+(isCh(it.k)?it.h:0),0));}
+/* rendu du contenu d'une case (1 ou 2 interventions côte à côte, largeur constante) */
+function planCellHTML(sid,day,ed){
+  const items=_cellItems(sid,day);
+  if(!items.length)return ed?'<div class="add"><i class="ti ti-plus"></i></div>':'';
+  const single=items.length===1;
+  let h='<div style="display:flex;gap:2px;height:100%">';
+  items.forEach((it,idx)=>{const k=it.k,isC=isCh(k),dim=planFilter&&k!==planFilter;const note=(k==='prereserve')?_planNote(sid,day):'';
+    h+='<div class="pl-chip '+(isC?'':'off')+' '+(dim?'pl-dim':'')+'" '+(single?'draggable="true" data-cell="'+k+'"':'')+' style="flex:1;min-width:0;'+(isC?'background:'+planCol(k):'')+'">';
+    h+='<span class="nm" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+planLab(k)+(note?' · '+note.replace(/</g,'&lt;'):'')+'</span>';
+    if(isC)h+='<span class="hb" onclick="event.stopPropagation();'+(single?"setCellHours('"+sid+"',"+day+")":"setItemHours('"+sid+"',"+day+","+idx+")")+'" title="Heures réelles"><i class="ti ti-'+((single&&cellHSrc(sid,day)==='reel')?'clock-check':'clock')+'" style="font-size:10px"></i>'+rnd1(it.h)+'h'+((single&&cellHSrc(sid,day)==='saisie')?'*':'')+'</span>';
+    if(k==='prereserve'&&ed)h+=' <button onclick="event.stopPropagation();setPlanNote(\''+sid+'\','+day+')" style="background:none;border:none;color:inherit;cursor:pointer;font-size:11px;opacity:.85;padding:0" title="Annoter">✎</button>';
+    if(isC&&badDay(day))h+='<span class="rx" title="météo défavorable">⚠️</span>';
+    if(ed)h+='<button class="px" onclick="event.stopPropagation();'+(single?"removeCell('"+sid+"',"+day+")":"removeItem('"+sid+"',"+day+","+idx+")")+'" title="Retirer">✕</button>';
+    h+='</div>';
+  });
+  h+='</div>';
+  if(ed&&single&&isCh(items[0].k))h+='<button class="pl-add2" onclick="event.stopPropagation();addSecondIntervention(\''+sid+'\','+day+')" title="Ajouter un 2e chantier ce jour">+</button>';
+  return h;
+}
+function addSecondIntervention(sid,day){if(!canEditPlan())return;const items=_cellItems(sid,day);if(items.length>=2){toast('Déjà 2 interventions ce jour','info','ti-info-circle');return;}if(!items.length||!isCh(items[0].k)){toast('Affecte d\'abord un chantier','info','ti-info-circle');return;}
+  const opts=chantiers.filter(c=>c.statut!=='fini'&&c.id!==items[0].k).map(c=>'<button class="btn" style="width:100%;justify-content:flex-start;margin-bottom:8px" onclick="_addSecond(\''+sid+'\','+day+',\''+c.id+'\')"><span style="width:11px;height:11px;border-radius:50%;background:'+c.col+';margin-right:8px"></span>'+c.nom.replace(/</g,'&lt;')+'</button>').join('');
+  const who=((person(sid)||{nom:sid}).nom||'').split(' ')[0];
+  modal('<div class="modal-head"><h3>2e chantier — '+who+', '+JOURS[day]+'</h3><button class="icon-x" onclick="this.closest(\'.overlay\').remove()"><i class="ti ti-x"></i></button></div><div class="modal-body"><p class="tiny" style="margin-bottom:10px">La journée sera partagée entre 2 chantiers (4 h + 4 h par défaut). Ajuste ensuite les heures en cliquant sur le badge « h » de chaque bloc.</p>'+opts+'</div>');
+}
+function _addSecond(sid,day,k2){if(!canEditPlan())return;const cur=_cellItems(sid,day);if(!cur.length)return;const half=rnd1(HJD/2);planData[sid][day]=[{k:cur[0].k,h:half},{k:k2,h:half}];document.querySelectorAll('.overlay').forEach(o=>o.remove());render();toast('2e chantier ajouté — ajuste les heures','ok','ti-layers-intersect');}
+function setItemHours(sid,day,idx){if(!canEditPlan())return;const arr=planData[sid][day];if(!Array.isArray(arr)||!arr[idx])return;const cur=+arr[idx].h||0;const v=prompt('Heures pour '+((chn(arr[idx].k)||{}).nom||arr[idx].k)+' ('+JOURS[day]+') :',cur);if(v===null)return;const n=parseFloat(String(v).replace(',','.'));if(isNaN(n)||n<0||n>24){toast('Heures invalides (0–24)','error','ti-alert-circle');return;}arr[idx].h=rnd1(n);render();toast('Heures mises à jour','ok','ti-clock-check');}
+function removeItem(sid,day,idx){if(!canEditPlan())return;const arr=planData[sid][day];if(!Array.isArray(arr)){removeCell(sid,day);return;}arr.splice(idx,1);if(arr.length===1){const only=arr[0];planData[sid][day]=only.k;if(isCh(only.k)){if(!planHrs[planWeek])planHrs[planWeek]={};if(!planHrs[planWeek][sid])planHrs[planWeek][sid]={};planHrs[planWeek][sid][day]=rnd1(only.h);}}else if(arr.length===0){planData[sid][day]=null;}render();toast('Intervention retirée','ok');}
 function cellHSrc(sid,day){if(_hrOverride(sid,day)!=null)return 'saisie';if(_realH(sid,day)!=null)return 'reel';return 'plan';}
 function setCellHours(sid,day){if(!canEditPlan())return;const k=(planData[sid]||[])[day];if(!isCh(k)){toast('Affecte d\'abord un chantier sur cette case','info','ti-info-circle');return;}const who=(typeof sal==='function'&&sal(sid))?sal(sid).nom.split(' ')[0]:(planResList.find(r=>r.id===sid)||{}).nom||sid;const v=prompt('Heures pour '+who+' — '+planLab(k)+' ('+_weekDate(day)+') :\n(laisse vide pour revenir au défaut '+HJD+' h)',cellH(sid,day));if(v===null)return;const t=String(v).trim().replace(',','.');if(!planHrs[planWeek])planHrs[planWeek]={};if(!planHrs[planWeek][sid])planHrs[planWeek][sid]={};if(t===''){delete planHrs[planWeek][sid][day];}else{const n=parseFloat(t);if(isNaN(n)||n<0||n>24){toast('Nombre d\'heures invalide','error','ti-alert-circle');return;}planHrs[planWeek][sid][day]=rnd1(n);}render();toast('Heures mises à jour','ok','ti-clock-check');}
 function moveSal(sid,dir){if(!canEditPlan())return;const i=salaries.findIndex(s=>s.id===sid);if(i<0)return;const j=i+dir;if(j<0||j>=salaries.length)return;const t=salaries[i];salaries[i]=salaries[j];salaries[j]=t;render();toast('Ordre mis à jour','ok','ti-arrows-sort');}
@@ -1262,12 +1292,12 @@ function planMobileDay(){const d=planDay;const _ppl=planPeople();const lab=k=>k=
       <div style="text-align:center"><div style="font-weight:800;font-size:16px">${dlabel(d)}</div><div class="tiny" style="color:var(--ink-3)">Semaine ${planWeek} · ${dayTot} h planifiées</div></div>
       <button class="icon-btn" onclick="planDayNext()" title="Jour suivant"><i class="ti ti-chevron-right"></i></button>
     </div>
-    ${_ppl.map(s=>{const k=planData[s.id][d];const on=isCh(k);return `<div class="card" style="padding:11px 12px;display:flex;align-items:center;gap:11px">
+    ${_ppl.map(s=>{const items=_cellItems(s.id,d);const has=items.length>0;return `<div class="card" style="padding:11px 12px;display:flex;align-items:center;gap:11px">
       <span class="avatar-sm" style="background:${s.col};flex-shrink:0">${s.init}</span>
       <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px">${s.nom}</div>
-        ${k?`<span style="display:inline-flex;align-items:center;gap:6px;margin-top:4px;background:${on?colOf(k):'var(--surface-3)'};color:${on?'#fff':'var(--ink-2)'};padding:4px 10px;border-radius:14px;font-size:12px;font-weight:700"><i class="ti ti-${on?'home-bolt':(k==='conge'?'beach':'school')}" style="font-size:12px"></i> ${lab(k)}${on?' · '+cellH(s.id,d)+'h':''}${on&&badDay(d)?' ⚠️':''}</span>`:`<div class="tiny" style="color:var(--ink-3);margin-top:2px">Libre</div>`}
+        ${has?`<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:4px">${items.map(it=>{const on=isCh(it.k);return `<span style="display:inline-flex;align-items:center;gap:6px;background:${on?colOf(it.k):'var(--surface-3)'};color:${on?'#fff':'var(--ink-2)'};padding:4px 10px;border-radius:14px;font-size:12px;font-weight:700"><i class="ti ti-${on?'home-bolt':(it.k==='conge'?'beach':'school')}" style="font-size:12px"></i> ${lab(it.k)}${on?' · '+rnd1(it.h)+'h':''}${on&&badDay(d)?' ⚠️':''}</span>`;}).join('')}</div>`:`<div class="tiny" style="color:var(--ink-3);margin-top:2px">Libre</div>`}
       </div>
-      ${canEditPlan()?`<div style="display:flex;gap:5px;flex-shrink:0"><button class="btn sm" onclick="assignCell('${s.id}',${d})"><i class="ti ti-${k?'pencil':'plus'}"></i></button>${k?`<button class="icon-x" onclick="removeCell('${s.id}',${d})" title="Retirer"><i class="ti ti-x"></i></button>`:''}</div>`:''}
+      ${canEditPlan()?`<div style="display:flex;gap:5px;flex-shrink:0"><button class="btn sm" onclick="assignCell('${s.id}',${d})"><i class="ti ti-${has?'pencil':'plus'}"></i></button>${has?`<button class="icon-x" onclick="removeCell('${s.id}',${d})" title="Retirer"><i class="ti ti-x"></i></button>`:''}</div>`:''}
     </div>`;}).join('')}
   </div>`;}
 
@@ -1286,26 +1316,12 @@ function planGridHTML(days){
     <div class="pl-h">Total</div>
     ${salaries.map((s,si)=>{const wl=weekLoad(s),pc=Math.round(wl/(5*HJD)*100);const nmParts=(s.nom||'').split(' ');const nmShort=nmParts[0]+(nmParts[1]?' '+nmParts[1][0]+'.':'');
       return `<div class="pl-name"><span class="avatar-sm" style="background:${s.col}">${s.init}</span><div style="flex:1;min-width:0"><div style="font-weight:600;font-size:12.5px">${nmShort}</div><div style="height:4px;background:var(--surface-3);border-radius:4px;margin-top:4px;overflow:hidden"><div style="width:${Math.min(100,pc)}%;height:100%;background:${pc>100?'var(--alerte)':s.col}"></div></div></div>${ed?`<div class="pl-ord"><button onclick="event.stopPropagation();moveSal('${s.id}',-1)" title="Monter" ${si===0?'disabled':''}>▲</button><button onclick="event.stopPropagation();moveSal('${s.id}',1)" title="Descendre" ${si===salaries.length-1?'disabled':''}>▼</button></div>`:''}</div>
-      ${days.map(d=>{const k=planData[s.id][d],dim=planFilter&&k!==planFilter;
-        return `<div class="pl-cell ${planWeek===26&&d===TODAY_IDX?'today':''} ${planBrush?'painting':''}" data-sal="${s.id}" data-day="${d}" onclick="paintCell('${s.id}',${d})">
-          ${k?`<div class="pl-chip ${isCh(k)?'':'off'} ${dim?'pl-dim':''}" draggable="true" data-cell="${k}" style="${isCh(k)?'background:'+planCol(k):''}">
-              <span class="nm">${planLab(k)}${k==='prereserve'&&_planNote(s.id,d)?' · '+_planNote(s.id,d).replace(/</g,'&lt;'):''}</span>${isCh(k)?`<span class="hb" onclick="event.stopPropagation();setCellHours('${s.id}',${d})" title="Cliquer pour saisir les heures réelles"><i class="ti ti-${cellHSrc(s.id,d)==='reel'?'clock-check':'clock'}" style="font-size:10px"></i>${cellH(s.id,d)}h${cellHSrc(s.id,d)==='saisie'?'*':''}</span>`:''}${k==='prereserve'&&ed?` <button onclick="event.stopPropagation();setPlanNote('${s.id}',${d})" style="background:none;border:none;color:inherit;cursor:pointer;font-size:11px;opacity:.85;padding:0" title="Annoter">✎</button>`:''}
-              ${isCh(k)&&badDay(d)?'<span class="rx" title="météo défavorable">⚠️</span>':''}
-              ${ed?`<button class="px" onclick="event.stopPropagation();removeCell('${s.id}',${d})" title="Retirer">✕</button>`:''}
-            </div>`:(ed?`<div class="add"><i class="ti ti-plus"></i></div>`:'')}
-        </div>`;}).join('')}
+      ${days.map(d=>`<div class="pl-cell ${planWeek===26&&d===TODAY_IDX?'today':''} ${planBrush?'painting':''}" data-sal="${s.id}" data-day="${d}" onclick="paintCell('${s.id}',${d})">${planCellHTML(s.id,d,ed)}</div>`).join('')}
       <div class="pl-tot">${persH(s)} h</div>`;}).join('')}
     ${(interims.length||ed)?`<div style="grid-column:1/-1;padding:4px 14px;background:var(--surface-2);font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3);border-bottom:1px solid var(--line)">Intérimaires <span style="font-weight:600;text-transform:none;letter-spacing:0;color:var(--ink-3)">· dans l'équipe</span></div>`:''}
     ${interims.map((s,si)=>{const wl=weekLoad(s),pc=Math.round(wl/(5*HJD)*100);const nmParts=(s.nom||'').split(' ');const nmShort=nmParts[0]+(nmParts[1]?' '+nmParts[1][0]+'.':'');
       return `<div class="pl-name"><span class="avatar-sm" style="background:${s.col}">${s.init||resInit(s)}</span><div style="flex:1;min-width:0"><div style="font-weight:600;font-size:12.5px">${nmShort} <span style="font-size:8.5px;font-weight:800;background:${s.col}22;color:${s.col};padding:1px 5px;border-radius:6px;vertical-align:middle">INT</span></div><div style="height:4px;background:var(--surface-3);border-radius:4px;margin-top:4px;overflow:hidden"><div style="width:${Math.min(100,pc)}%;height:100%;background:${pc>100?'var(--alerte)':s.col}"></div></div></div>${ed?`<div class="pl-ord" style="display:grid;grid-template-columns:auto auto"><button onclick="event.stopPropagation();moveInterim('${s.id}',-1)" title="Monter" ${si===0?'disabled':''}>▲</button><button onclick="event.stopPropagation();renameInterim('${s.id}')" title="Renommer">✎</button><button onclick="event.stopPropagation();moveInterim('${s.id}',1)" title="Descendre" ${si===interims.length-1?'disabled':''}>▼</button><button onclick="event.stopPropagation();delInterim('${s.id}')" title="Supprimer">✕</button></div>`:''}</div>
-      ${days.map(d=>{const k=planData[s.id][d],dim=planFilter&&k!==planFilter;
-        return `<div class="pl-cell ${planWeek===26&&d===TODAY_IDX?'today':''} ${planBrush?'painting':''}" data-sal="${s.id}" data-day="${d}" onclick="paintCell('${s.id}',${d})">
-          ${k?`<div class="pl-chip ${isCh(k)?'':'off'} ${dim?'pl-dim':''}" draggable="true" data-cell="${k}" style="${isCh(k)?'background:'+planCol(k):''}">
-              <span class="nm">${planLab(k)}${k==='prereserve'&&_planNote(s.id,d)?' · '+_planNote(s.id,d).replace(/</g,'&lt;'):''}</span>${isCh(k)?`<span class="hb" onclick="event.stopPropagation();setCellHours('${s.id}',${d})" title="Cliquer pour saisir les heures réelles"><i class="ti ti-${cellHSrc(s.id,d)==='reel'?'clock-check':'clock'}" style="font-size:10px"></i>${cellH(s.id,d)}h${cellHSrc(s.id,d)==='saisie'?'*':''}</span>`:''}${k==='prereserve'&&ed?` <button onclick="event.stopPropagation();setPlanNote('${s.id}',${d})" style="background:none;border:none;color:inherit;cursor:pointer;font-size:11px;opacity:.85;padding:0" title="Annoter">✎</button>`:''}
-              ${isCh(k)&&badDay(d)?'<span class="rx" title="météo défavorable">⚠️</span>':''}
-              ${ed?`<button class="px" onclick="event.stopPropagation();removeCell('${s.id}',${d})" title="Retirer">✕</button>`:''}
-            </div>`:(ed?`<div class="add"><i class="ti ti-plus"></i></div>`:'')}
-        </div>`;}).join('')}
+      ${days.map(d=>`<div class="pl-cell ${planWeek===26&&d===TODAY_IDX?'today':''} ${planBrush?'painting':''}" data-sal="${s.id}" data-day="${d}" onclick="paintCell('${s.id}',${d})">${planCellHTML(s.id,d,ed)}</div>`).join('')}
       <div class="pl-tot">${persH(s)} h</div>`;}).join('')}
     ${ed?`<div style="grid-column:1/-1;padding:5px 14px;border-bottom:1px solid var(--line)"><button onclick="addInterim()" style="border:1px dashed var(--line-2);background:transparent;color:var(--ink-3);border-radius:8px;padding:4px 11px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:5px"><i class="ti ti-plus" style="font-size:12px"></i> Ajouter un intérimaire</button></div>`:''}
     ${(function(){let prev=null,out='';const grpLab={moyen:'Moyens',st:'Sous-traitants'};
@@ -1363,7 +1379,7 @@ function planMonthChantierGrid(){
   wks.forEach(w=>{for(let d=0;d<6;d++){const bad=(w===26)&&badDay(d);h+='<div style="text-align:center;padding:2px 0;background:var(--surface-2);border-bottom:2px solid var(--line);'+(d===0?'border-left:2px solid var(--line-2);':'')+'color:'+(bad?'var(--alerte)':'var(--ink-3)')+'"><div style="font-weight:700">'+dLet[d]+'</div><div style="font-size:8px">'+dNum(w,d)+'</div></div>';}});
   ppl.forEach(p=>{
     h+='<div style="position:sticky;left:0;background:var(--surface);z-index:2;display:flex;align-items:center;gap:6px;padding:3px 8px;border-bottom:1px solid var(--line);border-right:1px solid var(--line)"><span class="avatar-sm" style="width:19px;height:19px;font-size:9px;background:'+p.col+'">'+(p.init||'')+'</span><span style="font-weight:600;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc((p.nom||'').split(' ')[0])+(p.interim?' <span style=\'font-size:7px;color:var(--ink-3)\'>INT</span>':'')+'</span></div>';
-    wks.forEach(w=>{const row=(planStore[w]||{})[p.id]||[];for(let d=0;d<6;d++){const k=row[d];const has=!!k;const dim=planFilter&&k!==planFilter;const isC=!!chn(k);h+='<div title="'+(has?escA(lab(k))+' — '+dNum(w,d):'')+'" style="border-bottom:1px solid var(--line);'+(d===0?'border-left:2px solid var(--line-2);':'border-left:1px solid var(--line);')+'min-height:21px;background:'+cellBg(k)+';'+(dim?'opacity:.22;':'')+'display:flex;align-items:center;justify-content:center;overflow:hidden;padding:0 2px"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:700;'+(isC?'color:#fff':'color:var(--ink-2)')+'">'+(has?esc(lab(k)):'')+'</span></div>';}});
+    wks.forEach(w=>{const row=(planStore[w]||{})[p.id]||[];for(let d=0;d<6;d++){const raw=row[d];const multi=Array.isArray(raw);const k=multi?(raw[0]&&raw[0].k):raw;const k2=multi&&raw[1]?raw[1].k:null;const has=!!k;const dim=planFilter&&k!==planFilter&&k2!==planFilter;const isC=!!chn(k);const ttl=has?(escA(lab(k))+(k2?' + '+escA(lab(k2)):'')+' — '+dNum(w,d)):'';h+='<div title="'+ttl+'" style="border-bottom:1px solid var(--line);'+(d===0?'border-left:2px solid var(--line-2);':'border-left:1px solid var(--line);')+'min-height:21px;background:'+cellBg(k)+';'+(dim?'opacity:.22;':'')+'display:flex;align-items:center;justify-content:center;overflow:hidden;padding:0 2px"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:700;'+(isC?'color:#fff':'color:var(--ink-2)')+'">'+(has?esc(lab(k))+(k2?' +':''):'')+'</span></div>';}});
   });
   h+='</div>';
   h+='<p class="tiny" style="margin:10px 4px 0"><i class="ti ti-info-circle"></i> Vue macro : chaque case = un jour, couleur + nom du chantier. Cliquez l\'en-tête d\'une semaine pour l\'ouvrir en détail. '+(planFilter?'Filtre actif : seul le chantier choisi est en couleur.':'')+'</p>';
@@ -1375,7 +1391,7 @@ function _devisHeuresMO(d){return Math.round(((d&&d.lignes)||[]).reduce((a,l)=>a
 /* budget d'heures d'un chantier : hEst, ou dérivé du devis lié si non défini */
 function _chantierBudgetH(c){if(!c)return 0;if(c.hEst)return c.hEst;if(c.devisId){const d=devisDossiers.find(x=>x.id===c.devisId);if(d)return _devisHeuresMO(d);}return 0;}
 /* heures planifiées pour un chantier sur toutes les semaines (override ou 8h/jour) */
-function _planifHoursForChantier(cid){let h=0;const ppl=planPeople();Object.keys(planStore).forEach(w=>{const wd=planStore[w];if(!wd)return;ppl.forEach(p=>{const row=wd[p.id];if(!row)return;row.forEach((k,d)=>{if(k===cid){const ov=(planHrs[w]&&planHrs[w][p.id]&&planHrs[w][p.id][d]!=null)?planHrs[w][p.id][d]:HJD;h+=ov;}});});});return rnd1(h);}
+function _planifHoursForChantier(cid){let h=0;const ppl=planPeople();Object.keys(planStore).forEach(w=>{const wd=planStore[w];if(!wd)return;ppl.forEach(p=>{const row=wd[p.id];if(!row)return;row.forEach((cell,d)=>{if(cell==null)return;if(Array.isArray(cell)){cell.forEach(it=>{if(it&&it.k===cid)h+=Math.max(0,+it.h||0);});}else if(cell===cid){const ov=(planHrs[w]&&planHrs[w][p.id]&&planHrs[w][p.id][d]!=null)?planHrs[w][p.id][d]:HJD;h+=ov;}});});});return rnd1(h);}
 /* bandeau de suivi quand un chantier est sélectionné */
 function planChantierSummary(){
   if(!planFilter)return '';
@@ -1417,7 +1433,7 @@ views.planning=()=>{
   const dayTot=d=>rnd1(_ppl.reduce((a,s)=>a+cellH(s.id,d),0));
   const totalWeek=rnd1(_ppl.reduce((a,s)=>a+persH(s),0));
   const cap=_ppl.length*5*HJD, occ=cap?Math.round(totalWeek/cap*100):0;
-  let risques=0;_ppl.forEach(s=>(planData[s.id]||[]).forEach((k,d)=>{if(isCh(k)&&badDay(d))risques++;}));
+  let risques=0;_ppl.forEach(s=>{for(let d=0;d<6;d++){if(badDay(d)&&_cellItems(s.id,d).some(it=>isCh(it.k)))risques++;}});
   const chList=chantiers.filter(c=>c.statut!=='fini');
   const bchip=(val,label,col)=>`<button onclick="setBrush('${val}')" style="border:2px solid ${planBrush===val?col:'transparent'};background:${planBrush===val?col+'22':'var(--surface-2)'};color:${col};border-radius:20px;padding:7px 13px;font-size:12.5px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:7px;font-family:inherit"><span style="width:10px;height:10px;border-radius:50%;background:${col}"></span>${label}</button>`;
   const _ws=new Date(2026,5,22);_ws.setDate(22+(planWeek-26)*7);const _we=new Date(_ws);_we.setDate(_ws.getDate()+5);
@@ -1456,6 +1472,9 @@ views.planning=()=>{
     .pl-chip .hb{cursor:pointer}
     .pl-chip .hb:hover{background:rgba(255,255,255,.28);border-radius:6px}
     .pl-cell.paint-hit{box-shadow:inset 0 0 0 2px var(--orange)}
+    .pl-cell .pl-add2{position:absolute;bottom:2px;right:3px;width:15px;height:15px;border-radius:50%;background:rgba(0,0,0,.22);border:none;color:#fff;font-size:12px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;opacity:0;transition:.12s;z-index:2}
+    .pl-cell:hover .pl-add2{opacity:.9}
+    .pl-cell .pl-add2:hover{background:var(--orange);opacity:1}
   </style>
   ${_aPlan.length&&canEditPlan()?`<div class="card" style="margin-bottom:14px;border-left:4px solid var(--orange)"><div class="card-pad"><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><i class="ti ti-clipboard-list" style="color:var(--orange-dark);font-size:18px"></i><b style="font-family:'Baloo 2';font-size:15px">À planifier</b><span class="tag t-amber">${_aPlan.length}</span><span class="tiny" style="color:var(--ink-3)">devis acceptés en attente de chantier</span></div><div class="grid cols-3" style="gap:10px">${_aPlan.map(d=>{const c=d.clientId?cli(d.clientId):null;return `<div style="border:1px solid var(--line);border-radius:10px;padding:10px"><div style="font-weight:700;font-size:13px">${(d.titre||d.ref).replace(/</g,'&lt;')}</div><div class="tiny" style="color:var(--ink-3);margin:3px 0 8px">${c?c.nom.replace(/</g,'&lt;'):'—'}${d.adrChantier?' · '+String(d.adrChantier).replace(/</g,'&lt;'):''}</div><button class="btn sm primary" style="width:100%;justify-content:center" onclick="creerChantierDepuisDevis('${d.id}')"><i class="ti ti-building-plus"></i> Créer le chantier</button></div>`;}).join('')}</div></div></div>`:''}
   <div class="page-head"><div><h1>Planning</h1><p>Vue ${planMode==='jour'?'journée':planMode==='mois'?'mensuelle':planMode==='perso'?'personnalisée':'hebdomadaire'} · glisser-déposer ou cliquer une case</p></div>
@@ -1507,7 +1526,7 @@ function _ptTodayKey(){const d=new Date();return (sessionEmail||'moi')+'|'+d.get
 function _ptGet(){const k=_ptTodayKey();if(!pointages[k])pointages[k]={interventions:[],active:false};return pointages[k];}
 function _fmtDur(secs){secs=Math.max(0,Math.round(secs));const h=Math.floor(secs/3600),m=Math.floor(secs/60)%60;return h+'h'+String(m).padStart(2,'0');}
 function _hms(secs){secs=Math.max(0,Math.round(secs));return [Math.floor(secs/3600),Math.floor(secs/60)%60,secs%60].map(x=>String(x).padStart(2,'0')).join(':');}
-function _ptChantierParDefaut(){const c=currentCompte();const nom=(c&&c.nom)||'';const s=salaries.find(x=>(x.nom||'').toLowerCase()===nom.toLowerCase());if(s&&Array.isArray(planData&&planData[s.id])){const today=(new Date().getDay()+6)%7;const chId=planData[s.id][today];if(chId)return chId;}const open=chantiers.filter(c=>['cours','prep'].includes(c.statut));return (open[0]||chantiers[0]||{}).id||'';}
+function _ptChantierParDefaut(){const c=currentCompte();const nom=(c&&c.nom)||'';const s=salaries.find(x=>(x.nom||'').toLowerCase()===nom.toLowerCase());if(s&&Array.isArray(planData&&planData[s.id])){const today=(new Date().getDay()+6)%7;const cell=planData[s.id][today];const chId=Array.isArray(cell)?(cell[0]&&cell[0].k):cell;if(chId&&chn(chId))return chId;}const open=chantiers.filter(c=>['cours','prep'].includes(c.statut));return (open[0]||chantiers[0]||{}).id||'';}
 function openStartPointage(mode){const def=_ptChantierParDefaut();const opts=chantiers.slice().sort((a,b)=>(a.nom||'').localeCompare(b.nom||'')).map(c=>`<option value="${c.id}" ${c.id===def?'selected':''}>${(c.nom||'').replace(/</g,'&lt;')}</option>`).join('');
   modal(`<div class="modal-head"><h3><i class="ti ti-player-play"></i> ${mode==='changer'?'Changer de chantier':'Commencer ma journée'}</h3><button class="icon-x" onclick="this.closest('.overlay').remove()"><i class="ti ti-x"></i></button></div><div class="modal-body">
   ${mode==='changer'?'<div class="tiny" style="color:var(--ink-3);margin-bottom:10px">L\'intervention en cours est clôturée. La nouvelle démarre maintenant (le temps de route compte sur ce nouveau chantier).</div>':'<div style="font-weight:700;font-size:15px;margin-bottom:6px">Êtes-vous prêt à travailler ?</div>'}
