@@ -370,7 +370,7 @@ input.noarrow{-moz-appearance:textfield;appearance:textfield}
     <nav id="nav"></nav>
     <div class="side-foot">
       <span class="live" id="syncFoot"><span class="pulse"></span> Cloud Supabase</span><br>
-      <span style="opacity:.8">Zinguerie Provençale · v6.1</span>
+      <span style="opacity:.8">Zinguerie Provençale · v6.2</span>
     </div>
   </aside>
 
@@ -491,8 +491,8 @@ let demandesList=[
   {id:'dm1',titre:'Commander 4 bobines zinc 0,65 pour Cuges',who:'as',due:"Aujourd'hui",type:'mat'},
   {id:'dm2',titre:'Soudure étain — réappro urgent',who:'km',due:'Hier',type:'mat'},
 ];
-function validateDemande(id){const d=demandesList.find(x=>x.id===id);if(d&&(d.lignes||d.chantierNom!=null)){traiterDemande(id);return;}demandesList=demandesList.filter(d=>d.id!==id);render();toast('Demande validée','ok','ti-check');}
-function refuseDemande(id){const d=demandesList.find(x=>x.id===id);if(d&&d.statut){d.statut='refuse';d.traiteLe=new Date().toISOString();d.traitePar=((currentCompte()||{}).nom)||'';_logAction('ti-x','a refusé la demande d\'appro '+(d.chantierNom||''));render();toast('Demande refusée','info','ti-x');return;}demandesList=demandesList.filter(d=>d.id!==id);render();toast('Demande refusée','info','ti-x');}
+function validateDemande(id){const d=demandesList.find(x=>x.id===id);if(d&&(d.lignes||d.chantierNom!=null)){traiterDemande(id);return;}_keepWhere(demandesList,d=>d.id!==id);render();toast('Demande validée','ok','ti-check');}
+function refuseDemande(id){const d=demandesList.find(x=>x.id===id);if(d&&d.statut){d.statut='refuse';d.traiteLe=new Date().toISOString();d.traitePar=((currentCompte()||{}).nom)||'';_logAction('ti-x','a refusé la demande d\'appro '+(d.chantierNom||''));render();toast('Demande refusée','info','ti-x');return;}_keepWhere(demandesList,d=>d.id!==id);render();toast('Demande refusée','info','ti-x');}
 function reporterDemande(id){if(!(role==='patron'||role==='gestion'))return;const d=demandesList.find(x=>x.id===id);if(!d)return;const def=d.reporteLe?String(d.reporteLe).slice(0,10):'';const v=prompt('Reporter le traitement à quelle date ? (AAAA-MM-JJ)\nEx. 2026-12-24\n(laisse vide pour annuler le report)',def);if(v===null)return;const t=String(v).trim();if(t===''){delete d.reporteLe;_logAction('ti-calendar','a annulé le report de la demande d\'appro'+(d.chantierNom?' '+d.chantierNom:''));render();toast('Report annulé','info','ti-calendar');return;}const dt=new Date(t);if(isNaN(dt)){toast('Date invalide — format AAAA-MM-JJ','error','ti-alert-circle');return;}d.reporteLe=t;_logAction('ti-calendar-clock','a reporté la demande d\'appro'+(d.chantierNom?' '+d.chantierNom:'')+' au '+dt.toLocaleDateString('fr-FR'));render();toast('Reportée au '+dt.toLocaleDateString('fr-FR')+' — notification le jour dit','ok','ti-calendar-clock');}
 /* ===== Demandes d'approvisionnement (chef/patron → magasinier) ===== */
 let _apLignes=[];
@@ -542,7 +542,7 @@ function _todayFr(cap,short){const o=short?{weekday:'long',day:'numeric',month:'
 function _logAction(ic,txt){try{journal.unshift({t:Date.now(),par:(((typeof currentCompte==='function'&&currentCompte())||{}).nom)||sessionEmail||'—',txt:String(txt||'').replace(/</g,'&lt;'),ic:ic||'ti-activity'});if(journal.length>250)journal.length=250;}catch(e){}}
 function congeToPlanning(sal,from,to,clear){const base=new Date(2026,5,22);const s=new Date(from),e=new Date(to);for(let d=new Date(s);d<=e;d.setDate(d.getDate()+1)){const diff=Math.round((d-base)/86400000);if(diff<0)continue;const wk=26+Math.floor(diff/7),day=((diff%7)+7)%7;if(day<=5){const wd=planWeekData(wk);if(wd[sal]){if(clear){if(wd[sal][day]==='conge')wd[sal][day]=null;}else wd[sal][day]='conge';}}}}
 function validateConge(id){const c=congesList.find(x=>x.id===id);if(!c)return;c.statut='valide';congesBalance[c.sal]=Math.max(0,(congesBalance[c.sal]||0)-congeDays(c.from,c.to));congeToPlanning(c.sal,c.from,c.to,false);_logAction('ti-calendar-check','a validé le congé de '+(((typeof sal==='function'&&sal(c.sal))||{}).nom||c.sal));render();toast('Congé validé · ajouté au planning','ok','ti-calendar-check');}
-function refuseConge(id){const c=congesList.find(x=>x.id===id);if(c){if(c.statut==='valide'){congesBalance[c.sal]+=congeDays(c.from,c.to);congeToPlanning(c.sal,c.from,c.to,true);}congesList=congesList.filter(x=>x.id!==id);_logAction('ti-x','a refusé/supprimé le congé de '+(((typeof sal==='function'&&sal(c.sal))||{}).nom||c.sal));}render();toast('Congé refusé / supprimé','info','ti-x');}
+function refuseConge(id){const c=congesList.find(x=>x.id===id);if(c){if(c.statut==='valide'){congesBalance[c.sal]+=congeDays(c.from,c.to);congeToPlanning(c.sal,c.from,c.to,true);}_keepWhere(congesList,x=>x.id!==id);_logAction('ti-x','a refusé/supprimé le congé de '+(((typeof sal==='function'&&sal(c.sal))||{}).nom||c.sal));}render();toast('Congé refusé / supprimé','info','ti-x');}
 function poserConge(){
   modal(`<div class="modal-head"><h3>Poser un congé</h3><button class="icon-x" onclick="this.closest('.overlay').remove()"><i class="ti ti-x"></i></button></div>
   <div class="modal-body">
@@ -840,7 +840,7 @@ function saveCompte(){const nom=_v('cpNom');if(!nom){toast('Indiquez le nom','in
 function delCompte(id){const u=comptes.find(x=>x.id===id);if(!u)return;
   if(u.role==='Gérant'&&comptes.filter(x=>x.role==='Gérant'&&x.id!==id).length===0){toast('Impossible : il faut au moins un Gérant','info','ti-alert-circle');return;}
   if((u.email||'').toLowerCase()===(sessionEmail||'').toLowerCase()&&!confirm('Attention : c\'est TON propre accès. Vraiment le supprimer ?'))return;
-  if(confirm('Supprimer le profil de '+u.nom+' ? Son accès de connexion sera aussi révoqué.')){comptes=comptes.filter(x=>x.id!==id);_revokeAppUser((u.email||'').toLowerCase());_logAction('ti-user-off','a supprimé le profil et l\'accès de '+u.nom);render();toast('Profil supprimé et accès révoqué','info','ti-trash');}}
+  if(confirm('Supprimer le profil de '+u.nom+' ? Son accès de connexion sera aussi révoqué.')){_keepWhere(comptes,x=>x.id!==id);_revokeAppUser((u.email||'').toLowerCase());_logAction('ti-user-off','a supprimé le profil et l\'accès de '+u.nom);render();toast('Profil supprimé et accès révoqué','info','ti-trash');}}
 async function _syncAppUser(email,nom,role,prevEmail){if(!sb||!/@/.test(email||''))return;try{
   if(prevEmail&&/@/.test(prevEmail)&&prevEmail!==email){await sb.from('app_users').delete().eq('email',prevEmail);}
   const r=await sb.from('app_users').upsert({email,nom,role,actif:true});
@@ -1112,7 +1112,7 @@ function _prodMargeShow(){/* v3.2 : marge et prix de vente gérés dans le devis
 function _prodDispoShow(){const e=editProd,d=(e.stock||0)-(e.reserve||0),low=(e.seuil||0)>0&&d<=e.seuil,el=document.getElementById('pdDispo');if(el)el.innerHTML='Disponible : <span style="color:'+(low?'var(--alerte)':'var(--olive)')+'">'+d+' '+(e.u||'')+'</span>'+(low?' — sous le seuil ⚠':'');}
 function _prodPhotoPick(input){const f=input.files&&input.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{const img=new Image();img.onload=()=>{const max=300;let w=img.width,h=img.height;const sc=Math.min(1,max/Math.max(w,h));const cw=Math.round(w*sc),ch=Math.round(h*sc);const cv=document.createElement('canvas');cv.width=cw;cv.height=ch;cv.getContext('2d').drawImage(img,0,0,cw,ch);editProd.photo=cv.toDataURL('image/jpeg',0.82);const p=document.getElementById('prodPhotoPrev');if(p){p.style.background='url('+editProd.photo+')';p.style.backgroundSize='cover';p.style.backgroundPosition='center';p.innerHTML='';}};img.src=ev.target.result;};r.readAsDataURL(f);}
 function saveProduit(){const e=editProd;if(!e.nom.trim()){toast('Indiquez le nom du produit','info','ti-alert-circle');return;}if(e.id){const p=catF(e.id);if(p)Object.assign(p,{nom:e.nom,u:e.u,cat:e.cat,achat:e.achat,coef:e.coef,pu:e.pu,photo:e.photo,empl:e.empl||'',fourn:e.fourn||'',refF:e.refF||'',ft:e.ft||''});}else{catFournitures.push({id:'f-'+Date.now(),nom:e.nom,u:e.u,cat:e.cat,achat:e.achat,coef:e.coef,pu:e.pu,photo:e.photo,empl:e.empl||'',fourn:e.fourn||'',refF:e.refF||'',ft:e.ft||''});}document.querySelectorAll('.overlay').forEach(o=>o.remove());render();toast(e.id?'Produit mis à jour':'Produit créé','ok','ti-package');}
-function delProduit(id){const p=catF(id);if(!p)return;if(confirm("Supprimer le produit « "+p.nom+" » ?")){catFournitures=catFournitures.filter(x=>x.id!==id);render();toast('Produit supprimé','info','ti-trash');}}
+function delProduit(id){const p=catF(id);if(!p)return;if(confirm("Supprimer le produit « "+p.nom+" » ?")){_keepWhere(catFournitures,x=>x.id!==id);render();toast('Produit supprimé','info','ti-trash');}}
 views.biblio=()=>{
   const cats=[...new Set([...prodCats,...catFournitures.map(p=>p.cat||'Divers')])];
   const groups=cats.map(c=>({c,items:catFournitures.filter(p=>(p.cat||'Divers')===c)})).filter(g=>g.items.length);
@@ -2005,7 +2005,7 @@ function openRDV(id){
     </div>
   </div>`);
 }
-function delRDV(id){rdvs=rdvs.filter(x=>x.id!==id);document.querySelectorAll('.overlay').forEach(o=>o.remove());render();toast('Rendez-vous supprimé');}
+function delRDV(id){_keepWhere(rdvs,x=>x.id!==id);document.querySelectorAll('.overlay').forEach(o=>o.remove());render();toast('Rendez-vous supprimé');}
 function _reRDV(id){document.querySelectorAll('.overlay').forEach(o=>o.remove());render();openRDV(id);}
 function addParticipant(id,mid){const r=rdvs.find(x=>x.id===id);if(!r)return;if(!r.whos)r.whos=rdvParts(r).slice();if(!r.whos.includes(mid))r.whos.push(mid);_reRDV(id);toast((buro(mid)||{}).nom?'Ajouté : '+buro(mid).nom.split(' ')[0]:'Participant ajouté','ok','ti-user-plus');}
 function removeParticipant(id,mid){const r=rdvs.find(x=>x.id===id);if(!r)return;if(!r.whos)r.whos=rdvParts(r).slice();r.whos=r.whos.filter(x=>x!==mid);_reRDV(id);toast('Participant retiré');}
@@ -2562,10 +2562,10 @@ let editOuvr=null,_ouvrPhotoTmp=null,_ocatOpen=false;
 function ouvrCatList(){return [...new Set([...ouvrCats,...ouvrages.map(o=>o.cat||'Autres'),editOuvr&&editOuvr.cat].filter(Boolean))];}
 function _ocatPick(c){editOuvr.cat=c;_ocatOpen=false;drawOuvrForm();}
 function _addOuvrCat(){const i=document.getElementById('newOuvrCatInput');const n=(i?i.value:'').trim();if(!n)return;if(!ouvrCats.includes(n))ouvrCats.push(n);editOuvr.cat=n;_ocatOpen=false;drawOuvrForm();saveState();}
-function delOuvrCat(c){if(c==='Autres'){toast('La catégorie « Autres » ne peut pas être supprimée','info','ti-alert-circle');return;}const used=ouvrages.filter(o=>(o.cat||'Autres')===c).length;if(used>0&&!confirm('Supprimer « '+c+' » ? Ses '+used+' ouvrage(s) iront dans « Autres ».'))return;ouvrCats=ouvrCats.filter(x=>x!==c);ouvrages.forEach(o=>{if((o.cat||'Autres')===c)o.cat='Autres';});if(!ouvrCats.includes('Autres'))ouvrCats.push('Autres');if(editOuvr&&editOuvr.cat===c)editOuvr.cat='Autres';_ocatOpen=false;drawOuvrForm();saveState();toast('Catégorie supprimée','info','ti-trash');}
+function delOuvrCat(c){if(c==='Autres'){toast('La catégorie « Autres » ne peut pas être supprimée','info','ti-alert-circle');return;}const used=ouvrages.filter(o=>(o.cat||'Autres')===c).length;if(used>0&&!confirm('Supprimer « '+c+' » ? Ses '+used+' ouvrage(s) iront dans « Autres ».'))return;_keepWhere(ouvrCats,x=>x!==c);ouvrages.forEach(o=>{if((o.cat||'Autres')===c)o.cat='Autres';});if(!ouvrCats.includes('Autres'))ouvrCats.push('Autres');if(editOuvr&&editOuvr.cat===c)editOuvr.cat='Autres';_ocatOpen=false;drawOuvrForm();saveState();toast('Catégorie supprimée','info','ti-trash');}
 function nouvelOuvrage(){_ocatOpen=false;editOuvr={id:null,nom:'',desc:'',cat:'Préparation',unite:'m²',h:0.5,four:[],photo:'',icon:'ti-tools'};modal('<div id="ouvrForm"></div>');drawOuvrForm();}
 function editOuvrage(id){const o=ouvr(id);if(!o)return;_ocatOpen=false;editOuvr={id:o.id,nom:o.nom,desc:o.desc||'',cat:o.cat,unite:o.unite,h:o.h,four:o.four.map(f=>({fid:f.fid,qte:f.qte})),photo:o.photo||'',icon:o.icon||'ti-tools'};modal('<div id="ouvrForm"></div>');drawOuvrForm();}
-function delOuvrage(id){const o=ouvr(id);if(!o)return;if(confirm("Supprimer l'ouvrage « "+o.nom+" » ?")){ouvrages=ouvrages.filter(x=>x.id!==id);render();toast('Ouvrage supprimé','info','ti-trash');}}
+function delOuvrage(id){const o=ouvr(id);if(!o)return;if(confirm("Supprimer l'ouvrage « "+o.nom+" » ?")){_keepWhere(ouvrages,x=>x.id!==id);render();toast('Ouvrage supprimé','info','ti-trash');}}
 function _ouvrPhotoPick(input){const f=input.files&&input.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{const img=new Image();img.onload=()=>{const max=400;let w=img.width,h=img.height;const sc=Math.min(1,max/Math.max(w,h));const cw=Math.round(w*sc),ch=Math.round(h*sc);const cv=document.createElement('canvas');cv.width=cw;cv.height=ch;cv.getContext('2d').drawImage(img,0,0,cw,ch);editOuvr.photo=cv.toDataURL('image/jpeg',0.82);drawOuvrForm();};img.src=ev.target.result;};r.readAsDataURL(f);}
 function ouvrAddFour(){editOuvr.four.push({fid:catFournitures[0].id,qte:1});drawOuvrForm();}
 function ouvrDelFour(i){editOuvr.four.splice(i,1);drawOuvrForm();}
@@ -2858,7 +2858,7 @@ function delPersonne(id,type){
   else{const i=salaries.findIndex(s=>s.id===id);if(i>-1)salaries.splice(i,1);delete COMPMAP[id];
     Object.keys(planStore).forEach(w=>{if(planStore[w])delete planStore[w][id];});
     chantiers.forEach(c=>{if(Array.isArray(c.equipe))c.equipe=c.equipe.filter(m=>m!==id);if(c.chef===id)c.chef='';});
-    equipes.forEach(t=>{t.membres=t.membres.filter(m=>m!==id);});equipes=equipes.filter(t=>sal(t.chef));}
+    equipes.forEach(t=>{t.membres=t.membres.filter(m=>m!==id);});_keepWhere(equipes,t=>sal(t.chef));}
   document.querySelectorAll('.overlay').forEach(o=>o.remove());render();toast('Personne supprimée','info','ti-trash');
 }
 function saveSalarie(){
@@ -3508,6 +3508,8 @@ function _doReset(){if(!_resetEmail){doLogin();return;}const c=comptes.find(x=>x
 async function logout(){closeMenus();try{if(sb)await sb.auth.signOut();}catch(e){}_cloudReady=false;sessionEmail=null;saveState();showLogin();}
 /* ===== Persistance locale (localStorage) + cloud (Supabase) ===== */
 const ZP_STORE_KEY='zp_erp_state_v3';
+/* Fix persistance : retrait EN PLACE (préserve la référence du tableau suivie par _persistArrays ; ne JAMAIS faire X=X.filter(...) sur un tableau persisté) */
+function _keepWhere(arr,keep){if(!Array.isArray(arr))return arr;for(let i=arr.length-1;i>=0;i--){if(!keep(arr[i]))arr.splice(i,1);}return arr;}
 const _persistArrays={salaries,equipes,clients,chantiers,stock,profils,bureau,taches,demandesList,congesList,carnet,rdvs,devisLignes,catFournitures,ouvrages,factures,comptes,prodCats,ouvrCats,devisDossiers,stockMoves,matConsos,_delCats,journal,planResList,interims,docSections,rapports};
 const _persistObjects={congesBalance,planStore,planHrs,planNotes,chatMsgs,chantierSteps,profilUser,txtModeles,pointages};
 function _stateObj(){if(typeof _syncCurDevis==='function')_syncCurDevis();const d={arr:{},obj:{},scal:{tauxMO,coutMO,devisClient,currentDevis,_devisSeq,rdvSeq,agendaWeek,planWeek,carnetChef,coefMargeDefaut,sessionEmail,tvaDefaut,margeObjectif,arrondiPU}};for(const k in _persistArrays)d.arr[k]=_persistArrays[k];for(const k in _persistObjects)d.obj[k]=_persistObjects[k];return d;}
