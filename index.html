@@ -370,7 +370,7 @@ input.noarrow{-moz-appearance:textfield;appearance:textfield}
     <nav id="nav"></nav>
     <div class="side-foot">
       <span class="live" id="syncFoot"><span class="pulse"></span> Cloud Supabase</span><br>
-      <span style="opacity:.8">Zinguerie Provençale · v6.3</span>
+      <span style="opacity:.8">Zinguerie Provençale · v6.4</span>
     </div>
   </aside>
 
@@ -942,7 +942,8 @@ function kpi(lab,val,delta,dir,ic,col,bg,spark){return `<div class="kpi"><div cl
 function kpiS(lab,val,sub,ic,col,bg){return `<div class="kpi"><div class="ic" style="color:${col};background:${bg}"><i class="ti ${ic}"></i></div><div class="lab">${lab}</div><div class="val" style="color:${col}">${val}</div><div class="delta" style="color:var(--ink-3)">${sub}</div></div>`;}
 
 views.aujourdhui=()=>{
-  const c=chn('ch1');
+  const c=chn('ch1')||chantiers[0];
+  if(!c)return `<div class="view"><div class="page-head"><div><h1>Aujourd'hui</h1><p>Bonjour ${(_pretty(_meName()).split(' ')[0])||'à vous'} ☀️ · ${_todayFr(false,true)}</p></div></div><div class="card card-pad" style="text-align:center;color:var(--ink-3);padding:44px 20px"><i class="ti ti-calendar-off" style="font-size:34px"></i><div style="margin-top:10px;font-weight:600;color:var(--ink-2)">Aucun chantier programmé pour aujourd'hui</div><div class="tiny" style="margin-top:4px">Les chantiers planifiés apparaîtront ici automatiquement.</div><button class="btn primary" style="margin-top:16px" onclick="go('pointage')"><i class="ti ti-player-play"></i> Pointer ma journée</button></div></div>`;
   return `<div class="view">
   <div class="page-head"><div><h1>Aujourd'hui</h1><p>Bonjour ${(_pretty(_meName()).split(' ')[0])||'à vous'} ☀️ · ${_todayFr(false,true)}</p></div></div>
   <div class="hero" style="background:linear-gradient(135deg,${c.col}d9,${c.col}8c)"><div class="roof"></div><div class="veil"></div>
@@ -1008,14 +1009,14 @@ function clientChantierCard(c){
   </div>`;
 }
 views.espaceClient=()=>{
-  const cl=cli(clientPortalId);
-  const chs=chantiers.filter(c=>c.clientId===clientPortalId);
+  const cl=cli(clientPortalId)||clients[0];
+  const chs=chantiers.filter(c=>c.clientId===(cl?cl.id:clientPortalId));
   const enCours=chs.filter(c=>c.statut==='cours'||c.statut==='prep');
   const finis=chs.filter(c=>c.statut==='fini');
   const devisPend=chs.filter(c=>c.devisEnAttente);
   return `<div class="view">
     <div class="hero" style="background:linear-gradient(135deg,#FFB347,#F39200);min-height:118px;margin-bottom:18px"><div class="veil"></div>
-      <div><h2>Bonjour ${cl.nom} 👋</h2><div style="opacity:.95;font-size:13px;margin-top:4px">Suivez l'avancement de vos travaux en temps réel — Zinguerie Provençale</div></div>
+      <div><h2>Bonjour ${cl?cl.nom:'cher client'} 👋</h2><div style="opacity:.95;font-size:13px;margin-top:4px">Suivez l'avancement de vos travaux en temps réel — ${entreprise.raison}</div></div>
     </div>
     ${devisPend.length?devisPend.map(c=>`<div class="card card-pad" style="border:1.5px solid var(--orange);margin-bottom:16px">
       <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
@@ -2998,7 +2999,7 @@ views.supervision=()=>{
   /* --- vue EN DIRECT --- */
   const direct=`<div class="card"><div class="card-head"><h3><i class="ti ti-broadcast"></i> Équipe en direct</h3><span class="sub">cliquez une ligne pour le détail</span></div>
     <div class="sup-head"><div></div><div>Salarié</div><div>Statut</div><div>Chantier &amp; arrivée</div><div style="text-align:right">Temps · heures</div></div>
-    ${salaries.map(s=>{const L=lt(s.id),st=LSTAT[L.statut],c=chn(L.ch),live=['cours','pause'].includes(L.statut);
+    ${salaries.map(s=>{const L=lt(s.id),st=LSTAT[L.statut],c=chn(L.ch)||{col:'#9aa8b0',nom:'—'},live=['cours','pause'].includes(L.statut);
       const ic=L.statut==='cours'?'ti-player-play':L.statut==='pause'?'ti-player-pause':L.statut==='fini'?'ti-check':'ti-clock';
       const temps=live?surSite(L.since):(L.dur||'—'),tlab=live?'sur site':"aujourd'hui";
       return `<div class="sup-row" style="border-left-color:${st[1]};cursor:pointer" onclick="openMembre('${s.id}')">
