@@ -370,7 +370,7 @@ input.noarrow{-moz-appearance:textfield;appearance:textfield}
     <nav id="nav"></nav>
     <div class="side-foot">
       <span class="live" id="syncFoot"><span class="pulse"></span> Cloud Supabase</span><br>
-      <span style="opacity:.8">Zinguerie Provençale · v6.2</span>
+      <span style="opacity:.8">Zinguerie Provençale · v6.3</span>
     </div>
   </aside>
 
@@ -667,6 +667,7 @@ let ouvrages=[
   {id:'o4',cat:'Zinguerie',nom:'Habillage rive / solin',icon:'ti-border-style',unite:'ml',h:0.4,four:[{fid:'f-solin',qte:1}]},
 ];
 let devisClient='c1';
+let entreprise={raison:'Zinguerie Provençale SARL',metiers:'Couverture · Charpente · Zinguerie · Étanchéité · Désamiantage SS4',adresse:'290 Rue Jean de Guiramand, 13290 Aix-en-Provence',siret:'517 468 369 00031',decennale:'AXA n° 2026-7741',tel:'',email:''};
 let devisDossiers=[];let currentDevis=null;let _devisSeq=142;let _devisStatutFilter='all';let _devisParFilter='all';let journal=[];
 const DEVIS_STATUTS={brouillon:['À finaliser','#a9760d','rgba(232,181,71,.18)','ti-pencil'],envoye:['Envoyé','#3D8AC6','rgba(61,138,198,.14)','ti-send'],accepte:['Accepté','#7A8B4F','rgba(122,139,79,.16)','ti-circle-check'],refuse:['Refusé','#B83A26','rgba(184,58,38,.13)','ti-circle-x']};
 const DEVIS_STATUT_ORDER=['brouillon','envoye','accepte','refuse'];
@@ -2322,12 +2323,12 @@ function devisPreviewHTML(){
   const t=devisTotals();const c=devisClient?cli(devisClient):null;
   return `
   <div style="padding:20px 22px;display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid var(--orange)">
-    <div>${_logoSrc()?`<img src="${_logoSrc()}" style="height:74px;display:block">`:`<div style="font-family:'Baloo 2';font-weight:800;font-size:17px;letter-spacing:1px;color:var(--ink)">ZINGUERIE</div><div style="height:2px;width:84px;background:var(--orange);margin:2px 0"></div><div style="font-family:'Baloo 2';font-weight:800;font-size:14px;letter-spacing:1px;color:var(--ink)">PROVENÇALE</div>`}<div class="tiny" style="margin-top:7px;color:var(--bleu-mer);font-weight:600">${ZP_METIERS}</div></div>
+    <div>${_logoSrc()?`<img src="${_logoSrc()}" style="height:74px;display:block">`:`<div style="font-family:'Baloo 2';font-weight:800;font-size:17px;letter-spacing:1px;color:var(--ink)">ZINGUERIE</div><div style="height:2px;width:84px;background:var(--orange);margin:2px 0"></div><div style="font-family:'Baloo 2';font-weight:800;font-size:14px;letter-spacing:1px;color:var(--ink)">PROVENÇALE</div>`}<div class="tiny" style="margin-top:7px;color:var(--bleu-mer);font-weight:600">${entreprise.metiers}</div></div>
     <div style="text-align:right"><div style="font-family:'Baloo 2';font-weight:800;font-size:21px;color:var(--orange-dark)">DEVIS</div><div class="tiny">Nº ${((_curDoss&&_curDoss())||{}).ref||''}</div><div class="tiny">${new Date().toLocaleDateString('fr-FR')}</div><div class="tiny">Valable ${((((_curDoss&&_curDoss())||{}).cond||{}).validite)||'60 jours'}</div></div>
   </div>
   <div style="padding:16px 22px">
     <div style="display:flex;justify-content:space-between;gap:16px;margin-bottom:14px;font-size:11.5px;line-height:1.5">
-      <div><div class="tiny" style="font-weight:700;color:var(--ink-3)">ÉMETTEUR</div>Zinguerie Provençale SARL<br>${ZP_ADRESSE}<br>SIRET ${ZP_SIRET}</div>
+      <div><div class="tiny" style="font-weight:700;color:var(--ink-3)">ÉMETTEUR</div>${entreprise.raison}<br>${entreprise.adresse}<br>SIRET ${entreprise.siret}</div>
       <div style="text-align:right"><div class="tiny" style="font-weight:700;color:var(--ink-3)">CLIENT</div>${c?`<b>${c.nom}</b><br>${[c.adr,c.ville].filter(Boolean).join(', ')||c.ville||''}<br>${c.tel||''}`:'<span style="color:var(--ink-3)">— aucun client —</span>'}</div>
     </div>
     ${(()=>{const _pd=(_curDoss&&_curDoss())||{};return `${_pd.adrChantier?`<div style="font-size:11px;margin:-4px 0 10px"><b>Adresse du chantier :</b> ${String(_pd.adrChantier).replace(/</g,'&lt;')}</div>`:''}${_pd.intro?`<div style="font-size:11px;background:var(--surface-2);border-radius:8px;padding:9px 11px;margin-bottom:12px;white-space:pre-wrap;line-height:1.45">${String(_pd.intro).replace(/</g,'&lt;')}</div>`:''}`;})()}
@@ -2363,21 +2364,19 @@ function _dlpAdd(i,fid){const l=devisLignes[i];if(!l)return;if(!l.four)l.four=[]
 /* ===== EXPORT PDF (devis / factures) ===== */
 function _logoSrc(){const el=document.querySelector('.brand-logo');return el?el.src:'';}
 function printDoc(html){let pa=document.getElementById('printArea');if(!pa){pa=document.createElement('div');pa.id='printArea';document.body.appendChild(pa);}pa.innerHTML='<div style="padding:6mm">'+html+'</div>';setTimeout(()=>window.print(),80);}
-const ZP_METIERS='Couverture · Charpente · Zinguerie · Étanchéité · Désamiantage SS4';
-const ZP_ADRESSE='290 Rue Jean de Guiramand, 13290 Aix-en-Provence';
-const ZP_SIRET='517 468 369 00031';
+/* identité entreprise : l'objet `entreprise` (défini plus haut) est éditable dans Réglages & coûts et persisté ; toutes les vues (devis/facture/PDF) lisent `entreprise.*` directement pour rester à jour en direct. */
 function _docHeader(titre,num){const logo=_logoSrc();return `<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #F39200;padding-bottom:14px">
-  <div>${logo?`<img src="${logo}" style="height:80px">`:'<b style="font-size:18px">ZINGUERIE PROVENÇALE</b>'}<div style="font-size:11px;color:#3D8AC6;font-weight:600;margin-top:7px">${ZP_METIERS}</div></div>
+  <div>${logo?`<img src="${logo}" style="height:80px">`:'<b style="font-size:18px">ZINGUERIE PROVENÇALE</b>'}<div style="font-size:11px;color:#3D8AC6;font-weight:600;margin-top:7px">${entreprise.metiers}</div></div>
   <div style="text-align:right"><div style="font-weight:800;font-size:22px;color:#C56F00">${titre}</div><div style="font-size:11px;color:#6B6B6B">Nº ${num}</div><div style="font-size:11px;color:#6B6B6B">${new Date().toLocaleDateString('fr-FR')}</div></div></div>`;}
 function _docEmetteurClient(nomClient,extra){return `<div style="display:flex;justify-content:space-between;gap:16px;margin:16px 0;font-size:12px;line-height:1.5">
-  <div><div style="font-weight:700;color:#6B6B6B;font-size:10px">ÉMETTEUR</div>Zinguerie Provençale SARL<br>${ZP_ADRESSE}<br>SIRET ${ZP_SIRET}</div>
+  <div><div style="font-weight:700;color:#6B6B6B;font-size:10px">ÉMETTEUR</div>${entreprise.raison}<br>${entreprise.adresse}<br>SIRET ${entreprise.siret}</div>
   <div style="text-align:right"><div style="font-weight:700;color:#6B6B6B;font-size:10px">CLIENT</div><b>${nomClient}</b>${extra?'<br>'+extra:''}</div></div>`;}
 /* ===== Bloc conditions & délais (sous l'acompte), ventilation TVA, talon entreprise ===== */
 function _tvaLignes(t,pdf){const col=pdf?'#6B6B6B':'var(--ink-3)';const rows=Object.keys(t.parTaux||{}).filter(k=>k!=='auto'&&(t.parTaux[k]||0)>0).sort((a,b)=>parseFloat(a)-parseFloat(b)).map(k=>`<div style="display:flex;justify-content:space-between;padding:3px 0"><span style="color:${col}">Total TVA ${k.replace('.',',')} %</span><span style="white-space:nowrap;padding-left:10px">${fmtP((t.parTaux[k]||0)*((parseFloat(k)||0)/100))}</span></div>`);if(t.auto)rows.push(`<div style="display:flex;justify-content:space-between;padding:3px 0"><span style="color:${col}">Autoliquidation (base HT)</span><span style="white-space:nowrap;padding-left:10px">${fmtP(t.parTaux['auto']||0)}</span></div>`);return rows.join('');}
 function _condTexte(d,pdf){d=d||{};const c=d.cond||{};const ac=c.acompte||'10 % à la signature, 30 % à la planification, solde sur situations de travaux';const col=pdf?'#555':'var(--ink-2)';const bg=pdf?'#FBF7EE':'var(--surface-2)';
   const conds=[c.regl&&c.regl.length?'Règlement par '+c.regl.join(' ou ').toLowerCase():'',c.delai?'Délai de règlement à réception de situation ou facture : '+c.delai.toLowerCase():'',c.revision?'Devis '+c.revision.toLowerCase():'',c.validite?'Validité de l\'offre : '+c.validite:''].filter(Boolean);
   return `<div style="margin-top:10px;font-size:${pdf?'10.5px':'11px'};color:${col};background:${bg};border-radius:8px;padding:9px 11px;line-height:1.5"><b>Modalités de règlement :</b> ${String(ac).replace(/</g,'&lt;')}${conds.length?'<br><b>Conditions :</b> '+conds.join(' · ')+'.':''}</div>`;}
-function _talonEntreprise(pdf){const col=pdf?'#888':'var(--ink-3)';return `<div style="margin-top:16px;border-top:1px solid ${pdf?'#ddd':'var(--line)'};padding-top:9px;text-align:center;font-size:${pdf?'9.5px':'10px'};color:${col};line-height:1.5"><b style="color:${pdf?'#555':'var(--ink-2)'}">ZINGUERIE PROVENÇALE SARL</b> — ${ZP_METIERS}<br>${ZP_ADRESSE} · SIRET ${ZP_SIRET} · Assurance décennale AXA n° 2026-7741 · Garantie de parfait achèvement 1 an</div>`;}
+function _talonEntreprise(pdf){const col=pdf?'#888':'var(--ink-3)';return `<div style="margin-top:16px;border-top:1px solid ${pdf?'#ddd':'var(--line)'};padding-top:9px;text-align:center;font-size:${pdf?'9.5px':'10px'};color:${col};line-height:1.5"><b style="color:${pdf?'#555':'var(--ink-2)'}">${(entreprise.raison||'').toUpperCase()}</b> — ${entreprise.metiers}<br>${entreprise.adresse} · SIRET ${entreprise.siret} · Assurance décennale ${entreprise.decennale} · Garantie de parfait achèvement 1 an</div>`;}
 function _curCondDefaults(){return {regl:['Chèque','Virement'],acompte:'10 % à la signature, 30 % à la planification, solde sur situations de travaux',delai:'30 jours fin de mois',revision:'Non révisable',validite:'60 jours'};}
 function openDevisOptions(){const d=_curDoss();if(!d){toast('Ouvre un devis d\'abord','info','ti-alert-circle');return;}const cond=Object.assign(_curCondDefaults(),d.cond||{});
  modal(`<div class="modal-head"><h3><i class="ti ti-adjustments"></i> Adresse & conditions du devis</h3><button class="icon-x" onclick="this.closest('.overlay').remove()"><i class="ti ti-x"></i></button></div><div class="modal-body" style="max-height:64vh;overflow:auto">
@@ -2409,10 +2408,10 @@ function openDevisOptions(){const d=_curDoss();if(!d){toast('Ouvre un devis d\'a
  <div class="tiny" style="color:var(--ink-3);margin-top:3px">« Moyens lourds » = fournitures des familles « Moyens lourds » / « Moyens matériels » (benne, chariot…). Une nature laissée vide = 0 % (déboursé).</div>
  <div style="font-weight:700;font-size:13px;margin:12px 0 6px">Conditions Générales de Vente (page annexe au devis)</div>
  <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-bottom:6px"><input type="checkbox" id="dvCgvOn" ${d.cgvOn?'checked':''} onchange="document.getElementById('dvCgvBlock').style.display=this.checked?'':'none'"> Joindre une page CGV à la fin du devis</label>
- <div id="dvCgvBlock" style="display:${d.cgvOn?'':'none'}"><div style="display:flex;gap:6px;margin-bottom:5px"><button class="btn sm ghost" onclick="document.getElementById('dvCgv').value=_CGV_MODELE"><i class="ti ti-file-text"></i> Charger le modèle CGV</button></div><textarea id="dvCgv" class="cell" style="width:100%;min-height:120px;font-size:11px" placeholder="Colle ici tes CGV, ou clique « Charger le modèle CGV » puis adapte…">${(d.cgv||'').replace(/</g,'&lt;')}</textarea></div>
+ <div id="dvCgvBlock" style="display:${d.cgvOn?'':'none'}"><div style="display:flex;gap:6px;margin-bottom:5px"><button class="btn sm ghost" onclick="document.getElementById('dvCgv').value=_cgvModele()"><i class="ti ti-file-text"></i> Charger le modèle CGV</button></div><textarea id="dvCgv" class="cell" style="width:100%;min-height:120px;font-size:11px" placeholder="Colle ici tes CGV, ou clique « Charger le modèle CGV » puis adapte…">${(d.cgv||'').replace(/</g,'&lt;')}</textarea></div>
  <button class="btn primary" style="width:100%;justify-content:center;margin-top:14px" onclick="saveDevisOptions()"><i class="ti ti-check"></i> Enregistrer</button></div>`);}
-const _CGV_MODELE=`1. OBJET ET CHAMP D'APPLICATION
-Les présentes conditions générales de vente régissent les relations entre la société ZINGUERIE PROVENÇALE SARL (ci-après « l'Entreprise ») et son client, pour tous travaux de couverture, charpente, zinguerie, étanchéité et désamiantage SS4. Toute commande implique l'acceptation sans réserve des présentes CGV.
+function _cgvModele(){return `1. OBJET ET CHAMP D'APPLICATION
+Les présentes conditions générales de vente régissent les relations entre la société ${(entreprise.raison||'').toUpperCase()} (ci-après « l'Entreprise ») et son client, pour tous travaux de couverture, charpente, zinguerie, étanchéité et désamiantage SS4. Toute commande implique l'acceptation sans réserve des présentes CGV.
 
 2. DEVIS ET COMMANDE
 Le devis est valable pendant la durée indiquée en première page. La commande n'est ferme qu'après retour du devis daté, signé et revêtu de la mention « bon pour accord », accompagné de l'acompte prévu.
@@ -2433,7 +2432,7 @@ Les matériaux et fournitures demeurent la propriété de l'Entreprise jusqu'au 
 Sauf stipulation contraire au devis, sont à la charge du client : la mise à disposition de l'eau, de l'électricité et de sanitaires, le libre accès au chantier, ainsi que l'évacuation préalable des encombrants. Les travaux chez le voisinage sont exclus.
 
 8. ASSURANCES ET GARANTIES
-L'Entreprise est titulaire d'une assurance de responsabilité civile et décennale (AXA n° 2026-7741). Les travaux bénéficient de la garantie de parfait achèvement (1 an) et, le cas échéant, des garanties biennale et décennale légales.
+L'Entreprise est titulaire d'une assurance de responsabilité civile et décennale (${entreprise.decennale}). Les travaux bénéficient de la garantie de parfait achèvement (1 an) et, le cas échéant, des garanties biennale et décennale légales.
 
 9. RÉCEPTION DES TRAVAUX
 La réception est prononcée contradictoirement. À défaut de réserves émises lors de la réception, les travaux sont réputés conformes et acceptés.
@@ -2442,7 +2441,7 @@ La réception est prononcée contradictoirement. À défaut de réserves émises
 Les travaux relevant de la sous-section 4 sont réalisés conformément à la réglementation en vigueur et au mode opératoire remis. Le client s'engage à communiquer tout Diagnostic Amiante Avant Travaux (DAAT) en sa possession.
 
 11. LITIGES
-En cas de différend, les parties rechercheront une solution amiable. À défaut, le litige sera porté devant le tribunal compétent du ressort du siège de l'Entreprise.`;
+En cas de différend, les parties rechercheront une solution amiable. À défaut, le litige sera porté devant le tribunal compétent du ressort du siège de l'Entreprise.`;}
 function saveDevisOptions(){const d=_curDoss();if(!d)return;d.cgvOn=(document.getElementById('dvCgvOn')||{}).checked||false;const _cg=_v('dvCgv');if(_cg)d.cgv=_cg;d.natProjet=_v('dvNatP');d.natOuvrages=[...document.querySelectorAll('.dvNatO:checked')].map(c=>c.value);d.adrChantier=_v('dvAdr');d.intro=_v('dvIntro');d.outro=_v('dvOutro');d.cond={regl:[document.getElementById('dvRegC').checked?'Chèque':null,document.getElementById('dvRegV').checked?'Virement':null].filter(Boolean),acompte:_v('dvAcompte'),delai:_v('dvDelai'),revision:_v('dvRev'),validite:_v('dvVal')};const _tv=_v('dvTva');if(_tv!=null&&_tv!=='')d.tvaDevis=_tv;d.maj=Date.now();document.querySelectorAll('.overlay').forEach(o=>o.remove());render();toast('Adresse & conditions enregistrées','ok','ti-check');}
 function _pfm(id){const v=parseFloat(String(_v(id)||'').replace(',','.'));return isNaN(v)?null:v;}
 function applyMarges(mF,mMO,mL){let n=0;devisLignes.forEach(l=>{const p=_lineCoutParts(l);const tot=p.mo+p.fourn+p.lourd;if(tot>0){l.pu=_arr(p.mo*margeToCoef(mMO)+p.fourn*margeToCoef(mF)+p.lourd*margeToCoef(mL));n++;}});_syncCurDevis();render();toast(n?n+' ligne'+(n>1?'s':'')+' recalculée'+(n>1?'s':''):'Aucune ligne avec un coût connu','ok','ti-percentage');}
@@ -2517,7 +2516,7 @@ function factureDocHTML(f){
       <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:12px;color:#6B6B6B"><span>Échéance</span><span>${f.echeance}</span></div>
       <div style="display:flex;justify-content:space-between;padding:2px 0;font-size:12px;color:#6B6B6B"><span>Statut</span><span>${FSTAT[f.statut][0]}</span></div>
     </div></div>
-    <div style="margin-top:18px;border-top:1px solid #ddd;padding-top:9px;font-size:10.5px;color:#6B6B6B">Règlement à réception. Pénalités de retard : 3× le taux légal. Pas d'escompte pour paiement anticipé. Assurance décennale AXA n° 2026-7741.</div>
+    <div style="margin-top:18px;border-top:1px solid #ddd;padding-top:9px;font-size:10.5px;color:#6B6B6B">Règlement à réception. Pénalités de retard : 3× le taux légal. Pas d'escompte pour paiement anticipé. Assurance décennale ${entreprise.decennale}.</div>
   </div>`;}
 function exportFacturePDF(num){const f=factures.find(x=>x.num===num);if(f){printDoc(factureDocHTML(f));toast("Fenêtre d'impression — choisissez « Enregistrer en PDF »",'info','ti-file-download');}}
 function devisToFacture(){const t=devisTotals();if(t.ttc<=0){toast('Le devis est vide','info','ti-alert-circle');return;}const c=devisClient?cli(devisClient):null;const prev=_facturesDuDevis(currentDevis);const nAc=prev.filter(f=>/acompte/i.test(f.type||'')).length+1;const num='F-'+String(104+factures.length);factures.unshift({num,clientNom:c?c.nom:'—',type:'Acompte '+nAc,devisId:currentDevis,ht:Math.round(t.st*0.3),tva:Math.round(t.tva*0.3),ttc:Math.round(t.ttc*0.3),statut:'attente',echeance:'à 30 j',date:new Date().toISOString(),par:((currentCompte()||{}).nom)||''});_logAction('ti-file-check','a créé la facture d\'acompte n°'+nAc+' '+num+' — '+(c?c.nom:'sans client'));go('factures');toast("Facture d'acompte "+nAc+" créée — "+fmt(t.ttc*0.3),'ok','ti-file-check');}
@@ -3151,8 +3150,10 @@ views.reglages=()=>`<div class="view">
     </div></div>
     <div style="display:flex;flex-direction:column;gap:18px">
       <div class="card"><div class="card-head"><h3><i class="ti ti-building"></i> Entreprise</h3></div><div class="card-pad">
-        <div class="field"><label>Raison sociale</label><input value="Zinguerie Provençale SARL"></div>
-        <div class="field"><label>Assurance décennale</label><input value="AXA n° 2026-7741"></div>
+        <div class="field"><label>Raison sociale</label><input id="setRaison" class="cell" style="width:100%" value="${(entreprise.raison||'').replace(/"/g,'&quot;')}"></div>
+        <div style="display:flex;gap:12px"><div class="field" style="flex:1"><label>SIRET</label><input id="setSiret" class="cell" style="width:100%" value="${(entreprise.siret||'').replace(/"/g,'&quot;')}"></div><div class="field" style="flex:1"><label>Assurance décennale</label><input id="setDecennale" class="cell" style="width:100%" value="${(entreprise.decennale||'').replace(/"/g,'&quot;')}"></div></div>
+        <div class="field"><label>Adresse (siège)</label><input id="setAdresse" class="cell" style="width:100%" value="${(entreprise.adresse||'').replace(/"/g,'&quot;')}"></div>
+        <div class="field"><label>Métiers (ligne sous le logo, devis &amp; factures)</label><input id="setMetiers" class="cell" style="width:100%" value="${(entreprise.metiers||'').replace(/"/g,'&quot;')}"></div>
         <div style="display:flex;gap:12px"><div class="field" style="flex:1"><label>TVA par défaut</label><select id="setTva" class="cell">${[[10,'10 % (rénovation)'],[20,'20 % (neuf)'],[5.5,'5,5 %']].map(o=>`<option value="${o[0]}" ${tvaDefaut===o[0]?'selected':''}>${o[1]}</option>`).join('')}</select></div><div class="field" style="flex:1"><label>Objectif de marge (%)</label><input id="setMarge" class="cell" value="${margeObjectif}"></div></div>
       </div></div>
       <div class="card"><div class="card-head"><h3><i class="ti ti-map-pin-cog"></i> Pointage & terrain</h3></div><div class="card-pad">
@@ -3256,7 +3257,7 @@ async function purgeDemoSelection(){
   if(typeof renderNav==='function')renderNav();render();
   toast(n+' enregistrement'+(n>1?'s':'')+' de démo supprimé'+(n>1?'s':'')+' ✓','ok','ti-eraser');
 }
-function saveReglages(){const tv=parseFloat((document.getElementById('setTva')||{}).value);if(!isNaN(tv))tvaDefaut=tv;const mg=parseFloat(String(_v('setMarge')||'').replace(',','.'));if(!isNaN(mg)&&mg>0&&mg<95)margeObjectif=mg;_logAction('ti-settings','a modifié les réglages — TVA '+tvaDefaut+' % · objectif marge '+margeObjectif+' %');render();toast('Réglages enregistrés ✓ (TVA '+tvaDefaut+' % appliquée aux devis)','ok','ti-check');}
+function saveReglages(){const tv=parseFloat((document.getElementById('setTva')||{}).value);if(!isNaN(tv))tvaDefaut=tv;const mg=parseFloat(String(_v('setMarge')||'').replace(',','.'));if(!isNaN(mg)&&mg>0&&mg<95)margeObjectif=mg;const _se=(id,k)=>{const el=document.getElementById(id);if(el&&el.value!=null&&el.value.trim()!=='')entreprise[k]=el.value.trim();};_se('setRaison','raison');_se('setSiret','siret');_se('setDecennale','decennale');_se('setAdresse','adresse');_se('setMetiers','metiers');_logAction('ti-settings','a modifié les réglages — entreprise « '+entreprise.raison+' » · TVA '+tvaDefaut+' % · objectif marge '+margeObjectif+' %');render();toast('Réglages enregistrés ✓ (appliqués aux devis & factures)','ok','ti-check');}
 function marquerPayee(num){const f=factures.find(x=>x.num===num);if(!f)return;f.statut='payee';f.datePaiement=new Date().toISOString();_logAction('ti-cash','a encaissé la facture '+num+' — '+(f.clientNom||'')+' ('+fmt(f.ttc||0)+')');render();toast('Facture '+num+' encaissée 💶','ok','ti-cash');}
 function rouvrirFacture(num){const f=factures.find(x=>x.num===num);if(!f)return;f.statut='attente';delete f.datePaiement;_logAction('ti-rotate','a rouvert la facture '+num+' (repassée en attente)');render();toast('Facture '+num+' repassée en attente','info','ti-rotate');}
 function initReglages(){document.querySelectorAll('[data-cost]').forEach(inp=>inp.addEventListener('input',()=>{const s=sal(inp.dataset.cost);s.cout=+inp.value||0;document.getElementById('coutMoy').textContent=Math.round(salaries.reduce((a,x)=>a+x.cout,0)/salaries.length)+' €/h';}));}
@@ -3511,7 +3512,7 @@ const ZP_STORE_KEY='zp_erp_state_v3';
 /* Fix persistance : retrait EN PLACE (préserve la référence du tableau suivie par _persistArrays ; ne JAMAIS faire X=X.filter(...) sur un tableau persisté) */
 function _keepWhere(arr,keep){if(!Array.isArray(arr))return arr;for(let i=arr.length-1;i>=0;i--){if(!keep(arr[i]))arr.splice(i,1);}return arr;}
 const _persistArrays={salaries,equipes,clients,chantiers,stock,profils,bureau,taches,demandesList,congesList,carnet,rdvs,devisLignes,catFournitures,ouvrages,factures,comptes,prodCats,ouvrCats,devisDossiers,stockMoves,matConsos,_delCats,journal,planResList,interims,docSections,rapports};
-const _persistObjects={congesBalance,planStore,planHrs,planNotes,chatMsgs,chantierSteps,profilUser,txtModeles,pointages};
+const _persistObjects={congesBalance,planStore,planHrs,planNotes,chatMsgs,chantierSteps,profilUser,txtModeles,pointages,entreprise};
 function _stateObj(){if(typeof _syncCurDevis==='function')_syncCurDevis();const d={arr:{},obj:{},scal:{tauxMO,coutMO,devisClient,currentDevis,_devisSeq,rdvSeq,agendaWeek,planWeek,carnetChef,coefMargeDefaut,sessionEmail,tvaDefaut,margeObjectif,arrondiPU}};for(const k in _persistArrays)d.arr[k]=_persistArrays[k];for(const k in _persistObjects)d.obj[k]=_persistObjects[k];return d;}
 function _applyState(d){if(!d)return;if(d.arr)for(const k in _persistArrays){const v=d.arr[k];if(Array.isArray(v)){const a=_persistArrays[k];a.length=0;v.forEach(x=>a.push(x));}}if(d.obj)for(const k in _persistObjects){const v=d.obj[k];if(v&&typeof v==='object'){const o=_persistObjects[k];Object.keys(o).forEach(kk=>delete o[kk]);Object.assign(o,v);}}if(d.scal){const s=d.scal;if(typeof s.tauxMO==='number')tauxMO=s.tauxMO;if(s.devisClient!=null)devisClient=s.devisClient;if(s.currentDevis!==undefined)currentDevis=s.currentDevis;if(typeof s._devisSeq==='number')_devisSeq=s._devisSeq;if(typeof s.rdvSeq==='number')rdvSeq=s.rdvSeq;if(typeof s.agendaWeek==='number')agendaWeek=s.agendaWeek;if(typeof s.planWeek==='number')planWeek=s.planWeek;if(typeof s.carnetChef==='string')carnetChef=s.carnetChef;if(typeof s.coefMargeDefaut==='number')coefMargeDefaut=s.coefMargeDefaut;if(typeof s.coutMO==='number')coutMO=s.coutMO;if(typeof s.tvaDefaut==='number')tvaDefaut=s.tvaDefaut;if(typeof s.margeObjectif==='number')margeObjectif=s.margeObjectif;if(typeof s.arrondiPU==='string')arrondiPU=s.arrondiPU;}planData=planWeekData(planWeek);}
 function saveState(){try{localStorage.setItem(ZP_STORE_KEY,JSON.stringify(_stateObj()));}catch(e){}_cloudPush();}
