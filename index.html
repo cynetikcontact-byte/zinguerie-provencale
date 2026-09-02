@@ -2,17 +2,17 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Zinguerie Provençale — Pro</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" integrity="sha384-bs/nf9FbdNouRbMiFcrcZfLXYPKiPaGVGplVbv7dLGECccEXDW+S3zjqSKR5ZEaD" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js" integrity="sha384-8FWZA6BGMXhsfO+BLtrJK0We6gg5o1JyO8xQm6peWDEUs17ACA5ziE/NIAkl9z2k" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js" integrity="sha384-b5Ya4Bq3qCyz39m2ISh+4DxjAIljdeFwK/BsXLuj9gugaNwAcj/ia15fxNZL9Nlx" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4/dist/umd/supabase.js" integrity="sha384-ysv13JVP3fufiEXfjML9OdCa/rRbMJvUBOWyor82wfuK8INNZAvmbxHgKIHi+oqz" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha384-Yv5O+t3uE3hunW8uyrbpPW3iw6/5/Y7HitWJBLgqfMoA36NogMmy+8wWZMpn3HWc" crossorigin="anonymous"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" integrity="sha384-EnyY0/GSHQGSxSgMwaIPzSESbqoOLSexfnSMN2AP+39Ckmn92stwABZynq1JyzdT" crossorigin="anonymous"></script>
 <style>
 :root{
   /* Palette Provence — extraite de Branding.swift */
@@ -78,7 +78,7 @@ button{font-family:inherit;cursor:pointer}
 .search>i{position:absolute;left:13px;top:10px;color:var(--ink-3);font-size:18px}
 .search-res{position:absolute;top:48px;left:0;right:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-l);overflow:hidden;z-index:40}
 .search-res a{display:flex;align-items:center;gap:11px;padding:11px 15px;cursor:pointer;border-bottom:1px solid var(--line);color:var(--ink)}
-.search-res a:last-child{border:none}.search-res a:hover{background:var(--surface-2)}.search-res i{font-size:18px;color:var(--orange)}
+.search-res:empty{display:none}.search-res a:last-child{border:none}.search-res a:hover{background:var(--surface-2)}.search-res i{font-size:18px;color:var(--orange)}
 .wx-chip{display:flex;align-items:center;gap:7px;background:linear-gradient(135deg,#FFE7B8,#FDD78A);color:#8a5a00;border-radius:11px;padding:7px 12px;font-size:13px;font-weight:700}
 body.dark .wx-chip{background:linear-gradient(135deg,#3a2e16,#463618);color:#f0c468}
 .top-right{margin-left:auto;display:flex;align-items:center;gap:11px}
@@ -372,13 +372,13 @@ input.noarrow{-moz-appearance:textfield;appearance:textfield}
     <nav id="nav"></nav>
     <div class="side-foot">
       <span class="live" id="syncFoot"><span class="pulse"></span> Cloud Supabase</span><br>
-      <span style="opacity:.8">Zinguerie Provençale · v7.3</span>
+      <span style="opacity:.8">Zinguerie Provençale · v7.4</span>
     </div>
   </aside>
 
   <header class="topbar">
     <button class="icon-btn" id="burger" aria-label="Menu" onclick="toggleSidebar()"><i class="ti ti-menu-2"></i></button>
-    <div class="search"><i class="ti ti-search"></i><input id="searchInput" placeholder="Rechercher…  (⌘K)" autocomplete="off"><div id="searchRes"></div></div>
+    <div class="search"><i class="ti ti-search"></i><input id="searchInput" placeholder="Rechercher…  (⌘K)" autocomplete="off"><div id="searchRes" class="search-res"></div></div>
     <div class="top-right">
       <button class="btn primary" id="createBtn" onclick="quickCreate(event)" style="height:40px"><i class="ti ti-plus"></i> Créer</button>
       <div class="role-switch" id="roleSwitch">
@@ -872,7 +872,7 @@ async function sendReset(email){email=(email||'').toLowerCase().trim();if(!/@/.t
 function emptyState(ic,titre,sub,cta){return `<div style="text-align:center;padding:40px 20px"><div style="width:64px;height:64px;border-radius:18px;margin:0 auto 14px;display:flex;align-items:center;justify-content:center;background:var(--surface-2);color:var(--ink-3)"><i class="ti ${ic}" style="font-size:30px"></i></div><div style="font-family:'Baloo 2';font-weight:700;font-size:16px">${titre}</div><div class="muted" style="font-size:13px;margin-top:4px">${sub||''}</div>${cta||''}</div>`;}
 
 function toast(m,t='info',i='ti-info-circle'){const e=document.createElement('div');e.className='toast '+t;e.innerHTML=`<i class="ti ${i}"></i>${m}`;document.getElementById('toasts').appendChild(e);setTimeout(()=>{e.style.opacity='0';e.style.transform='translateX(40px)';e.style.transition='.3s';setTimeout(()=>e.remove(),300);},2600);}
-function modal(h){const o=document.createElement('div');o.className='overlay';o.innerHTML=`<div class="modal">${h}</div>`;/* fermeture au clic-dehors désactivée (perte de saisie) — croix ou Échap uniquement */document.body.appendChild(o);return o;}
+function modal(h){const o=document.createElement('div');o.className='overlay';o.innerHTML=`<div class="modal">${h}</div>`;/* fermeture au clic-dehors désactivée (perte de saisie) — croix ou Échap uniquement */document.body.appendChild(o);if(typeof zpResolveFiles==='function')zpResolveFiles(o);return o;}
 /* Échap ferme le dernier modal ouvert */
 try{document.addEventListener('keydown',function(e){if(e.key==='Escape'){const os=document.querySelectorAll('.overlay');if(os.length){os[os.length-1].remove();e.stopPropagation();}}});}catch(e){}
 const statBadge=s=>`<span class="tag" style="background:${STAT[s][1]}1f;color:${STAT[s][1]}"><span class="tdot"></span>${STAT[s][0]}</span>`;
@@ -907,7 +907,10 @@ function _facRetardJours(f){const e=_facEcheance(f);if(!e)return 0;return Math.m
 function _syncRetards(){try{factures.forEach(f=>{if((f.type||'')==='Avoir'||f.statut==='payee'||f.statut==='avoir')return;const late=_facEnRetard(f);if(late&&f.statut!=='retard')f.statut='retard';else if(!late&&f.statut==='retard')f.statut=(_facRegle(f)>0.009)?'partiel':'attente';});}catch(e){}}
 const facturesPayees=()=>factures.filter(f=>f.statut==='payee');
 const facturesImpayees=()=>factures.filter(f=>f.statut==='retard');
-const caEncaisse=()=>facturesPayees().reduce((a,f)=>a+f.ttc,0);
+/* CA encaissé du mois = somme des RÈGLEMENTS reçus ce mois (acomptes et paiements partiels compris), pas seulement les factures soldées */
+const _moisISO=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');};
+const reglementsDuMois=()=>{const m=_moisISO();const out=[];factures.forEach(f=>{if((f.type||'')==='Avoir'||f.affecte===false)return;_facRegl(f).forEach(r=>{const d=String(r.date||'').slice(0,7);if(d===m||(!d&&f.statut==='payee'&&String(f.datePaiement||'').slice(0,7)===m))out.push({f,r});});});return out;};
+const caEncaisse=()=>Math.round(reglementsDuMois().reduce((a,x)=>a+(+x.r.montant||0),0)*100)/100;
 const totalImpayes=()=>facturesImpayees().reduce((a,f)=>a+f.ttc,0);
 const heuresSemaine=()=>rnd1(planPeople().reduce((a,s)=>a+[0,1,2,3,4,5].reduce((b,d)=>b+cellH(s.id,d),0),0));
 const plur=(n,s)=>n>1?s:'';
@@ -928,7 +931,7 @@ views.dash=()=>{
     <button class="btn primary" onclick="newChantier()"><i class="ti ti-plus"></i> Nouveau chantier</button>
   </div>
   <div class="grid cols-4" style="margin-bottom:18px">
-    ${kpi('CA encaissé du mois',fmt(caEncaisse()),facturesPayees().length+' facture'+plur(facturesPayees().length,'s')+' payée'+plur(facturesPayees().length,'s'),'up','ti-cash','var(--orange)','rgba(243,146,0,.14)',[])}
+    ${kpi('CA encaissé du mois',fmt(caEncaisse()),reglementsDuMois().length+' règlement'+plur(reglementsDuMois().length,'s')+' ce mois','up','ti-cash','var(--orange)','rgba(243,146,0,.14)',[])}
     ${kpi('Marge prévisionnelle',(isFinite(mm)?mm:0)+'%','cible '+margeObjectif+'%',mm>=margeObjectif?'up':'down','ti-chart-pie','var(--olive)','rgba(122,139,79,.16)',[])}
     ${kpi('Heures équipe / sem.',heuresSemaine()+' h',salaries.length+' ouvrier'+plur(salaries.length,'s'),'up','ti-clock-hour-4','var(--terracotta)','rgba(198,107,61,.14)',[])}
     ${kpi('Impayés à relancer',fmt(totalImpayes()),facturesImpayees().length+' facture'+plur(facturesImpayees().length,'s'),'down','ti-alert-octagon','var(--alerte)','rgba(184,58,38,.13)',[])}
@@ -1106,7 +1109,7 @@ function _catPick(c){editProd.cat=c;_catOpen=false;drawProdForm();}
 function _addCategorie(){const i=document.getElementById('newCatInput');const n=(i?i.value:'').trim();if(!n)return;if(!prodCats.includes(n))prodCats.push(n);{const _di=_delCats.indexOf(n);if(_di>=0)_delCats.splice(_di,1);}editProd.cat=n;_catOpen=false;drawProdForm();saveState();}
 function delCategorie(c){if(c==='Divers'){toast('La catégorie « Divers » ne peut pas être supprimée','info','ti-alert-circle');return;}const used=catFournitures.filter(p=>(p.cat||'Divers')===c).length;if(used>0&&!confirm('Supprimer « '+c+' » ? Ses '+used+' produit(s) iront dans « Divers ».'))return;{const _pi=prodCats.indexOf(c);if(_pi>=0)prodCats.splice(_pi,1);}if(!_delCats.includes(c))_delCats.push(c);catFournitures.forEach(p=>{if((p.cat||'Divers')===c)p.cat='Divers';});if(!prodCats.includes('Divers'))prodCats.push('Divers');if(editProd&&editProd.cat===c)editProd.cat='Divers';_catOpen=false;drawProdForm();saveState();toast('Catégorie supprimée','info','ti-trash');}
 /* Fiche technique : accepter un fichier (PDF/image) en base64, en plus d'un lien. Cap 3 Mo (le blob workspace est partagé). */
-function _ftSetFile(file){if(!file)return;const okType=/(pdf|image\/)/i.test(file.type||'')||/\.(pdf|png|jpe?g|gif|webp)$/i.test(file.name||'');if(!okType){toast('Format non supporté — PDF ou image uniquement','info','ti-alert-circle');return;}if(file.size>3*1024*1024){toast('Fichier trop lourd (max 3 Mo) — compresse le PDF ou mets un lien','info','ti-alert-circle');return;}const r=new FileReader();r.onload=function(){editProd.ft=r.result;drawProdForm();toast('Fiche technique jointe ✓','ok','ti-file-check');};r.onerror=function(){toast('Lecture du fichier impossible','info','ti-alert-circle');};r.readAsDataURL(file);}
+function _ftSetFile(file){if(!file)return;const okType=/(pdf|image\/)/i.test(file.type||'')||/\.(pdf|png|jpe?g|gif|webp)$/i.test(file.name||'');if(!okType){toast('Format non supporté — PDF ou image uniquement','info','ti-alert-circle');return;}if(file.size>3*1024*1024){toast('Fichier trop lourd (max 3 Mo) — compresse le PDF ou mets un lien','info','ti-alert-circle');return;}toast('Envoi de la fiche technique…','info','ti-loader-2');zpStore(file,'ft').then(function(ref){if(!ref){toast('Envoi impossible','info','ti-alert-circle');return;}editProd.ft=ref;drawProdForm();toast('Fiche technique jointe ✓','ok','ti-file-check');});}
 function _ftPick(input){const f=input&&input.files&&input.files[0];_ftSetFile(f);if(input)input.value='';}
 function _ftDrop(ev){ev.preventDefault();const dz=document.getElementById('ftDrop');if(dz)dz.style.borderColor='var(--line-2)';const f=ev.dataTransfer&&ev.dataTransfer.files&&ev.dataTransfer.files[0];_ftSetFile(f);}
 function drawProdForm(){const e=editProd,esc=s=>(s||'').replace(/"/g,'&quot;');const cats=[...new Set([...PCATS,...catFournitures.map(p=>p.cat||'Divers'),e.cat].filter(Boolean))];
@@ -1135,10 +1138,10 @@ function drawProdForm(){const e=editProd,esc=s=>(s||'').replace(/"/g,'&quot;');c
     <div class="field"><label>Référence fournisseur</label><input value="${esc(e.refF||'')}" oninput="editProd.refF=this.value" placeholder="Réf. catalogue (facultatif)"></div>
         <div class="field"><label>Fiche technique — PDF/image (fichier) ou lien</label>
           <div id="ftDrop" ondragover="event.preventDefault();this.style.borderColor='var(--orange)'" ondragleave="this.style.borderColor='var(--line-2)'" ondrop="_ftDrop(event)" style="border:1.5px dashed var(--line-2);border-radius:10px;padding:12px;text-align:center;margin-bottom:8px;background:var(--surface-2)">
-            ${/^data:/i.test(e.ft||'')?`<div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap"><i class="ti ti-file-check" style="color:var(--olive);font-size:20px"></i><span style="font-weight:600;font-size:13px">${/pdf/i.test(e.ft)?'PDF joint':'Image jointe'} ✓</span><button class="btn sm" type="button" onclick="editProd.ft='';drawProdForm()"><i class="ti ti-trash"></i> Retirer</button></div>`:`<i class="ti ti-cloud-upload" style="font-size:22px;color:var(--ink-3)"></i><div class="tiny" style="color:var(--ink-3);margin:4px 0 8px">Glisse un PDF ou une image ici, ou</div><button class="btn sm" type="button" onclick="document.getElementById('ftFile').click()"><i class="ti ti-paperclip"></i> Choisir un fichier</button>`}
+            ${_isFile(e.ft)?`<div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap"><i class="ti ti-file-check" style="color:var(--olive);font-size:20px"></i><span style="font-weight:600;font-size:13px">${_isPdfRef(e.ft)?'PDF joint':'Image jointe'} ✓</span><button class="btn sm" type="button" onclick="editProd.ft='';drawProdForm()"><i class="ti ti-trash"></i> Retirer</button></div>`:`<i class="ti ti-cloud-upload" style="font-size:22px;color:var(--ink-3)"></i><div class="tiny" style="color:var(--ink-3);margin:4px 0 8px">Glisse un PDF ou une image ici, ou</div><button class="btn sm" type="button" onclick="document.getElementById('ftFile').click()"><i class="ti ti-paperclip"></i> Choisir un fichier</button>`}
             <input type="file" id="ftFile" accept="application/pdf,image/*" style="display:none" onchange="_ftPick(this)">
           </div>
-          <input value="${esc(/^data:/i.test(e.ft||'')?'':(e.ft||''))}" oninput="editProd.ft=this.value.trim()" placeholder="… ou colle un lien https:// (page fournisseur, Drive…)"></div>
+          <input value="${esc(_isFile(e.ft)?'':(e.ft||''))}" oninput="editProd.ft=this.value.trim()" placeholder="… ou colle un lien https:// (page fournisseur, Drive…)"></div>
     <div style="background:var(--surface-2);border-radius:12px;padding:12px 14px;margin:0 0 12px">
       <div class="tiny" style="font-weight:700;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:8px"><span><i class="ti ti-package" style="color:var(--orange)"></i> Stock</span><span class="tiny" style="font-weight:600;color:var(--ink-3)"><i class="ti ti-lock" style="font-size:11px"></i> se gère dans l'onglet Stock</span></div>
       <div style="display:flex;gap:18px;flex-wrap:wrap">
@@ -1245,8 +1248,8 @@ views.chantierDetail=()=>{
     ${consos.length?consos.map(m=>{const p=catF(m.pid);return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)"><div style="min-width:0"><div style="font-weight:600;font-size:13px">${p?p.nom:'Produit supprimé'}</div><div class="tiny" style="color:var(--ink-3)">${new Date(m.date).toLocaleDateString('fr-FR')}${m.who?' · '+m.who:''}</div></div><div style="text-align:right;flex-shrink:0"><div style="font-weight:700">${m.qte} ${p?p.u:''}</div><div class="tiny" style="color:var(--ink-3)">${fmt((+m.qte||0)*((p||{achat:0}).achat||0))}</div></div></div>`}).join(''):'<div class="tiny" style="color:var(--ink-3)">Aucune sortie matériaux imputée à ce chantier.</div>'}
     <div style="display:flex;justify-content:space-between;margin-top:11px;padding-top:10px;border-top:1px solid var(--line);font-weight:800"><span>Total matières réel</span><span style="color:var(--orange-dark)">${fmt(chantierMatReel(c.id))}</span></div>
   </div></div>`:''}
-  <div class="card" style="margin-top:18px"><div class="card-head"><h3><i class="ti ti-book"></i> Journal de chantier</h3><button class="btn sm" onclick="toast('Entrée ajoutée au journal','ok','ti-note')"><i class="ti ti-plus"></i> Entrée</button></div><div class="card-pad">
-    ${[['KM','24/06','Pose des liteaux terminée côté sud. Zinc livré, conforme.'],['LB','23/06','Dépose complète, charpente saine. RAS.']].map(j=>`<div class="note-item" style="display:flex;gap:10px"><span class="avatar-sm" style="background:${(salaries.find(s=>s.init===j[0])||{}).col||'#999'}">${j[0]}</span><div><div style="font-weight:600">${j[2]}</div><span class="tiny">${j[1]}</span></div></div>`).join('')}
+  <div class="card" style="margin-top:18px"><div class="card-head"><h3><i class="ti ti-book"></i> Journal de chantier</h3>${role!=='client'?`<button class="btn sm" onclick="addChantierNote('${c.id}')"><i class="ti ti-plus"></i> Entrée</button>`:''}</div><div class="card-pad">
+    ${(c.journal&&c.journal.length)?c.journal.map(j=>{const _in=(String(j.par||'').trim().split(/\s+/).map(x=>x[0]).slice(0,2).join('')||'?').toUpperCase();return `<div class="note-item" style="display:flex;gap:10px"><span class="avatar-sm" style="background:${(salaries.find(s=>s.init===_in)||{}).col||'#8a94a6'}">${_in}</span><div style="min-width:0"><div style="font-weight:600;white-space:pre-wrap">${String(j.txt||'').replace(/</g,'&lt;')}</div><span class="tiny" style="color:var(--ink-3)">${j.par?String(j.par).replace(/</g,'&lt;')+' · ':''}${_dFr(j.date)}</span></div></div>`}).join(''):'<div class="tiny" style="color:var(--ink-3);text-align:center;padding:10px">Aucune entrée pour le moment.'+(role!=='client'?' Clique « Entrée » pour noter l\'avancement.':'')+'</div>'}
   </div></div></div>`;
 };
 
@@ -2244,13 +2247,13 @@ function addPreuve(devisId){_pvTmp='';modal(`<div class="modal-head"><h3><i clas
  <div class="field"><label>Fichier (photo ou PDF, ≤ 1,5 Mo)</label><input type="file" accept="image/*,application/pdf" class="cell" style="width:100%" onchange="_pvPick(this)"></div>
  <div class="field"><label>… ou lien</label><input id="pvLien" class="cell" style="width:100%" placeholder="https://…"></div>
  <button class="btn primary" style="width:100%;justify-content:center" onclick="savePreuve('${devisId}')"><i class="ti ti-check"></i> Joindre au devis</button></div>`);}
-function _pvPick(inp){const f=inp.files&&inp.files[0];if(!f)return;if(f.size>1.5*1024*1024){toast('Fichier trop lourd (max 1,5 Mo)','info','ti-alert-circle');inp.value='';return;}const r=new FileReader();r.onload=function(){_pvTmp=r.result;toast('Fichier prêt ✓','ok','ti-check');};r.readAsDataURL(f);}
+function _pvPick(inp){const f=inp.files&&inp.files[0];if(!f)return;if(f.size>1.5*1024*1024){toast('Fichier trop lourd (max 1,5 Mo)','info','ti-alert-circle');inp.value='';return;}toast('Envoi…','info','ti-loader-2');zpStore(f,'preuves').then(function(ref){_pvTmp=ref||'';toast('Fichier prêt ✓','ok','ti-check');});}
 function savePreuve(devisId){const d=devisDossiers.find(x=>x.id===devisId);if(!d)return;const nom=(_v('pvNom')||'').trim();const lien=(_v('pvLien')||'').trim();if(!nom&&!_pvTmp&&!lien){toast('Ajoute au moins un nom, un fichier ou un lien','info','ti-alert-circle');return;}
   if(!d.preuves)d.preuves=[];d.preuves.unshift({id:'pv'+Date.now(),type:_v('pvType')||'Autre',nom:nom||(_v('pvType')||'Preuve'),img:_pvTmp||'',lien,date:new Date().toISOString(),par:((currentCompte()||{}).nom)||''});_pvTmp='';
   document.querySelectorAll('.overlay').forEach(o=>o.remove());_logAction('ti-certificate','a joint une preuve de commande au devis '+(d.ref||''));render();toast('Preuve jointe ✓','ok','ti-certificate');}
 function delPreuve(devisId,pid){const d=devisDossiers.find(x=>x.id===devisId);if(!d||!d.preuves)return;if(!confirm('Retirer cette preuve ?'))return;_keepWhere(d.preuves,x=>x.id!==pid);render();toast('Preuve retirée','info','ti-trash');}
 function openPreuve(devisId,pid){const d=devisDossiers.find(x=>x.id===devisId);const p=d&&(d.preuves||[]).find(x=>x.id===pid);if(!p)return;
-  if(p.img){const isPdf=/^data:application\/pdf/.test(p.img);modal(`<div class="modal-head"><h3>${String(p.nom||'').replace(/</g,'&lt;')}</h3><button class="icon-x" onclick="this.closest('.overlay').remove()"><i class="ti ti-x"></i></button></div><div class="modal-body">${isPdf?`<embed src="${p.img}" type="application/pdf" style="width:100%;height:62vh;border:1px solid var(--line);border-radius:10px">`:`<img src="${p.img}" style="width:100%;border-radius:10px;border:1px solid var(--line)">`}${isPdf?`<a class="btn" style="width:100%;justify-content:center;margin-top:10px" href="${p.img}" download="${_slugFile(p.nom)}.pdf"><i class="ti ti-download"></i> Télécharger</a>`:''}</div>`);}
+  if(p.img){const isPdf=_isPdfRef(p.img);modal(`<div class="modal-head"><h3>${String(p.nom||'').replace(/</g,'&lt;')}</h3><button class="icon-x" onclick="this.closest('.overlay').remove()"><i class="ti ti-x"></i></button></div><div class="modal-body">${isPdf?`<embed src="${p.img}" type="application/pdf" style="width:100%;height:62vh;border:1px solid var(--line);border-radius:10px">`:`<img src="${p.img}" style="width:100%;border-radius:10px;border:1px solid var(--line)">`}${isPdf?`<a class="btn" style="width:100%;justify-content:center;margin-top:10px" href="${p.img}" download="${_slugFile(p.nom)}.pdf"><i class="ti ti-download"></i> Télécharger</a>`:''}</div>`);}
   else if(p.lien){window.open(p.lien,'_blank','noopener');}}
 function devisLockedView(d){const t=devisTotals();const st=DEVIS_STATUTS[d.statut]||DEVIS_STATUTS.brouillon;const nArch=(d.archives||[]).length;
   return `<div class="view">
@@ -2391,7 +2394,7 @@ let _facDu='',_facAu='';
 function setFacPeriode(){_facDu=_v('facDu');_facAu=_v('facAu');render();}
 function _facDateOk(f){if(!_facDu&&!_facAu)return true;const dt=f.date?new Date(f.date):null;if(!dt||isNaN(dt))return true;if(_facDu&&dt<new Date(_facDu))return false;if(_facAu){const a=new Date(_facAu);a.setHours(23,59,59);if(dt>a)return false;}return true;}
 const _dFr=x=>{if(!x)return '—';const d=new Date(x);return isNaN(d)?'—':d.toLocaleDateString('fr-FR');};
-views.factures=()=>{_syncRetards();const list=factures.filter(_facDateOk);const totTTC=list.reduce((a,f)=>a+(+f.ttc||0),0);const totEnc=list.filter(f=>f.statut==='payee').reduce((a,f)=>a+(+f.ttc||0),0);
+views.factures=()=>{_syncRetards();const list=factures.filter(_facDateOk);const totTTC=list.reduce((a,f)=>a+(+f.ttc||0),0);const totEnc=Math.round(list.filter(f=>(f.type||'')!=='Avoir'&&f.affecte!==false).reduce((a,f)=>a+_facRegle(f),0)*100)/100;
   const unpaid=factures.filter(f=>['attente','partiel','retard'].includes(f.statut));const due=Math.round(unpaid.reduce((a,f)=>a+Math.max(0,_facSolde(f)),0)*100)/100;const lateL=unpaid.filter(_facEnRetard);const lateDue=Math.round(lateL.reduce((a,f)=>a+Math.max(0,_facSolde(f)),0)*100)/100;
   return `<div class="view"><div class="page-head"><div><h1>Factures</h1><p>${list.length} facture${list.length>1?'s':''}${(_facDu||_facAu)?' sur la période':''} · Total ${fmt(totTTC)} · encaissé ${fmt(totEnc)} · <b>à encaisser ${fmt(due)}</b>${lateL.length?` · <b style="color:var(--alerte)">dont en retard ${fmt(lateDue)} (${lateL.length})</b>`:''}</p></div><button class="btn" onclick="exportComptaCSV()"><i class="ti ti-file-spreadsheet"></i> Export comptable (CSV)</button></div>
   <div class="card card-pad" style="margin-bottom:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span class="tiny" style="font-weight:700"><i class="ti ti-calendar"></i> Période</span><span class="tiny">du</span><input id="facDu" type="date" class="cell" value="${_facDu}" onchange="setFacPeriode()"><span class="tiny">au</span><input id="facAu" type="date" class="cell" value="${_facAu}" onchange="setFacPeriode()">${(_facDu||_facAu)?`<button class="btn sm" onclick="_facDu='';_facAu='';render()"><i class="ti ti-x"></i> Effacer</button>`:''}</div>
@@ -2477,9 +2480,12 @@ function _signLine(px){const d=(typeof currentDevis!=='undefined'&&currentDevis)
 const rapports=[];let _rapDraft=null;
 function _rapportsDuChantier(cid){return rapports.filter(r=>r.chantierId===cid);}
 /* documents attachés à un chantier (PV réception, CR, mails, photos) */
+function _zpPrev(ref){if(!ref)return '';if(/^data:image\//i.test(ref))return '<img src="'+ref+'" style="max-height:88px;border-radius:8px">';return '<span class="tiny" style="color:var(--olive);font-weight:600"><i class="ti ti-file-check"></i> Fichier prêt ✓</span>';}
 let _chDocImgTmp='';
+function addChantierNote(cid){if(role==='client')return;const c=chn(cid);if(!c)return;modal(`<div class="modal-head"><h3><i class="ti ti-book"></i> Entrée de journal</h3><button class="icon-x" onclick="this.closest('.overlay').remove()"><i class="ti ti-x"></i></button></div><div class="modal-body"><div class="tiny" style="color:var(--ink-3);margin-bottom:8px">${String(c.nom||'').replace(/</g,'&lt;')}</div><div class="field"><label>Note d'avancement *</label><textarea id="cjTxt" class="cell" style="width:100%;min-height:90px" placeholder="Ex. Pose des gouttières terminée côté sud. Livraison zinc conforme."></textarea></div><button class="btn primary" style="width:100%;justify-content:center" onclick="saveChantierNote('${cid}')"><i class="ti ti-check"></i> Enregistrer</button></div>`);setTimeout(()=>{const t=document.getElementById('cjTxt');if(t)t.focus();},60);}
+function saveChantierNote(cid){const c=chn(cid);if(!c)return;const txt=(_v('cjTxt')||'').trim();if(!txt){toast('Écris une note','info','ti-alert-circle');return;}if(!c.journal)c.journal=[];c.journal.unshift({id:'j'+Date.now(),txt,par:((currentCompte()||{}).nom)||'',date:new Date().toISOString()});document.querySelectorAll('.overlay').forEach(o=>o.remove());_logAction('ti-book','a ajouté une note au journal du chantier '+(c.nom||''));render();toast('Entrée ajoutée au journal','ok','ti-note');}
 function addChantierDoc(cid){if(role==='client')return;const c=chn(cid);if(!c)return;_chDocImgTmp='';modal(`<div class="modal-head"><h3><i class="ti ti-file-plus"></i> Document du chantier</h3><button class="icon-x" onclick="this.closest('.overlay').remove()"><i class="ti ti-x"></i></button></div><div class="modal-body"><div class="tiny" style="color:var(--ink-3);margin-bottom:8px">${c.nom.replace(/</g,'&lt;')}</div><div class="field"><label>Nom du document *</label><input id="cdNom" class="cell" style="width:100%" placeholder="Ex. PV de réception signé"></div><div class="field"><label>Type</label><select id="cdType" class="cell" style="width:100%"><option>PV de réception</option><option>CR de chantier</option><option>Mail client</option><option>Photo chantier</option><option>Plan / métré</option><option>Autre</option></select></div><div class="field"><label>Lien (Drive, e-mail…) — optionnel</label><input id="cdLien" class="cell" style="width:100%" placeholder="https://…"></div><div class="field"><label>Ou joindre une image / scan — optionnel</label><input type="file" accept="image/*" onchange="_cdPickImg(this)"><div id="cdImgPrev" style="margin-top:6px"></div></div><button class="btn primary" style="width:100%;justify-content:center" onclick="saveChantierDoc('${cid}')"><i class="ti ti-check"></i> Ajouter</button></div>`);}
-function _cdPickImg(inp){const f=inp.files&&inp.files[0];if(!f)return;if(f.size>1600000){toast('Image trop lourde (>1,5 Mo) — préfère un lien','info','ti-alert-circle');inp.value='';return;}const r=new FileReader();r.onload=e=>{_chDocImgTmp=e.target.result;const p=document.getElementById('cdImgPrev');if(p)p.innerHTML='<img src="'+_chDocImgTmp+'" style="max-height:80px;border-radius:8px">';};r.readAsDataURL(f);}
+function _cdPickImg(inp){const f=inp.files&&inp.files[0];if(!f)return;if(f.size>1600000){toast('Image trop lourde (>1,5 Mo) — préfère un lien','info','ti-alert-circle');inp.value='';return;}toast('Envoi…','info','ti-loader-2');zpStore(f,'chantier-docs').then(function(ref){_chDocImgTmp=ref||'';const p=document.getElementById('cdImgPrev');if(p)p.innerHTML=_zpPrev(ref);toast('Fichier prêt ✓','ok','ti-check');});}
 /* Suppression d'un chantier créé par erreur : nettoie le planning (toutes semaines), remet l'entrée carnet en « signé », le devis lié redevient « à planifier » */
 function delChantier(id){if(!(role==='patron'||role==='bureau'))return;const c=chn(id);if(!c)return;if(!confirm('Supprimer le chantier « '+(c.nom||'')+' » ?\n\nSes affectations au planning seront retirées.'+(c.devisId?'\nLe devis lié redeviendra « à planifier ».':'')))return;
   try{Object.keys(planStore||{}).forEach(w=>{const wk=planStore[w]||{};Object.keys(wk).forEach(sid=>{const row=wk[sid];if(!Array.isArray(row))return;for(let dd=0;dd<row.length;dd++){const v=row[dd];if(v===id){row[dd]=null;if(planHrs[w]&&planHrs[w][sid])delete planHrs[w][sid][dd];}else if(Array.isArray(v)){const left=v.filter(it=>it&&it.k!==id);if(left.length!==v.length)row[dd]=left.length===0?null:(left.length===1?left[0].k:left);}}});});}catch(e){}
@@ -2515,11 +2521,11 @@ function nouveauRapport(chantierId){const c=chn(chantierId);if(!c){toast('Chanti
     </div>
     <button class="btn primary" style="width:100%;justify-content:center;margin-top:12px" onclick="saveRapport()"><i class="ti ti-check"></i> Enregistrer le rapport</button>
   </div>`);setTimeout(_sgInit,60);}
-function _rapAddPhoto(inp){const f=inp.files&&inp.files[0];if(!f||!_rapDraft)return;if(f.size>1600000){toast('Photo trop lourde (>1,5 Mo)','info','ti-alert-circle');inp.value='';return;}const r=new FileReader();r.onload=e=>{_rapDraft.photos.push(e.target.result);const el=document.getElementById('rapPhotos');if(el)el.innerHTML=_rapPhotosHTML();};r.readAsDataURL(f);inp.value='';}
+function _rapAddPhoto(inp){const f=inp.files&&inp.files[0];if(!f||!_rapDraft)return;if(f.size>1600000){toast('Photo trop lourde (>1,5 Mo)','info','ti-alert-circle');inp.value='';return;}toast('Envoi de la photo…','info','ti-loader-2');zpStore(f,'rapports').then(function(ref){if(ref&&_rapDraft){_rapDraft.photos.push(ref);const el=document.getElementById('rapPhotos');if(el){el.innerHTML=_rapPhotosHTML();zpResolveFiles(el);}}});inp.value='';}
 function _rapDelPhoto(i){if(!_rapDraft)return;_rapDraft.photos.splice(i,1);const el=document.getElementById('rapPhotos');if(el)el.innerHTML=_rapPhotosHTML();}
 function saveRapport(){const d=_rapDraft;if(!d)return;const trav=_v('rapTrav');if(!trav||!trav.trim()){toast('Décris les travaux réalisés','info','ti-alert-circle');return;}const presents=[].map.call(document.querySelectorAll('.rapPres:checked'),x=>x.value);const cv=document.getElementById('sgCanvas');const signImg=(cv&&_sgHas)?cv.toDataURL('image/png'):'';const r={id:'rap'+Date.now(),chantierId:d.chantierId,date:_v('rapDate')||d.date,chef:d.chef,presents,travaux:trav.trim(),reserves:(_v('rapRes')||'').trim(),avancement:+_v('rapAv')||0,photos:d.photos||[],signataire:(_v('rapSign')||'').trim(),signImg,par:((currentCompte()||{}).nom)||'',createdAt:new Date().toISOString()};rapports.unshift(r);const c=chn(d.chantierId);if(c&&r.avancement)c.av=r.avancement;_rapDraft=null;document.querySelectorAll('.overlay').forEach(o=>o.remove());_logAction('ti-clipboard-check','a établi un rapport d\'intervention sur '+((chn(r.chantierId)||{}).nom||''));render();toast('Rapport enregistré'+(signImg?' + signé (quitus) ✓':''),'ok','ti-clipboard-check');}
 function delRapport(id){const r=rapports.find(x=>x.id===id);if(!r)return;if(!confirm('Supprimer ce rapport d\'intervention ?'))return;const i=rapports.findIndex(x=>x.id===id);if(i>=0)rapports.splice(i,1);render();toast('Rapport supprimé','info','ti-trash');}
-function imprimerRapport(id){const r=rapports.find(x=>x.id===id);if(!r){toast('Rapport introuvable','error','ti-alert-circle');return;}const c=chn(r.chantierId)||{};const cl=cli(c.clientId)||{};const eq=(r.presents||[]).map(pid=>{const p=sal(pid)||interims.find(x=>x.id===pid);return p?p.nom:pid;}).join(', ');const photos=(r.photos||[]).map(p=>`<img src="${p}" style="width:31%;margin:1%;border-radius:6px;vertical-align:top">`).join('');
+async function imprimerRapport(id){const r=rapports.find(x=>x.id===id);if(!r){toast('Rapport introuvable','error','ti-alert-circle');return;}const c=chn(r.chantierId)||{};const cl=cli(c.clientId)||{};const eq=(r.presents||[]).map(pid=>{const p=sal(pid)||interims.find(x=>x.id===pid);return p?p.nom:pid;}).join(', ');const _ph=[];for(const p of (r.photos||[])){const u=await zpResolveOne(p);if(u)_ph.push(u);}const photos=_ph.map(u=>`<img src="${u}" crossorigin="anonymous" style="width:31%;margin:1%;border-radius:6px;vertical-align:top">`).join('');
   const html=_docHeader('Rapport d\'intervention',c.nom||'')+
     '<div style="margin-top:10px;font-size:12px"><b>'+String(c.nom||'').replace(/</g,'&lt;')+'</b> · '+String(cl.nom||'').replace(/</g,'&lt;')+(c.adresse?' · '+String(c.adresse).replace(/</g,'&lt;'):'')+'</div>'+
     '<div style="font-size:12px;color:#555;margin-top:4px">Date : '+new Date(r.date).toLocaleDateString('fr-FR')+' · Chef : '+String((sal(r.chef)||{}).nom||r.chef||'—').replace(/</g,'&lt;')+' · Avancement : '+(r.avancement||0)+' %</div>'+
@@ -3236,7 +3242,7 @@ function closeDocSection(){_docOpen=null;render();}
 function addDocSection(){if(!canEditDoc())return;const nom=prompt('Nom de la nouvelle section :');if(nom==null||!nom.trim())return;docSections.push({id:'sec'+Date.now(),nom:nom.trim(),icon:'ti-folder',col:'var(--bleu-mer)',bg:'rgba(61,138,198,.14)',docs:[]});_logAction('ti-folder-plus','a créé la section documents « '+nom.trim()+' »');render();toast('Section créée','ok','ti-folder-plus');}
 function delDocSection(id){if(!canEditDoc())return;const s=docSections.find(x=>x.id===id);if(!s)return;if(!confirm('Supprimer la section « '+s.nom+' » et ses '+(s.docs||[]).length+' document(s) ?'))return;const i=docSections.findIndex(x=>x.id===id);if(i>=0)docSections.splice(i,1);_docOpen=null;render();toast('Section supprimée','info','ti-trash');}
 function addDoc(sid){if(!canEditDoc())return;const s=docSections.find(x=>x.id===sid);if(!s)return;_docImgTmp='';modal(`<div class="modal-head"><h3><i class="ti ti-file-plus"></i> Ajouter un document</h3><button class="icon-x" onclick="this.closest('.overlay').remove()"><i class="ti ti-x"></i></button></div><div class="modal-body"><div class="tiny" style="color:var(--ink-3);margin-bottom:8px">Section : <b>${s.nom.replace(/</g,'&lt;')}</b></div><div class="field"><label>Nom du document *</label><input id="docNom" class="cell" style="width:100%" placeholder="Ex. PV de réception Villa Aubagne"></div><div class="field"><label>Lien (Drive, Box, e-mail…) — optionnel</label><input id="docLien" class="cell" style="width:100%" placeholder="https://…"></div><div class="field"><label>Note — optionnel</label><input id="docNote" class="cell" style="width:100%" placeholder="Précision…"></div><div class="field"><label>Ou joindre une image / scan — optionnel</label><input type="file" accept="image/*" onchange="_docPickImg(this)"><div id="docImgPrev" style="margin-top:6px"></div></div><button class="btn primary" style="width:100%;justify-content:center" onclick="saveDoc('${s.id}')"><i class="ti ti-check"></i> Ajouter le document</button></div>`);}
-function _docPickImg(inp){const f=inp.files&&inp.files[0];if(!f)return;if(f.size>1600000){toast('Image trop lourde (>1,5 Mo) — préfère un lien','info','ti-alert-circle');inp.value='';return;}const r=new FileReader();r.onload=e=>{_docImgTmp=e.target.result;const p=document.getElementById('docImgPrev');if(p)p.innerHTML='<img src="'+_docImgTmp+'" style="max-height:90px;border-radius:8px">';};r.readAsDataURL(f);}
+function _docPickImg(inp){const f=inp.files&&inp.files[0];if(!f)return;if(f.size>1600000){toast('Image trop lourde (>1,5 Mo) — préfère un lien','info','ti-alert-circle');inp.value='';return;}toast('Envoi…','info','ti-loader-2');zpStore(f,'documents').then(function(ref){_docImgTmp=ref||'';const p=document.getElementById('docImgPrev');if(p)p.innerHTML=_zpPrev(ref);toast('Fichier prêt ✓','ok','ti-check');});}
 function saveDoc(sid){const s=docSections.find(x=>x.id===sid);if(!s)return;const nom=_v('docNom');if(!nom||!nom.trim()){toast('Indique un nom de document','info','ti-alert-circle');return;}s.docs.unshift({id:'d'+Date.now(),nom:nom.trim(),lien:(_v('docLien')||'').trim(),note:(_v('docNote')||'').trim(),img:_docImgTmp||'',par:((currentCompte()||{}).nom)||'',date:new Date().toISOString()});_docImgTmp='';document.querySelectorAll('.overlay').forEach(o=>o.remove());_logAction('ti-file-plus','a ajouté un document dans « '+s.nom+' »');render();toast('Document ajouté','ok','ti-file-plus');}
 function delDoc(sid,did){if(!canEditDoc())return;const s=docSections.find(x=>x.id===sid);if(!s)return;const i=(s.docs||[]).findIndex(x=>x.id===did);if(i<0)return;if(!confirm('Supprimer ce document ?'))return;s.docs.splice(i,1);_logAction('ti-trash','a supprimé un document de « '+s.nom+' »');render();toast('Document supprimé','info','ti-trash');}
 views.fichiers=()=>{_seedDocSections();const ed=canEditDoc();
@@ -3503,7 +3509,7 @@ views.reglages=()=>`<div class="view">
         ${[['Pointage géolocalisé obligatoire',true],['Rayon de la zone chantier : 150 m',true],['Mode gants (gros boutons)',true],['Écran toujours allumé au pointage',true]].map(o=>`<div class="kv"><span class="k">${o[0]}</span><span class="v"><span style="display:inline-block;width:38px;height:22px;border-radius:20px;background:${o[1]?'var(--olive)':'var(--surface-3)'};position:relative;vertical-align:middle"><span style="position:absolute;top:2px;${o[1]?'right:2px':'left:2px'};width:18px;height:18px;border-radius:50%;background:#fff"></span></span></span></div>`).join('')}
       </div></div>
       <div class="card"><div class="card-head"><h3><i class="ti ti-database"></i> Données &amp; sauvegarde</h3></div><div class="card-pad">
-        <div class="tiny" style="color:var(--ink-3);margin-bottom:10px">Tes données sont synchronisées dans le cloud et entre tous les appareils, en temps réel. Une sauvegarde automatique est prise <b>chaque nuit</b> dans le cloud (conservée 30 jours) — restaurable ci-dessous. Tu peux aussi télécharger une copie sur ton ordinateur.</div>
+        <div class="tiny" style="color:var(--ink-3);margin-bottom:10px">Tes données sont synchronisées dans le cloud et entre tous les appareils, en temps réel. Une sauvegarde automatique est prise <b>chaque nuit</b> dans le cloud (conservée 30 jours) — restaurable ci-dessous. Tu peux aussi télécharger une copie sur ton ordinateur.</div><div id="bkStatus" class="tiny" style="margin-bottom:10px;padding:8px 11px;border-radius:9px;background:var(--surface-2);color:var(--ink-2)"><i class="ti ti-loader-2"></i> Vérification des sauvegardes…</div>
         <div style="display:flex;flex-wrap:wrap;gap:8px">
           <button class="btn sm primary" onclick="exportData()"><i class="ti ti-download"></i> Exporter une sauvegarde</button>
           <button class="btn sm" onclick="openCloudRestore()"><i class="ti ti-cloud-download"></i> Restaurer depuis le cloud</button>
@@ -3535,6 +3541,15 @@ function importData(input){const f=input.files&&input.files[0];if(!f){return;}in
 /* ===== Sécurité : ne jamais conserver de mot de passe en clair ===== */
 function _scrubPasswords(){try{if(!sb||!Array.isArray(comptes))return false;let changed=false;comptes.forEach(c=>{if(c&&c.pass!==undefined){delete c.pass;changed=true;}});return changed;}catch(e){return false;}}
 /* ===== P0-1 : sauvegardes cloud (table `workspace_backups`, snapshot auto chaque nuit côté serveur) ===== */
+async function _loadBackupStatus(){const el=document.getElementById('bkStatus');if(!el||!sb)return;
+  try{const r=await sb.from('workspace_backups').select('created_at,note').order('created_at',{ascending:false}).limit(60);
+    if(r.error)throw r.error;const list=r.data||[];const auto=list.filter(b=>/^auto/i.test(b.note||''));const last=auto[0]||list[0];
+    if(!last){el.innerHTML='<i class="ti ti-alert-triangle" style="color:var(--soleil)"></i> Aucune sauvegarde enregistrée pour l\'instant.';return;}
+    const d=new Date(last.created_at);const days=Math.floor((Date.now()-d.getTime())/86400000);
+    const when=d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})+' à '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+    const ok=days<=1;const col=ok?'var(--olive)':'var(--soleil)';const ic=ok?'ti-shield-check':'ti-alert-triangle';
+    el.innerHTML='<i class="ti '+ic+'" style="color:'+col+'"></i> Dernière sauvegarde automatique : <b>'+when+'</b> · '+list.length+' sauvegarde'+(list.length>1?'s':'')+' disponible'+(list.length>1?'s':'')+(ok?'':' — la sauvegarde de cette nuit semble manquante, préviens ton administrateur.');
+  }catch(e){el.innerHTML='<i class="ti ti-cloud-off" style="color:var(--ink-3)"></i> Impossible de vérifier les sauvegardes maintenant.';}}
 async function snapshotNow(){if(!sb||!sessionEmail){toast('Connecte-toi d\'abord','info','ti-alert-circle');return;}try{const who=((typeof currentCompte==='function'&&currentCompte())||{}).nom||sessionEmail;const r=await sb.from('workspace_backups').insert({workspace_id:'main',data:_stateObj(),note:'manuel — '+who}).select('id').single();if(r.error)throw r.error;toast('Snapshot cloud créé ✓','ok','ti-database-plus');}catch(e){toast('Erreur snapshot : '+((e&&e.message)||'inconnue'),'info','ti-alert-circle');}}
 async function openCloudRestore(){if(!sb){toast('Cloud indisponible','info','ti-alert-circle');return;}let list=[];try{const r=await sb.from('workspace_backups').select('id,created_at,note').order('created_at',{ascending:false}).limit(40);if(r.error)throw r.error;list=r.data||[];}catch(e){toast('Impossible de lister les sauvegardes','info','ti-alert-circle');return;}
 if(!list.length){toast('Aucune sauvegarde cloud pour l\'instant','info','ti-database-off');return;}
@@ -3804,7 +3819,7 @@ function _searchResults(q){q=(q||'').toLowerCase().trim();const res=[];if(!q)ret
   if('appel client nouveau'.includes(q))res.push(['ti-phone-plus','Appels & nouveaux clients',()=>go('appels')]);
   if('archive sav'.includes(q))res.push(['ti-archive','Archives & SAV',()=>go('archives')]);
   return res;}
-function _renderSearchInto(inId,resId,after){const ti=document.getElementById(inId),el=document.getElementById(resId);if(!el)return;const q=(ti&&ti.value)||'';if(!q.trim()){el.innerHTML='';return;}const res=_searchResults(q);el.innerHTML=res.length?'':'<a><span class="muted">Aucun résultat</span></a>';res.slice(0,8).forEach(r=>{const a=document.createElement('a');a.tabIndex=0;a.innerHTML='<i class="ti '+r[0]+'"></i>'+r[1];a.onclick=()=>{r[2]();if(ti)ti.value='';el.innerHTML='';if(after)after();};el.appendChild(a);});}
+function _renderSearchInto(inId,resId,after){const ti=document.getElementById(inId),el=document.getElementById(resId);if(!el)return;const q=(ti&&ti.value)||'';if(!q.trim()){el.innerHTML='';return;}const res=_searchResults(q);el.innerHTML=res.length?'':'<a><span class="muted">Aucun résultat</span></a>';res.slice(0,8).forEach(r=>{const a=document.createElement('a');a.tabIndex=0;a.innerHTML='<i class="ti '+r[0]+'"></i>'+String(r[1]).replace(/&/g,'&amp;').replace(/</g,'&lt;');a.onclick=()=>{r[2]();if(ti)ti.value='';el.innerHTML='';if(after)after();};el.appendChild(a);});}
 if(sIn)sIn.addEventListener('input',()=>_renderSearchInto('searchInput','searchRes'));
 function openMobileSearch(){closeSidebar&&closeSidebar();modal(`<div class="modal-head"><h3><i class="ti ti-search"></i> Rechercher</h3><button class="icon-x" onclick="this.closest('.overlay').remove()"><i class="ti ti-x"></i></button></div><div class="modal-body"><input id="msearchInput" class="cell" style="width:100%;font-size:15px" placeholder="Chantier, client, produit, devis, page…" oninput="_renderSearchInto('msearchInput','msearchRes',function(){document.querySelectorAll('.overlay').forEach(function(o){o.remove();});})" autocomplete="off"><div id="msearchRes" class="msearchres" style="margin-top:10px;max-height:52vh;overflow:auto"></div></div>`);setTimeout(()=>{const i=document.getElementById('msearchInput');if(i)i.focus();},60);}
 document.addEventListener('click',e=>{if(sRes&&!e.target.closest('.search'))sRes.innerHTML='';});
@@ -3889,13 +3904,46 @@ function _applyState(d,keepSession){if(!d)return;
   planData=planWeekData(planWeek);
   /* ré-hydrate les lignes du devis ouvert localement (les arrays viennent d'être remplacés) */
   if(keepSession&&typeof currentDevis!=='undefined'&&currentDevis){const dd=devisDossiers.find(x=>x.id===currentDevis);if(dd){devisLignes.length=0;(dd.lignes||[]).forEach(l=>devisLignes.push(l));if(dd.clientId!=null)devisClient=dd.clientId;}else{currentDevis=null;devisLignes.length=0;}}}
-function saveState(){try{localStorage.setItem(ZP_STORE_KEY,JSON.stringify(_stateObj()));}catch(e){}_cloudPush();}
+function saveState(){var _big=false;try{const _s=JSON.stringify(_stateObj());_big=_s.length>3500000;localStorage.setItem(ZP_STORE_KEY,_s);}catch(e){_zpWarnSave(e);}if(_big)_zpWarnBig();_cloudPush();}
+let _zpSaveWarned=0,_zpBigWarned=0;
+function _zpWarnSave(e){const now=Date.now();if(now-_zpSaveWarned<60000)return;_zpSaveWarned=now;try{if(typeof toast==='function')toast('Sauvegarde locale saturée — le cloud prend le relais. Allège les fichiers joints (Réglages › Sauvegardes).','info','ti-database-exclamation');}catch(_){}}
+function _zpWarnBig(){const now=Date.now();if(now-_zpBigWarned<300000)return;_zpBigWarned=now;try{if(typeof toast==='function')toast('Données volumineuses : pense à joindre les gros PDF via le bouton fichier (ils partent désormais hors des données).','info','ti-alert-triangle');}catch(_){}}
 function loadState(){try{const raw=localStorage.getItem(ZP_STORE_KEY);if(!raw)return;const d=JSON.parse(raw);if(!d)return;_applyState(d);if(d.scal&&d.scal.sessionEmail!==undefined)sessionEmail=d.scal.sessionEmail;}catch(e){}}
 function resetState(){try{localStorage.removeItem(ZP_STORE_KEY);}catch(e){}location.reload();}
 /* --- Supabase cloud sync --- */
 const SUPA_URL='https://xmsdqrmsvmxqnikcivhv.supabase.co';
 const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhtc2Rxcm1zdm14cW5pa2Npdmh2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3NDIxODEsImV4cCI6MjA5ODMxODE4MX0.alBvBxSkIItEO25vmxBvmImXn0wXnOZoHUVinoiHVNA';
 let sb=null;try{if(window.supabase&&window.supabase.createClient)sb=window.supabase.createClient(SUPA_URL,SUPA_KEY);}catch(e){}
+/* ===== Fichiers hors du blob : Supabase Storage (bucket privé zp-files) ===== */
+/* Un fichier joint (fiche technique PDF, scan, photo de rapport, preuve) est envoyé dans le bucket privé
+   et on ne garde dans les données que la référence 'zpfile:<chemin>'. Repli base64 automatique si hors-ligne. */
+const ZP_BUCKET='zp-files';
+const _zpUrlCache=new Map();
+function _zpUuid(){try{if(crypto&&crypto.randomUUID)return crypto.randomUUID();}catch(e){}return Date.now().toString(36)+Math.random().toString(36).slice(2);}
+function _zpExt(file){let ext='';if(file&&file.name){const m=String(file.name).match(/\.([a-z0-9]+)$/i);if(m)ext=m[1].toLowerCase();}
+  if(!ext){const t=(file&&file.type)||'';ext={'application/pdf':'pdf','image/jpeg':'jpg','image/jpg':'jpg','image/png':'png','image/webp':'webp','image/gif':'gif'}[t]||'bin';}return ext;}
+function _fileToDataURL(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(file);});}
+/* Envoie le fichier et renvoie 'zpfile:<path>'. En cas d'échec (hors-ligne, non autorisé, erreur), repli base64 (comme avant). */
+async function zpStore(file,folder){
+  try{
+    if(!sb||!sessionEmail)throw new Error('offline');
+    if(!file||!(file instanceof Blob))throw new Error('nofile');
+    const ext=_zpExt(file);const path=(folder||'divers')+'/'+new Date().getFullYear()+'/'+_zpUuid()+'.'+ext;
+    const up=await sb.storage.from(ZP_BUCKET).upload(path,file,{contentType:file.type||'application/octet-stream',upsert:false});
+    if(up.error)throw up.error;
+    return 'zpfile:'+path;
+  }catch(e){try{return await _fileToDataURL(file);}catch(e2){return '';}}
+}
+function _isFile(v){return typeof v==='string'&&/^(data:|zpfile:)/i.test(v);}
+function _isPdfRef(v){return /pdf/i.test(v||'');}
+function _zpPath(v){return String(v||'').replace(/^zpfile:/,'');}
+async function _zpSignedUrl(path){const now=Date.now();const c=_zpUrlCache.get(path);if(c&&c.exp>now+60000)return c.url;if(!sb)return '';
+  try{const r=await sb.storage.from(ZP_BUCKET).createSignedUrl(path,3600);if(r.error||!r.data||!r.data.signedUrl)return '';_zpUrlCache.set(path,{url:r.data.signedUrl,exp:now+3600000});return r.data.signedUrl;}catch(e){return '';}}
+/* Après chaque rendu / ouverture de modale : remplace src|href|data='zpfile:…' par une URL signée temporaire. Idempotent. */
+async function zpResolveFiles(root){try{const scope=root||document;const els=scope.querySelectorAll('[src^="zpfile:"],[href^="zpfile:"],[data^="zpfile:"]');
+  for(const el of els){const attr=el.hasAttribute('src')?'src':(el.hasAttribute('href')?'href':'data');const ref=el.getAttribute(attr);el.setAttribute('data-zpf',ref);el.removeAttribute(attr);const url=await _zpSignedUrl(_zpPath(ref));if(url)el.setAttribute(attr,url);}}catch(e){}}
+/* Résout une référence en URL utilisable maintenant (pour l'impression PDF : data: tel quel, zpfile: → URL signée). */
+async function zpResolveOne(v){if(!_isFile(v))return v||'';if(/^data:/i.test(v))return v;return await _zpSignedUrl(_zpPath(v));}
 /* ===== P0-3 : monitoring d'erreurs (table Supabase `errors`) ===== */
 let _errCount=0,_errLast='';
 function _logErr(msg,stack){try{if(!sb)return;msg=String(msg||'').slice(0,500);if(_errCount>=10||msg===_errLast)return;_errCount++;_errLast=msg;sb.from('errors').insert({user_email:(typeof sessionEmail==='string'?sessionEmail:null),message:msg,stack:String(stack||'').slice(0,2000),page:(typeof view==='string'?view:''),user_agent:(navigator.userAgent||'').slice(0,300)}).then(()=>{},()=>{});}catch(e){}}
@@ -3928,7 +3976,7 @@ async function _afterAuth(email){sessionEmail=email;
 function _authMsg(e){const m=(e&&e.message)||String(e||'');if(/already registered|already been registered/i.test(m))return 'Ce compte existe déjà — vérifie ton mot de passe.';if(/invalid login/i.test(m))return 'Email ou mot de passe incorrect.';if(/at least 6|password should be/i.test(m))return 'Mot de passe trop court (6 caractères minimum).';if(/network|fetch/i.test(m))return 'Problème réseau, réessaie.';return m;}
 function _loginBusy(b){const btn=document.getElementById('loginBtn');if(btn){btn.disabled=b;btn.style.opacity=b?'.6':'1';btn.innerHTML=b?'<i class="ti ti-loader-2"></i> Connexion…':'<i class="ti ti-login-2"></i> Se connecter';}}
 if(sb){try{sb.auth.onAuthStateChange((ev)=>{if(ev==='PASSWORD_RECOVERY'){const np=prompt('Choisis ton nouveau mot de passe (6 caractères minimum) :');if(np&&np.length>=6){sb.auth.updateUser({password:np}).then(({error})=>{alert(error?('Erreur : '+error.message):'Mot de passe mis à jour ✓');});}}});}catch(e){}}
-const _renderOrig=render;render=function(){_renderOrig();saveState();_syncFoot();if(typeof _updateBellDot==='function')_updateBellDot();if(typeof _scaleDevisPreview==='function')_scaleDevisPreview();};
+const _renderOrig=render;render=function(){_renderOrig();saveState();_syncFoot();if(typeof _updateBellDot==='function')_updateBellDot();if(typeof _scaleDevisPreview==='function')_scaleDevisPreview();if(typeof zpResolveFiles==='function')zpResolveFiles();if(typeof view==='string'&&view==='reglages'&&typeof _loadBackupStatus==='function')_loadBackupStatus();};
 try{window.addEventListener('resize',function(){if(typeof _scaleDevisPreview==='function')_scaleDevisPreview();});}catch(e){}
 /* dernier filet : tentative de push quand l'onglet se ferme / passe en arrière-plan (le pointage en cours part au cloud) */
 try{window.addEventListener('pagehide',function(){try{if(typeof _cloudPush==='function')_cloudPush(true);}catch(e){}});document.addEventListener('visibilitychange',function(){try{if(document.visibilityState==='hidden'&&typeof _cloudPush==='function')_cloudPush(true);}catch(e){}});}catch(e){}
