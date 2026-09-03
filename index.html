@@ -372,7 +372,7 @@ input.noarrow{-moz-appearance:textfield;appearance:textfield}
     <nav id="nav"></nav>
     <div class="side-foot">
       <span class="live" id="syncFoot"><span class="pulse"></span> Cloud Supabase</span><br>
-      <span style="opacity:.8">Zinguerie Provençale · v7.4</span>
+      <span style="opacity:.8">Zinguerie Provençale · v7.5</span>
     </div>
   </aside>
 
@@ -2592,7 +2592,7 @@ function printDoc(html,filename){
   if(window.html2pdf){
     toast('Génération du PDF…','info','ti-file-download');
     try{
-      html2pdf().set({margin:[6,0,8,0],filename:filename,image:{type:'jpeg',quality:0.98},html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff',logging:false,windowWidth:820},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},pagebreak:{mode:['css','legacy']}}).from(wrap.lastChild).save().then(()=>{cleanup();toast('PDF téléchargé ✓','ok','ti-file-download');},(e)=>{cleanup();_printFallback(html);});
+      html2pdf().set({margin:[6,0,8,0],filename:filename,image:{type:'jpeg',quality:0.98},html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff',logging:false},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},pagebreak:{mode:['css','legacy']}}).from(wrap.lastChild).save().then(()=>{cleanup();toast('PDF téléchargé ✓','ok','ti-file-download');},(e)=>{cleanup();_printFallback(html);});
     }catch(e){cleanup();_printFallback(html);}
   }else{cleanup();_printFallback(html);}
 }
@@ -3273,11 +3273,22 @@ function _supPeople(){const list=salaries.slice();const known=new Set(list.map(s
   (comptes||[]).forEach(u=>{const r=String(u.role||'');if(!(/Salarié|Chef d'équipe/.test(r)))return;const em=String(u.email||'').toLowerCase();if(!em||known.has(em))return;const nm=String(u.nom||em);list.push({id:'c_'+em,nom:nm,init:(nm.trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('')||'?').toUpperCase(),role:r,col:pal[i++%pal.length],cout:0,email:em,_virtuel:true});});
   return list;}
 function _supP(i){return (typeof sal==='function'&&sal(i))||_supPeople().find(p=>p.id===i)||{};}
-const lt=i=>{const s=_supP(i);const pt=_ptOf(_salEmail(s),_dISO(new Date()));
-  if(!pt||((pt.interventions||[]).length===0&&!pt.active))return {statut:'pas',ch:null,since:'—'};
-  const ivs=pt.interventions||[];
-  if(pt.active)return {statut:pt.paused?'pause':'cours',ch:pt.curChId||null,since:_hhmmTs(pt.curStart||(ivs[0]&&ivs[0].start))};
-  const last=ivs[ivs.length-1];return {statut:'fini',ch:last?last.chId:null,since:_hhmmTs(ivs[0]&&ivs[0].start),end:_hhmmTs(last&&last.end),dur:_fmtDur(ivs.reduce((a,x)=>a+(x.secs||0),0))};
+/* Pointage « en direct » : la session du jour, ou une session encore ACTIVE ouverte un jour précédent
+   (compagnon qui n'a pas clôturé / passage de minuit) — sinon le bureau ne voit jamais rien remonter. */
+function _ptLive(email){if(!email)return null;const today=_dISO(new Date());const tp=_ptOf(email,today);
+  if(tp&&(tp.active||(tp.interventions||[]).length))return tp;
+  for(let b=1;b<=3;b++){const d=new Date();d.setDate(d.getDate()-b);const p=_ptOf(email,_dISO(d));if(p&&p.active)return p;}
+  return tp;}
+const lt=i=>{const s=_supP(i);const pt=_ptLive(_salEmail(s));
+  if(!pt||((pt.interventions||[]).length===0&&!pt.active))return {statut:'pas',ch:null,since:'—',cumul:0,zone:'',stale:false};
+  const ivs=pt.interventions||[];const today=_dISO(new Date());const closed=ivs.reduce((a,x)=>a+(x.secs||0),0);
+  const startTs=pt.active?(pt.curStart||(ivs[0]&&ivs[0].start)):(ivs[0]&&ivs[0].start);
+  const stale=!!(pt.active&&startTs&&_dISO(new Date(startTs))!==today);
+  const cumul=stale?(closed+(pt.curAccum||0)):_ptSecsTot(pt); /* si clôture oubliée, ne pas gonfler avec le temps écoulé depuis hier */
+  const chId=pt.active?(pt.curChId||null):((ivs[ivs.length-1]||{}).chId||null);
+  const zone=(chn(chId)||{}).zone||'';
+  if(pt.active)return {statut:pt.paused?'pause':'cours',ch:chId,since:_hhmmTs(startTs),startTs,cumul,zone,stale};
+  const last=ivs[ivs.length-1];return {statut:'fini',ch:chId,since:_hhmmTs(ivs[0]&&ivs[0].start),end:_hhmmTs(last&&last.end),dur:_fmtDur(closed),cumul,zone,stale:false};
 };
 const LSTAT={cours:['EN COURS','#3D8AC6','rgba(61,138,198,.14)'],pause:['EN PAUSE','#E8B547','rgba(232,181,71,.18)'],fini:['TERMINÉ','#7A8B4F','rgba(122,139,79,.16)'],pas:['PAS COMMENCÉ','#9c958a','var(--surface-3)']};
 /* heures par salarié : aujourd'hui / semaine / mois / heures sup */
@@ -3332,7 +3343,7 @@ views.supervision=()=>{
 
   /* --- vue EN DIRECT --- */
   const direct=`<div class="card"><div class="card-head"><h3><i class="ti ti-broadcast"></i> Équipe en direct</h3><span class="sub">cliquez une ligne pour le détail</span></div>
-    <div class="sup-head"><div></div><div>Salarié</div><div>Statut</div><div>Chantier &amp; arrivée</div><div style="text-align:right">Temps · heures</div></div>
+    <div class="sup-head"><div></div><div>Salarié</div><div>Statut</div><div>Chantier · zone · démarrage</div><div style="text-align:right">Cumul du jour</div></div>
     ${_sup.map(s=>{const L=lt(s.id),st=LSTAT[L.statut],c=chn(L.ch)||{col:'#9aa8b0',nom:'—'},live=['cours','pause'].includes(L.statut);
       const ic=L.statut==='cours'?'ti-player-play':L.statut==='pause'?'ti-player-pause':L.statut==='fini'?'ti-check':'ti-clock';
       const temps=live?surSite(L.since):(L.dur||'—'),tlab=live?'sur site':"aujourd'hui";
@@ -3340,9 +3351,9 @@ views.supervision=()=>{
         <span class="avatar-sm" style="width:42px;height:42px;font-size:15px;background:${s.col}">${s.init}</span>
         <div style="min-width:0"><div style="font-weight:700;font-size:14.5px">${s.nom}</div><div class="muted" style="font-size:12px">${s.role}</div></div>
         <div><span class="sup-pill" style="background:${st[2]};color:${st[1]}"><i class="ti ${ic}" style="font-size:13px"></i>${st[0]}</span></div>
-        <div class="sup-ch" style="min-width:0"><div style="font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px"><span style="width:9px;height:9px;border-radius:50%;background:${c.col};flex-shrink:0"></span>${c.nom}</div>
-          <div style="font-size:12px;color:var(--ink-3);margin-top:3px">${L.statut==='pas'?'Pas encore pointé aujourd\'hui':(L.statut==='fini'?`${L.since} → ${L.end}`:'depuis '+L.since)}${(c&&c.adresse&&L.statut!=='pas')?' · <i class="ti ti-map-pin" style="font-size:11px;vertical-align:-1px"></i> '+String(c.adresse).replace(/</g,'&lt;'):''}</div></div>
-        <div class="sup-site" style="text-align:right"><div class="rnd" style="font-size:21px;font-weight:800;color:${live?st[1]:'var(--ink)'}">${temps}</div><div class="tiny">${tlab} · sem. <b style="color:var(--ink-2)">${th(s.id).sem} h</b></div></div>
+        <div class="sup-ch" style="min-width:0"><div style="font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="width:9px;height:9px;border-radius:50%;background:${c.col};flex-shrink:0"></span>${c.nom}${L.zone?` <span class="tag" style="background:rgba(61,138,198,.14);color:var(--bleu-mer);font-size:10px">Zone ${L.zone}</span>`:(L.statut!=='pas'&&L.ch?` <span class="tag" style="background:var(--surface-3);color:var(--ink-3);font-size:10px">zone —</span>`:'')}</div>
+          <div style="font-size:12px;color:var(--ink-3);margin-top:3px">${L.statut==='pas'?'Pas encore pointé aujourd\'hui':(L.statut==='fini'?`démarré à ${L.since} → fini ${L.end}`:(L.stale?'<span style="color:var(--alerte)"><i class="ti ti-alert-triangle" style="font-size:11px"></i> démarré '+new Date(L.startTs).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})+' à '+L.since+' — clôture oubliée ?</span>':'démarré à '+L.since))}${(c&&c.adresse&&L.statut!=='pas')?' · <i class="ti ti-map-pin" style="font-size:11px;vertical-align:-1px"></i> '+String(c.adresse).replace(/</g,'&lt;'):''}</div></div>
+        <div class="sup-site" style="text-align:right"><div class="rnd" style="font-size:21px;font-weight:800;color:${live?st[1]:'var(--ink)'}">${L.cumul?_fmtDur(L.cumul):'—'}</div><div class="tiny">cumul du jour · sem. <b style="color:var(--ink-2)">${th(s.id).sem} h</b></div></div>
       </div>`;}).join('')}
     <div class="card-pad" style="border-top:1px solid var(--line);background:var(--surface-2);display:flex;gap:16px;flex-wrap:wrap;font-size:12px"><span><span class="sup-pill" style="background:rgba(61,138,198,.14);color:#3D8AC6;padding:3px 9px"><i class="ti ti-player-play" style="font-size:11px"></i>EN COURS</span> travaille</span><span><span class="sup-pill" style="background:rgba(232,181,71,.18);color:#a9760d;padding:3px 9px"><i class="ti ti-player-pause" style="font-size:11px"></i>EN PAUSE</span> arrêt</span><span><span class="sup-pill" style="background:rgba(122,139,79,.16);color:#7A8B4F;padding:3px 9px"><i class="ti ti-check" style="font-size:11px"></i>TERMINÉ</span> a fini</span></div>
   </div>`;
