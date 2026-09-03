@@ -372,7 +372,7 @@ input.noarrow{-moz-appearance:textfield;appearance:textfield}
     <nav id="nav"></nav>
     <div class="side-foot">
       <span class="live" id="syncFoot"><span class="pulse"></span> Cloud Supabase</span><br>
-      <span style="opacity:.8">Zinguerie Provençale · v7.5</span>
+      <span style="opacity:.8">Zinguerie Provençale · v7.6</span>
     </div>
   </aside>
 
@@ -3525,6 +3525,7 @@ views.reglages=()=>`<div class="view">
           <button class="btn sm primary" onclick="exportData()"><i class="ti ti-download"></i> Exporter une sauvegarde</button>
           <button class="btn sm" onclick="openCloudRestore()"><i class="ti ti-cloud-download"></i> Restaurer depuis le cloud</button>
           <button class="btn sm" onclick="snapshotNow()"><i class="ti ti-database-plus"></i> Snapshot cloud maintenant</button>
+          <button class="btn sm" id="zpMigBtn" onclick="migrateFilesToStorage()"><i class="ti ti-cloud-cog"></i> Optimiser le stockage (fichiers → cloud)</button>
           <button class="btn sm" onclick="document.getElementById('importDataInput').click()"><i class="ti ti-upload"></i> Restaurer depuis un fichier</button>
           <button class="btn sm" onclick="openDemoTri()"><i class="ti ti-wand"></i> Trier les données de démo</button>
           <input type="file" id="importDataInput" accept="application/json,.json" style="display:none" onchange="importData(this)">
@@ -3955,6 +3956,22 @@ async function zpResolveFiles(root){try{const scope=root||document;const els=sco
   for(const el of els){const attr=el.hasAttribute('src')?'src':(el.hasAttribute('href')?'href':'data');const ref=el.getAttribute(attr);el.setAttribute('data-zpf',ref);el.removeAttribute(attr);const url=await _zpSignedUrl(_zpPath(ref));if(url)el.setAttribute(attr,url);}}catch(e){}}
 /* Résout une référence en URL utilisable maintenant (pour l'impression PDF : data: tel quel, zpfile: → URL signée). */
 async function zpResolveOne(v){if(!_isFile(v))return v||'';if(/^data:/i.test(v))return v;return await _zpSignedUrl(_zpPath(v));}
+/* ===== Migration one-shot : sort les fichiers base64 DÉJÀ stockés dans le blob vers le bucket zp-files ===== */
+function _dataURLtoBlob(dataURL){try{const m=String(dataURL).match(/^data:([^;,]*)(;base64)?,([\s\S]*)$/);if(!m)return null;const mime=m[1]||'application/octet-stream';const isB64=!!m[2];const data=m[3];let bytes;if(isB64){const bin=atob(data);bytes=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);}else{bytes=new TextEncoder().encode(decodeURIComponent(data));}return new Blob([bytes],{type:mime});}catch(e){return null;}}
+async function _zpMigrateOne(dataURL,folder){const blob=_dataURLtoBlob(dataURL);if(!blob)return dataURL;const ext={'application/pdf':'pdf','image/jpeg':'jpg','image/jpg':'jpg','image/png':'png','image/webp':'webp','image/gif':'gif'}[blob.type]||'bin';const file=new File([blob],'f.'+ext,{type:blob.type||'application/octet-stream'});const ref=await zpStore(file,folder);return ref;}
+async function migrateFilesToStorage(){if(!sb||!sessionEmail){toast('Connecte-toi d\'abord','info','ti-alert-circle');return;}
+  const tasks=[];
+  (catFournitures||[]).forEach(p=>{if(/^data:/i.test(p&&p.ft||''))tasks.push({folder:'ft',get:()=>p.ft,set:v=>{p.ft=v;}});});
+  (chantiers||[]).forEach(c=>(c.docs||[]).forEach(d=>{if(/^data:/i.test(d&&d.img||''))tasks.push({folder:'chantier-docs',get:()=>d.img,set:v=>{d.img=v;}});}));
+  (docSections||[]).forEach(s=>(s.docs||[]).forEach(d=>{if(/^data:/i.test(d&&d.img||''))tasks.push({folder:'documents',get:()=>d.img,set:v=>{d.img=v;}});}));
+  (rapports||[]).forEach(r=>(r.photos||[]).forEach((ph,i)=>{if(/^data:/i.test(ph||''))tasks.push({folder:'rapports',get:()=>r.photos[i],set:v=>{r.photos[i]=v;}});}));
+  (devisDossiers||[]).forEach(d=>(d.preuves||[]).forEach(p=>{if(/^data:/i.test(p&&p.img||''))tasks.push({folder:'preuves',get:()=>p.img,set:v=>{p.img=v;}});}));
+  if(!tasks.length){toast('Aucun fichier à migrer — stockage déjà optimisé ✓','ok','ti-cloud-check');return;}
+  if(!confirm('Déplacer '+tasks.length+' fichier(s) joint(s) vers le cloud (Supabase Storage) ? Les données s\'allègent d\'autant. Les fichiers restent visibles normalement.'))return;
+  let done=0,fail=0;const btn=document.getElementById('zpMigBtn');if(btn){btn.disabled=true;btn.innerHTML='<i class="ti ti-loader-2"></i> Migration…';}
+  for(let i=0;i<tasks.length;i++){const t=tasks[i];try{const ref=await _zpMigrateOne(t.get(),t.folder);if(typeof ref==='string'&&/^zpfile:/.test(ref)){t.set(ref);done++;}else{fail++;}}catch(e){fail++;}if(btn)btn.innerHTML='<i class="ti ti-loader-2"></i> Migration… '+(i+1)+'/'+tasks.length;}
+  saveState();_cloudPush(true);_logAction&&_logAction('ti-cloud-cog','a optimisé le stockage ('+done+' fichier(s) déplacés vers le cloud)');render();
+  toast(done+' fichier(s) déplacés vers le cloud'+(fail?(' · '+fail+' à revoir'):'')+' ✓','ok','ti-cloud-check');}
 /* ===== P0-3 : monitoring d'erreurs (table Supabase `errors`) ===== */
 let _errCount=0,_errLast='';
 function _logErr(msg,stack){try{if(!sb)return;msg=String(msg||'').slice(0,500);if(_errCount>=10||msg===_errLast)return;_errCount++;_errLast=msg;sb.from('errors').insert({user_email:(typeof sessionEmail==='string'?sessionEmail:null),message:msg,stack:String(stack||'').slice(0,2000),page:(typeof view==='string'?view:''),user_agent:(navigator.userAgent||'').slice(0,300)}).then(()=>{},()=>{});}catch(e){}}
