@@ -372,7 +372,7 @@ input.noarrow{-moz-appearance:textfield;appearance:textfield}
     <nav id="nav"></nav>
     <div class="side-foot">
       <span class="live" id="syncFoot"><span class="pulse"></span> Cloud Supabase</span><br>
-      <span style="opacity:.8">Zinguerie Provençale · v7.7</span>
+      <span style="opacity:.8">Zinguerie Provençale · v7.8</span>
     </div>
   </aside>
 
@@ -683,7 +683,7 @@ function _cmdTotaux(cmd){let ht=0,ttc=0;const vent={};(cmd.lignes||[]).forEach(l
 function _cmdStatut(cmd){const fs=_cmdFactures(cmd).filter(f=>f.affecte!==false&&(f.type||'')!=='Avoir');if(!fs.length)return ['À facturer','#a9760d','rgba(232,181,71,.18)'];const dgd=fs.find(f=>/DGD|solde/i.test(f.type||''));if(dgd&&dgd.statut==='payee')return ['Soldée','#7A8B4F','rgba(122,139,79,.16)'];if(dgd)return ['DGD émis','#3D8AC6','rgba(61,138,198,.14)'];if(fs.some(f=>/situation/i.test(f.type||'')))return ['En facturation','#3D8AC6','rgba(61,138,198,.14)'];return ['Acomptes en cours','#C66B3D','rgba(198,107,61,.14)'];}
 /* Acomptes PERÇUS et AFFECTÉS d'un marché (pour les récaps de bas de page) */
 function _acomptesPercus(devisId){return factures.filter(f=>f.devisId===devisId&&/acompte/i.test(f.type||'')&&(f.type||'')!=='Avoir'&&f.affecte!==false&&_facRegle(f)>0.009).map(f=>{const rl=_facRegl(f);return {num:f.num,type:f.type,date:(rl.length?rl[rl.length-1].date:f.datePaiement)||'',montant:_facRegle(f)};});}
-let entreprise={raison:'Zinguerie Provençale SARL',metiers:'Couverture · Charpente · Zinguerie · Étanchéité · Désamiantage SS4',adresse:'290 Rue Jean de Guiramand, 13290 Aix-en-Provence',siret:'517 468 369 00031',decennale:'AXA n° 2026-7741',tel:'',email:'',formeJuridique:'SAS',capital:'',rcs:'',tvaIntra:'',assureurAdr:'',decennaleZone:''};
+let entreprise={raison:'Zinguerie Provençale SARL',metiers:'Couverture · Charpente · Zinguerie · Étanchéité · Désamiantage SS4',adresse:'290 Rue Jean de Guiramand, 13290 Aix-en-Provence',siret:'517 468 369 00031',decennale:'AXA n° 2026-7741',tel:'',email:'',formeJuridique:'SARL',capital:'',rcs:'',tvaIntra:'',assureurAdr:'',decennaleZone:''};
 /* n° TVA intracommunautaire français, calculé depuis le SIREN (9 premiers chiffres du SIRET) — clé = (12 + 3×(SIREN mod 97)) mod 97 */
 function _frTvaIntra(siret){const s=String(siret||'').replace(/\D/g,'');if(s.length<9)return '';const siren=s.slice(0,9);const key=(12+3*(parseInt(siren,10)%97))%97;return 'FR'+String(key).padStart(2,'0')+siren;}
 function _entSiren(){return String(entreprise.siret||'').replace(/\D/g,'').slice(0,9);}
