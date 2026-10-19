@@ -1,0 +1,21 @@
+{
+  "name": "zptools",
+  "private": true,
+  "version": "8.0.0",
+  "scripts": {
+    "test": "node --test tests/*.test.cjs",
+    "check": "node scripts/check.cjs",
+    "audit:local": "npm run check && npm test && npm run build",
+    "build": "node scripts/build.cjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.10",
+    "acorn": "8.15.0",
+    "dompurify": "3.4.17",
+    "jsdom": "26.1.0",
+    "linkedom": "0.18.12"
+  }
+}
