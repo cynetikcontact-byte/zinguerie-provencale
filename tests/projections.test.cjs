@@ -1,0 +1,19 @@
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),{PGlite}=require('@electric-sql/pglite');
+const sql=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
+test('projections serveur : coûts privés, dossiers clients, identité et comptes désactivés',async()=>{const db=new PGlite();try{
+ await db.exec(sql('tests/fixtures/legacy-schema.sql'));
+ await db.exec("create table auth.users(id uuid primary key,email text);insert into app_users(email,nom,role) values('boss@example.test','Boss','Gérant'),('office@example.test','Bureau','Bureau'),('foreman@example.test','Chef','Chef d''équipe'),('client@example.test','Client','Client'),('accountant@example.test','Comptable','Comptable');insert into auth.users select gen_random_uuid(),email from app_users;");
+ const data={arr:{salaries:[{id:'s1',nom:'Salarié',cout:42,visite:'confidentiel'}],clients:[{id:'c1',nom:'Premier',note:'interne'},{id:'c2',nom:'Autre'}],chantiers:[{id:'ch1',clientId:'c1',nom:'Premier chantier',prix:9999},{id:'ch2',clientId:'c2',nom:'Autre chantier'}],comptes:[{email:'client@example.test',role:'Gérant',nom:'Faux rôle'}],devisDossiers:[{id:'d1',clientId:'c1',statut:'envoye',lignes:[{des:'Zinc',pu:100,h:5,taux:42,four:[{pu:5}]}]},{id:'d2',clientId:'c2',statut:'envoye'}],factures:[{id:'f1',clientId:'c1',locked:true},{id:'f2',clientId:'c2',locked:true},{id:'draft',clientId:'c1',locked:false}]},obj:{pointages:{'foreman@example.test|2026-10-19':{interventions:[{secs:3600,coutHoraire:42}]},'other@example.test|2026-10-19':{interventions:[]}},entreprise:{raison:'ZP',internalSecret:'secret'}},scal:{coutMO:42}};
+ await db.query('insert into workspace(id,data) values($1,$2)',['main',data]);
+ await db.exec(sql('supabase/migrations/202610190001_security_foundation.sql'));
+ await db.exec(sql('supabase/migrations/202610190002_workspace_api.sql'));
+ await db.exec("update app_users set client_id='c1' where email='client@example.test'");
+ async function get(email){const u=(await db.query('select id from auth.users where email=$1',[email])).rows[0];await db.exec('set role authenticated');try{await db.query("select set_config('request.jwt.claims',$1,false)",[JSON.stringify({email,sub:u.id})]);return (await db.query('select zp_load_workspace() as w')).rows[0].w;}finally{await db.exec('reset role');}}
+ const boss=await get('boss@example.test');assert.equal(boss.data.arr.salaries[0].cout,42);
+ const office=await get('office@example.test');assert.equal(office.data.arr.salaries[0].cout,undefined);assert.equal(office.data.obj.pointages['foreman@example.test|2026-10-19'].interventions[0].coutHoraire,undefined);
+ const foreman=await get('foreman@example.test');assert.equal(foreman.data.arr.factures.length,0);assert.equal(foreman.data.arr.salaries[0].visite,undefined);assert.equal(foreman.data.arr.chantiers[0].prix,undefined);assert.equal(Object.keys(foreman.data.obj.pointages).length,1);
+ const client=await get('client@example.test');assert.equal(client.identity.clientId,'c1');assert.deepEqual(client.data.arr.clients.map(x=>x.id),['c1']);assert.deepEqual(client.data.arr.chantiers.map(x=>x.id),['ch1']);assert.deepEqual(client.data.arr.factures.map(x=>x.id),['f1']);assert.deepEqual(client.data.arr.devisDossiers.map(x=>x.id),['d1']);assert.equal(client.data.arr.devisDossiers[0].lignes[0].taux,undefined);assert.equal(client.data.arr.comptes[0].role,'Client');assert.equal(client.data.obj.entreprise.internalSecret,undefined);
+ const accountant=await get('accountant@example.test');assert.equal(accountant.data.arr.factures.length,2);assert.equal(accountant.data.arr.salaries.length,0);
+ await db.exec("update app_users set actif=false where email='client@example.test'");await assert.rejects(get('client@example.test'),/ZP_ACCESS/);
+ assert.equal((await db.query("select has_function_privilege('anon','zp_load_workspace()','execute') as ok")).rows[0].ok,false);
+ }finally{await db.close();}});
