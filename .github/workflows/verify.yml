@@ -1,0 +1,29 @@
+name: Verify ZP Tools
+on:
+  pull_request:
+  push:
+    branches: [main, 'codex/**']
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run audit:local
+      - run: docker build -t zptools-check .
+      - name: Check HTTP headers and deployed assets
+        run: |
+          docker run -d --name zptools-check -p 8090:80 zptools-check
+          for attempt in $(seq 1 20); do curl --fail -s http://localhost:8090/health.json && break || sleep 1; done
+          curl --fail -sI http://localhost:8090/ | tee /tmp/zp-headers
+          grep -q 'Content-Security-Policy:' /tmp/zp-headers
+          grep -q 'X-Content-Type-Options: nosniff' /tmp/zp-headers
+          curl --fail -s http://localhost:8090/assets/core.js > /dev/null
+          curl --fail -s http://localhost:8090/assets/app-1.js > /dev/null
+          docker stop zptools-check

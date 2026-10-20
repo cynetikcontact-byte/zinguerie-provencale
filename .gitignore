@@ -1,0 +1,11 @@
+node_modules/
+.env
+.env.*
+!.env.example
+test-results/
+.local/
+.DS_Store
+dist/
+
+# Local handover notes contain private operational history.
+CLAUDE.md

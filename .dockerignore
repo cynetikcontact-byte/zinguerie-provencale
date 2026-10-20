@@ -1,0 +1,9 @@
+.git
+node_modules
+.local
+dist
+CLAUDE.md
+.env
+.env.*
+test-results
+.DS_Store
