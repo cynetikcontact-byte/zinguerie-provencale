@@ -16,6 +16,12 @@ La prévisualisation est disponible sur `http://127.0.0.1:8765`. L'option `--dem
 
 Les tests couvrent notamment les projections des sept rôles, les écritures PostgreSQL avec contrôle de version, les factures figées, les stocks, les pointages, les sauvegardes ZIP et le rendu des vues. Les migrations sont exécutées dans une base PostgreSQL isolée PGlite ; aucun test n'écrit en production.
 
+### Simulation des parcours
+
+`npm run recette` lance une base PostgreSQL éphémère sur `http://127.0.0.1:8766`. Le bandeau permet de choisir un profil fictif et de simuler une coupure réseau. Le client utilise les vraies migrations et écrit uniquement dans cette base locale, qui est perdue à l'arrêt du processus. L'authentification est simulée ; cette commande ne valide pas Supabase Auth, les emails, les notifications externes ni l'application iOS. La messagerie et les fichiers font l'objet de tests séparés avec réponses de service simulées.
+
+Les tests `journeys`, `journey-edges` et `journey-files-chat` enchaînent les opérations métier et vérifient les résultats relus au serveur : devis/commande/chantier, acompte/situations/solde, pause et clôture du pointage, congés, approvisionnement, missions, rapports, restauration, concurrence, révocation, reconnexion et pièces jointes. Les rendus des sept rôles sont aussi parcourus avec des données présentes et une base vide. Les nouveaux devis portent une référence provisoire jusqu’à la sauvegarde ; leur export et la préparation de leur email attendent la confirmation du serveur. Ce périmètre ne constitue pas une preuve de couverture de toutes les combinaisons possibles.
+
 ## Déploiement v8
 
 Le `Dockerfile` construit les fichiers puis les sert avec nginx sur le port 80. `/health.json` expose la version du build. Le workflow GitHub vérifie les tests, le build Docker et les en-têtes HTTP.
@@ -25,7 +31,7 @@ Les migrations dans `supabase/migrations/` ciblent le schéma historique du proj
 1. Appliquer 001 à 004 dans l'ordre. Ces étapes ajoutent les API v8 et les protections préparatoires ; elles conservent temporairement le contrat des anciens clients.
 2. Vérifier les correspondances entre identités Auth et profils actifs, puis tester les nouveaux clients sur un environnement de recette. Les liens vers un salarié ou un client sont explicites ; aucun rapprochement par nom ne doit activer un accès.
 3. Coordonner la mise à jour du navigateur **et de toute application iOS**. L'ancien client accédant directement à `workspace` ne fonctionnera plus après 005.
-4. Déployer la v8, puis appliquer 005 pendant la même fenêtre de bascule. Cette dernière migration ferme l'accès direct au workspace et limite les fichiers au périmètre du compte.
+4. Déployer la v8, puis appliquer 005 pendant la même fenêtre de bascule. Cette migration ferme l'accès direct au workspace et limite les fichiers au périmètre du compte. Appliquer ensuite 006, qui fournit au magasinier l'identifiant de réservation du chantier sans exposer son prix ou le contenu du devis. Puis appliquer 007 pour attribuer les références des nouveaux devis et commandes sous verrou serveur et éviter les doublons entre postes. Ne pas rejouer 001–004 déjà appliquées.
 5. Vérifier la connexion, les sept rôles, une écriture autorisée, une écriture refusée, la révocation d'un accès, la lecture d'un fichier et une sauvegarde. Contrôler les en-têtes sur l'URL publique après le proxy.
 
 Ne pas déclarer l'isolation des rôles effective tant que 005 n'est pas appliquée. Ne pas réactiver les inscriptions publiques pour résoudre un problème de connexion. Le serveur SMTP et la vérification de propriété des adresses historiques doivent être traités avant les nouvelles invitations. Les informations légales doivent être confirmées par l'entreprise avant émission d'une facture.

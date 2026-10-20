@@ -6,6 +6,7 @@
     "test": "node --test tests/*.test.cjs",
     "check": "node scripts/check.cjs",
     "audit:local": "npm run check && npm test && npm run build",
+    "recette": "npm run build && node scripts/recette.cjs",
     "build": "node scripts/build.cjs"
   },
   "engines": {
