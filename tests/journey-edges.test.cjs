@@ -116,7 +116,7 @@ test('créations concurrentes : références devis/commandes attribuées par le 
 
 test('export devis : attente de la référence serveur, aucun PDF trompeur pendant une panne',async()=>{
  const s=await setup();try{
-  const c=await s.client('office');c.prints=[];run(c,"printDoc=(html,name)=>prints.push({html,name});newDevis()");
+  const c=await s.client('office');c.prints=[];run(c,"printDoc=(html,name)=>prints.push({html,name});newDevis();devisLignes.push({id:'l1',des:'Pose',qte:1,u:'u',pu:100,cat:'Divers'})");
   c.network.offline=true;await run(c,'exportDevisPDF()');assert.equal(c.prints.length,0);
   c.network.offline=false;await run(c,'exportDevisPDF()');assert.equal(c.prints.length,1);
   const w=await s.rpc('boss','zp_load_workspace');assert.match(c.prints[0].name,new RegExp(w.data.arr.devisDossiers[0].ref));assert.ok(c.prints[0].html.includes(w.data.arr.devisDossiers[0].ref));
