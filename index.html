@@ -878,12 +878,67 @@ function openCompte(id){if(role!=='patron')return;closeMenus();_comptePhotoTmp=n
  <div class="field"><label for="cpClient">Dossier associé au rôle Client</label><select id="cpClient"><option value="">Aucun dossier</option>${clients.map(c=>`<option value="${esc(c.id)}" ${c.id===u.clientId?'selected':''}>${esc(c.nom)}</option>`).join('')}</select></div>
  <div class="field"><label for="cpTel">Téléphone</label><input id="cpTel" value="${esc(u.tel||'')}"></div>
  <label style="display:flex;gap:8px;align-items:center"><input id="cpActive" type="checkbox" ${u.actif!==false?'checked':''}> Accès actif</label>
- <p class="tiny" style="margin:14px 0">${u.linked?'Identité de connexion existante.':'Une invitation doit être envoyée par l’administrateur avant l’activation. Le profil peut être préparé et conservé inactif.'} Les mots de passe restent personnels. Désactiver conserve l’historique.</p>
- <button class="btn primary" ${_evt('click',()=>saveCompte())}>Enregistrer l’accès</button></div>`);
+ <p class="tiny" style="margin:14px 0">${u.linked?'Cette personne a déjà un identifiant de connexion. Tu peux lui renvoyer un lien si elle a oublié son mot de passe.':'« Inviter » crée son identifiant et te donne un lien à lui envoyer : elle choisit elle-même son mot de passe.'} Désactiver conserve l’historique.</p>
+ <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn primary" ${_evt('click',()=>inviterCompte())}><i class="ti ti-send"></i> ${u.linked?'Renvoyer un lien de connexion':'Inviter et activer l’accès'}</button><button class="btn" ${_evt('click',()=>saveCompte())}>Enregistrer sans inviter</button></div></div>`);
 }
 
 function _comptePhotoPick(input){const f=input.files&&input.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{const img=new Image();img.onload=()=>{const max=200;let w=img.width,h=img.height;const sc=Math.min(1,max/Math.max(w,h));const cw=Math.round(w*sc),ch=Math.round(h*sc);const cv=document.createElement('canvas');cv.width=cw;cv.height=ch;cv.getContext('2d').drawImage(img,0,0,cw,ch);_comptePhotoTmp=cv.toDataURL('image/jpeg',0.82);const p=document.getElementById('comptePhotoPrev');if(p){p.style.backgroundImage='url('+_comptePhotoTmp+')';p.style.backgroundSize='cover';p.style.backgroundPosition='center';p.textContent='';}};img.src=ev.target.result;};r.readAsDataURL(f);}
-async function saveCompte(){if(role!=='patron')return;const email=_v('cpMail').trim().toLowerCase(),nom=_v('cpNom').trim();if(!nom||!/^\S+@\S+\.\S+$/.test(email)){toast('Nom et email valides requis.','info');return;}const previous=_compteEdit?comptes.find(x=>x.id===_compteEdit):{};if(_compteEdit&&previous?.email!==email){toast('L’adresse de connexion ne peut pas être remplacée ici.','error');return;}const profile={id:previous?.id||_zpUuid(),nom,role:_v('cpRole'),tel:_v('cpTel'),photo:previous?.photo||'',poste:previous?.poste||'',actif:!!document.getElementById('cpActive')?.checked,employeeId:_v('cpEmployee')||null,clientId:_v('cpClient')||null};if(await _serverAction('zp_manage_account',{target_email:email,profile})){document.querySelectorAll('.overlay').forEach(o=>o.remove());render();toast('Accès enregistré sur le serveur.','ok');}}
+async function saveCompte(){if(role!=='patron')return;const email=_v('cpMail').trim().toLowerCase(),nom=_v('cpNom').trim();if(!nom||!/^\S+@\S+\.\S+$/.test(email)){toast('Nom et email valides requis.','info');return;}const previous=_compteEdit?comptes.find(x=>x.id===_compteEdit):{};if(_compteEdit&&previous?.email!==email){toast('L’adresse de connexion ne peut pas être remplacée ici.','error');return;}const profile={id:previous?.id||_zpUuid(),nom,role:_v('cpRole'),tel:_v('cpTel'),photo:previous?.photo||'',poste:previous?.poste||'',actif:!!document.getElementById('cpActive')?.checked,employeeId:_v('cpEmployee')||null,clientId:_v('cpClient')||null};if(await _serverAction('zp_manage_account',{target_email:email,profile})){document.querySelectorAll('.overlay').forEach(o=>o.remove());render();toast('Accès enregistré sur le serveur.','ok');return true;}return false;}
+/* ===== Invitation : le gérant crée l'identifiant et transmet lui-même le lien (aucun serveur d'email requis) ===== */
+function _inviteToken(){const m=/[#&]invitation=([^&]+)/.exec(location.hash||'');try{return m?decodeURIComponent(m[1]):'';}catch(e){return '';}}
+async function _inviteRequest(email){if(!sb||!sb.functions){toast('Service d’invitation indisponible.','error');return null;}
+ try{const r=await sb.functions.invoke('zp-invite',{body:{email}});
+  if(r.error){let m=r.error.message||'erreur';try{const j=await r.error.context.json();if(j&&j.error)m=j.error;}catch(e){}throw Error(m);}
+  if(!r.data||typeof r.data.token!=='string'||!/^[A-Za-z0-9_-]{16,256}$/.test(r.data.token))throw Error((r.data&&r.data.error)||'Réponse du serveur incomplète.');
+  return {link:location.origin+'/#invitation='+encodeURIComponent(r.data.token),created:!!r.data.created};}
+ catch(e){toast('Invitation impossible : '+(e.message||'erreur'),'error');return null;}}
+let _inviteBusy=false;
+async function inviterCompte(){if(role!=='patron'||_inviteBusy)return;const email=_v('cpMail').trim().toLowerCase(),nom=_v('cpNom').trim(),tel=_v('cpTel');
+ if(!nom||!/^\S+@\S+\.\S+$/.test(email)){toast('Nom et email valides requis.','info');return;}
+ if(_v('cpRole')==='Client'&&!_v('cpClient')){toast('Associe d’abord un dossier client à ce profil.','info');return;}
+ const emp=_v('cpEmployee');if(emp&&comptes.some(c=>c.employeeId===emp&&(c.email||'').toLowerCase()!==email&&c.actif!==false)){toast('Cette fiche salarié est déjà associée à un autre accès actif. Choisis-en une autre ou « Aucune association ».','error');return;}
+ _inviteBusy=true;try{
+  const inv=await _inviteRequest(email);if(!inv)return;
+  const box=document.getElementById('cpActive');if(box)box.checked=true;
+  if(!(await saveCompte())){toast('Identifiant créé, mais le profil n’a pas pu être activé. Corrige puis réessaie « Inviter ».','error');return;}
+  _showInviteLink(nom,tel,inv);
+ }finally{_inviteBusy=false;}}
+function _showInviteLink(nom,tel,inv){const esc=ZPCore.escape,prenom=String(nom||'').trim().split(/\s+/)[0]||'';
+ const msg='Bonjour'+(prenom?' '+prenom:'')+', voici ton accès à ZPtools ('+(entreprise.raison||'Zinguerie Provençale')+'). Ouvre ce lien pour choisir ton mot de passe : '+inv.link;
+ const phone=String(tel||'').replace(/[^0-9+]/g,'');
+ modal(`<div class="modal-head"><h3><i class="ti ti-send"></i> ${inv.created?'Invitation prête':'Nouveau lien de connexion'}</h3><button class="icon-x" aria-label="Fermer" ${_evt('click',function(){this.closest('.overlay').remove();})}>×</button></div><div class="modal-body">
+ <p>${inv.created?'L’identifiant de <b>'+esc(nom)+'</b> est créé et son accès est actif.':'Un nouveau lien est prêt pour <b>'+esc(nom)+'</b>.'} Envoie-lui ce lien : il lui permet de choisir son mot de passe.</p>
+ <div class="field"><label for="invLink">Lien personnel</label><input id="invLink" class="cell" style="width:100%" readonly value="${esc(inv.link)}" ${_evt('focus',function(){this.select();})}></div>
+ <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn primary" ${_evt('click',()=>_copyInvite(msg))}><i class="ti ti-copy"></i> Copier le message</button><button class="btn" ${_evt('click',()=>{location.href='sms:'+phone+'?&body='+encodeURIComponent(msg);})}><i class="ti ti-message"></i> SMS</button><a class="btn" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(msg)}"><i class="ti ti-brand-whatsapp"></i> WhatsApp</a></div>
+ <p class="tiny" style="color:var(--ink-3);margin-top:12px">Le lien ne fonctionne qu’une fois et expire rapidement. S’il ne marche plus, rouvre ce profil et clique « Renvoyer un lien de connexion ». Ne l’envoie qu’à la personne concernée.</p></div>`);}
+async function _copyInvite(msg){try{await navigator.clipboard.writeText(msg);toast('Message copié — colle-le dans un SMS ou un email.','ok','ti-copy');}catch(e){const el=document.getElementById('invLink');if(el){el.focus();el.select();}toast('Copie automatique impossible : sélectionne le lien et copie-le.','info');}}
+/* Écran d'arrivée de la personne invitée : elle choisit son mot de passe (le jeton n'est consommé qu'au clic). */
+function _showInvite(token){showLogin();const card=document.querySelector('#loginScreen>div');if(!card)return;const logo=(document.querySelector('.brand-logo')||{}).src||'';const fs='width:100%;padding:12px 14px;border:1px solid #e3ddd0;border-radius:11px;margin:6px 0 14px;font-size:14px;box-sizing:border-box';
+ card.innerHTML=`${logo?`<img src="${logo}" style="height:76px;margin-bottom:4px">`:'<h2>Zinguerie Provençale</h2>'}
+  <h2 style="font-family:'Baloo 2';font-size:22px;margin:6px 0 4px">Bienvenue</h2>
+  <p style="color:#6B6B6B;font-size:13px;margin-bottom:20px">Choisis ton mot de passe pour accéder à ton espace.</p>
+  <div style="text-align:left">
+   <label for="invPass1" style="font-size:12px;font-weight:700;color:#6B6B6B">Nouveau mot de passe (8 caractères minimum)</label>
+   <input id="invPass1" type="password" autocomplete="new-password" style="${fs}">
+   <label for="invPass2" style="font-size:12px;font-weight:700;color:#6B6B6B">Confirme le mot de passe</label>
+   <input id="invPass2" type="password" autocomplete="new-password" style="${fs}" ${_evt('keydown',function(event){if(event.key==='Enter')_acceptInvite(token);})}>
+   <div id="loginErr" style="display:none;color:#B83A26;font-size:12.5px;font-weight:600;margin:4px 0"></div>
+  </div>
+  <button id="invBtn" ${_evt('click',()=>_acceptInvite(token))} style="width:100%;margin-top:14px;padding:13px;border:none;border-radius:12px;background:linear-gradient(135deg,#FFB347,#F39200);color:#fff;font-weight:800;font-size:15px;cursor:pointer;box-shadow:0 6px 16px rgba(243,146,0,.35)"><i class="ti ti-check"></i> Valider et entrer</button>
+  <p style="margin-top:12px"><a href="#" ${_evt('click',function(event){event.preventDefault();_clearInviteHash();showLogin();})} style="color:#C56F00;font-size:12.5px;font-weight:700;text-decoration:none">J’ai déjà un mot de passe</a></p>`;
+ setTimeout(()=>{const e=document.getElementById('invPass1');if(e)e.focus();},60);}
+function _clearInviteHash(){try{history.replaceState(null,'',location.pathname+location.search);}catch(e){}}
+let _inviteAccepting=false;
+async function _acceptInvite(token){if(_inviteAccepting)return;const p1=(document.getElementById('invPass1')||{}).value||'',p2=(document.getElementById('invPass2')||{}).value||'';
+ if(p1.length<8){_loginErr('Le mot de passe doit contenir au moins 8 caractères.');return;}if(p1!==p2){_loginErr('Les deux mots de passe ne sont pas identiques.');return;}
+ if(!sb){_loginErr('Connexion au service indisponible. Réessaie avec le réseau.');return;}
+ _inviteAccepting=true;const btn=document.getElementById('invBtn');if(btn){btn.disabled=true;btn.style.opacity='.6';}
+ try{const v=await sb.auth.verifyOtp({token_hash:token,type:'recovery'});if(v.error)throw Error('Ce lien n’est plus valable. Demande un nouveau lien au gérant.');
+  const email=v.data&&v.data.user&&v.data.user.email;if(!email)throw Error('Ce lien n’est plus valable. Demande un nouveau lien au gérant.');
+  const u=await sb.auth.updateUser({password:p1});if(u.error)throw Error(/weak|password/i.test(u.error.message||'')?'Mot de passe refusé : choisis-en un plus long ou moins courant.':'Le mot de passe n’a pas pu être enregistré. Réessaie.');
+  _clearInviteHash();await _afterAuth(email);}
+ catch(e){_loginErr(e.message||'Lien invalide.');}
+ finally{_inviteAccepting=false;const b=document.getElementById('invBtn');if(b){b.disabled=false;b.style.opacity='1';}}}
 let _serverBusy=false;
 async function _serverAction(name,args){if(_serverBusy||!sb||!_cloudReady){toast('Connexion au serveur requise.','error');return false;}_serverBusy=true;const epoch=_sessionEpoch;try{saveState();if(!(await _cloudPush(true)))throw Error('Enregistre ou résous les modifications en attente avant cette action.');const before=ZPCore.clone(_stateObj());const r=await sb.rpc(name,{...args,expected_version:_lastVersion});if(epoch!==_sessionEpoch)return false;if(r.error)throw r.error;if(r.data?.reauth===true&&name==='zp_manage_account'){_clearSession(true);showLogin();return true;}if(name==='zp_snapshot'){if(!Number.isSafeInteger(r.data?.id)||r.data.id<=0||r.data.version!==_lastVersion)throw Error('Confirmation de sauvegarde serveur incomplète.');return r.data;}if(!r.data?.data?.arr||!r.data.data.obj||!r.data.data.scal||!Number.isSafeInteger(r.data.version)||r.data.version<_lastVersion)throw Error('Confirmation serveur incomplète. Recharge les données avant de réessayer.');if(r.data?.data){const remote=_canonicalState(r.data.data),m=ZPCore.merge(before,_stateObj(),remote);_syncBase=remote;_lastVersion=r.data.version;_lastUpdatedAt=r.data.updated_at;_syncConflicts=m.conflicts;_applyState(m.value,true);_pendingWrite=!ZPCore.equal(_stateObj(),remote);_syncStatus=m.conflicts.length?'conflict':_pendingWrite?'pending':'saved';_lastSync=Date.now();_writeCache(_stateObj());_syncFoot();}return r.data;}catch(e){if(epoch===_sessionEpoch&&!_accessFailure(e))toast('Action non effectuée : '+e.message,'error');return false;}finally{_serverBusy=false;}}
 
@@ -1101,14 +1156,14 @@ views.espaceClient=()=>{
 
 function _compteImg(u){if(u&&u.photo)return u.photo;try{if(u&&sessionEmail&&(u.email||'').toLowerCase()===sessionEmail.toLowerCase()){const p=profilUser[ROLEMAP[u.role]];if(p&&p.photo)return p.photo;}}catch(e){}return '';}
 views.comptes=()=>`<div class="view">
-  <div class="page-head"><div><h1>Utilisateurs & accès</h1><p>Prépare les profils, associe chaque personne à sa fiche et active son accès après invitation. Les modifications sont confirmées par le serveur.</p></div>
+  <div class="page-head"><div><h1>Utilisateurs & accès</h1><p>Crée un profil, associe la personne à sa fiche, puis clique « Inviter » : tu obtiens un lien à lui envoyer.</p></div>
     <button class="btn primary" ${_evt("click",function(event){openCompte()})}><i class="ti ti-user-plus"></i> Créer un profil</button></div>
   <div class="grid cols-3">
     ${comptes.map(u=>{const r=roleCompte(u.role);const im=_compteImg(u);return `<div class="card card-pad">
       <div style="display:flex;align-items:center;gap:12px">
         ${im?`<span style="width:48px;height:48px;border-radius:50%;background-image:url(${im});background-size:cover;background-position:center;flex-shrink:0"></span>`:`<span class="avatar-sm" style="width:48px;height:48px;font-size:16px;background:${_col(r)};flex-shrink:0">${initiales(u.nom)}</span>`}
         <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${u.nom}</div>
-        <span class="tag" style="background:${_col(r)}22;color:${_col(r)};font-weight:700;margin-top:4px"><i class="ti ${r.ic}"></i> ${u.role}</span><div class="tiny" style="margin-top:6px">${u.actif===false?'Accès inactif':u.linked?'Accès actif':'Invitation à préparer'}${!u.employeeId&&['Salarié',"Chef d'équipe"].includes(u.role)?' · salarié à associer':''}</div></div>
+        <span class="tag" style="background:${_col(r)}22;color:${_col(r)};font-weight:700;margin-top:4px"><i class="ti ${r.ic}"></i> ${u.role}</span><div class="tiny" style="margin-top:6px">${u.actif===false?'Accès inactif':u.linked?'Accès actif':'À inviter'}${!u.employeeId&&['Salarié',"Chef d'équipe"].includes(u.role)?' · salarié à associer':''}</div></div>
       </div>
       <div class="tiny" style="margin-top:11px;color:var(--ink-3);display:flex;flex-direction:column;gap:4px">
         ${u.tel?`<span><i class="ti ti-phone"></i> ${u.tel}</span>`:''}
@@ -3880,7 +3935,7 @@ function showLogin(){removeLogin();const logo=(document.querySelector('.brand-lo
     </div>
     <button id="loginBtn" ${_evt("click",function(event){doLogin()})} style="width:100%;margin-top:14px;padding:13px;border:none;border-radius:12px;background:linear-gradient(135deg,#FFB347,#F39200);color:#fff;font-weight:800;font-size:15px;cursor:pointer;box-shadow:0 6px 16px rgba(243,146,0,.35)"><i class="ti ti-login-2"></i> Se connecter</button>
     <p style="margin-top:12px"><a href="#" ${_evt("click",function(event){event.preventDefault();_loginForgot()})} style="color:#C56F00;font-size:12.5px;font-weight:700;cursor:pointer;text-decoration:none">Mot de passe oublié ?</a></p>
-    <p id="loginHint" style="color:#9c958a;font-size:11.5px;margin-top:8px;line-height:1.5">Accès sur invitation. Utilise le lien reçu par email pour définir ton mot de passe.</p>
+    <p id="loginHint" style="color:#9c958a;font-size:11.5px;margin-top:8px;line-height:1.5">Accès sur invitation. Ouvre le lien envoyé par ton responsable pour choisir ton mot de passe.</p>
   </div>`;
   document.body.appendChild(o);setTimeout(()=>{const e=document.getElementById('loginEmail');if(e)e.focus();},60);
 }
@@ -4076,7 +4131,7 @@ async function _afterAuth(email){_clearSession(false);const epoch=_sessionEpoch;
 
 function _authMsg(e){const m=(e&&e.message)||String(e||'');if(/already registered|already been registered/i.test(m))return 'Ce compte existe déjà — vérifie ton mot de passe.';if(/invalid login/i.test(m))return 'Email ou mot de passe incorrect.';if(/at least 6|password should be/i.test(m))return 'Mot de passe trop court (6 caractères minimum).';if(/network|fetch/i.test(m))return 'Problème réseau, réessaie.';return m;}
 function _loginBusy(b){const btn=document.getElementById('loginBtn');if(btn){btn.disabled=b;btn.style.opacity=b?'.6':'1';btn.innerHTML=b?'<i class="ti ti-loader-2"></i> Connexion…':'<i class="ti ti-login-2"></i> Se connecter';}}
-if(sb){try{sb.auth.onAuthStateChange((ev)=>{if(ev==='SIGNED_OUT'){_clearSession(true);showLogin();}if(ev==='PASSWORD_RECOVERY'){const np=prompt('Choisis ton nouveau mot de passe (6 caractères minimum) :');if(np&&np.length>=6){sb.auth.updateUser({password:np}).then(({error})=>{alert(error?('Erreur : '+error.message):'Mot de passe mis à jour ✓');});}}});}catch(e){}}
+if(sb){try{sb.auth.onAuthStateChange((ev)=>{if(ev==='SIGNED_OUT'){_clearSession(true);if(_inviteToken())_showInvite(_inviteToken());else showLogin();}if(ev==='PASSWORD_RECOVERY'&&!_inviteAccepting&&!_inviteToken()){const np=prompt('Choisis ton nouveau mot de passe (6 caractères minimum) :');if(np&&np.length>=6){sb.auth.updateUser({password:np}).then(({error})=>{alert(error?('Erreur : '+error.message):'Mot de passe mis à jour ✓');});}}});}catch(e){}}
 const _renderOrig=render;render=function(){_renderOrig();saveState();_syncFoot();if(typeof _updateBellDot==='function')_updateBellDot();if(typeof _scaleDevisPreview==='function')_scaleDevisPreview();if(typeof zpResolveFiles==='function')zpResolveFiles();if(typeof view==='string'&&view==='reglages'&&typeof _loadBackupStatus==='function')_loadBackupStatus();};
 try{window.addEventListener('resize',function(){if(typeof _scaleDevisPreview==='function')_scaleDevisPreview();});}catch(e){}
 /* dernier filet : tentative de push quand l'onglet se ferme / passe en arrière-plan (le pointage en cours part au cloud) */
@@ -4109,6 +4164,7 @@ loadState();_seedCats();
 async function _boot(){
  _clearSession(false);showLogin();
  if(!sb){_loginErr('Le service de connexion est indisponible. Vérifie le réseau.');return;}
+ const invitation=_inviteToken();if(invitation){_showInvite(invitation);return;}
  try{const r=await sb.auth.getSession();if(r.error)throw r.error;const user=r.data?.session?.user;if(user?.email)await _afterAuth(user.email);}
  catch(e){_loginErr('Connexion indisponible. Réessaie.');}
 }

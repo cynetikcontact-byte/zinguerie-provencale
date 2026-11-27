@@ -15,6 +15,17 @@ async function main(){
   .replace('; upgrade-insecure-requests','').replace(/connect-src [^;]+/,"connect-src 'self'");
  const server=http.createServer(async(req,res)=>{
   const url=new URL(req.url,'http://127.0.0.1:'+port);
+  if(url.pathname==='/api/invite'&&req.method==='POST'){
+   // Simulation locale de la fonction Edge zp-invite : crée l'identité fictive et renvoie un jeton factice.
+   if(req.headers.origin&&req.headers.origin!=='http://127.0.0.1:'+port){res.writeHead(403).end();return;}
+   try{let body='';for await(const part of req){body+=part;if(body.length>10_000)throw Error('Requête trop volumineuse');}
+    const {actor,email}=JSON.parse(body);if(actor!=='boss'){res.writeHead(403,{'Content-Type':'application/json'}).end(JSON.stringify({error:'Invitation réservée au gérant.'}));return;}
+    const mail=String(email||'').trim().toLowerCase();if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail))throw Error('Adresse email invalide.');
+    const found=await simulation.db.query('select id from auth.users where lower(email)=$1',[mail]);let created=false;
+    if(!found.rows.length){await simulation.db.query('insert into auth.users(id,email) values(gen_random_uuid(),$1)',[mail]);created=true;}
+    res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'}).end(JSON.stringify({token:'recette-'+require('node:crypto').randomBytes(24).toString('hex'),created}));
+   }catch(e){res.writeHead(400,{'Content-Type':'application/json'}).end(JSON.stringify({error:e.message}));}return;
+  }
   if(url.pathname==='/api/rpc'&&req.method==='POST'){
    if(req.headers.origin&&req.headers.origin!=='http://127.0.0.1:'+port){res.writeHead(403).end();return;}
    try{
@@ -34,7 +45,7 @@ const qaRoles=${JSON.stringify(roles)},qaUsers=${JSON.stringify(users)};
 const qaActor=new URLSearchParams(location.search).get('acteur')||'boss';
 if(!qaRoles[qaActor])throw Error('Profil de recette inconnu');
 let qaOffline=false;
-sb={auth:{getUser:async()=>({data:{user:qaUsers[qaActor+'@example.test']}}),signOut:async()=>({error:null})},
+sb={functions:{invoke:async(name,opts)=>{const r=await fetch('/api/invite',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({actor:qaActor,email:opts?.body?.email})});const j=await r.json();return r.ok?{data:j,error:null}:{data:null,error:{message:j.error||'refus',context:{json:async()=>j}}};}},auth:{getUser:async()=>({data:{user:qaUsers[qaActor+'@example.test']}}),signOut:async()=>({error:null})},
 rpc:async(fn,args={})=>qaOffline?{error:{message:'Coupure réseau simulée',code:'NETWORK'}}:fetch('/api/rpc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({actor:qaActor,fn,args})}).then(r=>r.json())};
 const qaBar=document.createElement('div');qaBar.id='qaBar';qaBar.style.cssText='position:fixed;bottom:0;left:0;right:0;z-index:100000;background:#252e35;color:white;padding:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font:12px system-ui';
 const qaLabel=document.createElement('strong');qaLabel.textContent='RECETTE LOCALE · DONNÉES FICTIVES';qaBar.appendChild(qaLabel);
